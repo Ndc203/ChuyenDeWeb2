@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TechShop - Siêu Thị Điện Tử</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: 'Segoe UI', sans-serif; background: #f5f7fa; }
+
+    nav { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .nav-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
+    .logo { font-size: 28px; font-weight: bold; cursor: pointer; }
+    .nav-menu { display: flex; gap: 20px; list-style: none; }
+    .nav-menu li { cursor: pointer; padding: 10px 15px; border-radius: 8px; transition: 0.3s; }
+    .nav-menu li:hover { background: rgba(255,255,255,0.2); }
+    .nav-menu li.active { background: rgba(255,255,255,0.3); }
+    .cart-icon { position: relative; font-size: 24px; cursor: pointer; padding: 10px; }
+    .cart-count { position: absolute; top: 0; right: 0; background: #f5576c; color: white; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+    
+    .container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+    .hero { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 20px; padding: 60px 40px; color: white; text-align: center; margin-bottom: 40px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+    .hero h1 { font-size: 48px; margin-bottom: 20px; }
+    .hero p { font-size: 20px; margin-bottom: 30px; }
+    .hero-btn { background: white; color: #667eea; padding: 15px 40px; border: none; border-radius: 30px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    .hero-btn:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+    
+    .shop-controls { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 30px; display: flex; gap: 15px; flex-wrap: wrap; }
+    .search-box { flex: 1; min-width: 250px; }
+    .search-box input, select { width: 100%; padding: 12px 15px; border: 2px solid #e0e0e0; border-radius: 10px; font-size: 16px; background: white; }
+    
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 25px; margin-bottom: 40px; }
+    .product-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: 0.3s; cursor: pointer; position: relative; }
+    .product-card:hover { transform: translateY(-10px); box-shadow: 0 15px 30px rgba(0,0,0,0.2); }
+    .product-image { width: 100%; height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; font-size: 60px; color: white; }
+    .product-tags { position: absolute; top: 10px; left: 10px; display: flex; gap: 5px; }
+    .tag { padding: 5px 12px; border-radius: 20px; font-size: 11px; font-weight: bold; color: white; }
+    .tag-hot { background: #f5576c; }
+    .tag-new { background: #00f2fe; }
+    .tag-sale { background: #fee140; color: #333; }
+    .product-info { padding: 20px; }
+    .product-name { font-size: 18px; font-weight: bold; margin-bottom: 10px; color: #333; }
+    .product-price { font-size: 24px; color: #667eea; font-weight: bold; margin-bottom: 10px; }
+    .product-price.sale { color: #f5576c; }
+    .old-price { text-decoration: line-through; color: #999; font-size: 16px; margin-left: 10px; }
+    .product-rating { color: #ffc107; margin-bottom: 15px; }
+    .add-to-cart-btn { width: 100%; padding: 12px; background: #667eea; color: white; border: none; border-radius: 10px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+    .add-to-cart-btn:hover { background: #5568d3; }
+    
+    .pagination-controls { display: flex; justify-content: center; align-items: center; gap: 10px; margin-top: 20px; }
+    .pagination-controls button { padding: 10px 18px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+    .pagination-controls button:hover:not(:disabled) { background: #667eea; color: white; }
+    .pagination-controls button.active { background: #667eea; color: white; }
+    .pagination-controls button:disabled { background: #e0e0e0; border-color: #e0e0e0; color: #999; cursor: not-allowed; }
+    
+    .cart-container { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .cart-item { display: flex; gap: 20px; padding: 20px; border-bottom: 1px solid #e0e0e0; align-items: center; }
+    .cart-item-image { width: 80px; height: 80px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 30px; }
+    .cart-item-info { flex: 1; }
+    .cart-item-name { font-size: 18px; font-weight: bold; margin-bottom: 5px; }
+    .cart-item-price { color: #667eea; font-size: 20px; font-weight: bold; }
+    .quantity-controls { display: flex; gap: 10px; align-items: center; }
+    .qty-btn { width: 30px; height: 30px; border: 2px solid #667eea; background: white; color: #667eea; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    .remove-btn { padding: 8px 15px; background: #f5576c; color: white; border: none; border-radius: 8px; cursor: pointer; }
+    .cart-summary { margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; }
+    .summary-row { display: flex; justify-content: space-between; padding: 10px 0; font-size: 18px; }
+    .summary-row.total { border-top: 2px solid #667eea; margin-top: 10px; padding-top: 15px; font-weight: bold; font-size: 24px; color: #667eea; }
+    .checkout-btn { width: 100%; padding: 15px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 20px; }
+    
+    .admin-container { background: white; border-radius: 15px; padding: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    .admin-tabs { display: flex; gap: 10px; margin-bottom: 30px; border-bottom: 2px solid #e0e0e0; }
+    .admin-tab { padding: 15px 30px; cursor: pointer; border: none; background: none; font-size: 16px; color: #666; border-bottom: 3px solid transparent; }
+    .admin-tab.active { color: #667eea; border-bottom-color: #667eea; font-weight: bold; }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; margin-bottom: 8px; font-weight: bold; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; font-size: 16px; }
+    .form-group textarea { min-height: 100px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .btn-primary { padding: 12px 30px; background: #667eea; color: white; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; font-weight: bold; margin-right: 10px; }
+    .btn-secondary { padding: 12px 30px; background: #e0e0e0; color: #333; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; }
+    .orders-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .orders-table th, .orders-table td { padding: 15px; text-align: left; border-bottom: 1px solid #e0e0e0; }
+    .orders-table th { background: #f8f9fa; font-weight: bold; }
+    .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: bold; }
+    .status-pending { background: #fff3cd; color: #856404; }
+    .status-completed { background: #d1e7dd; color: #0f5132; }
+    
+    .empty-state { text-align: center; padding: 60px 20px; color: #999; }
+    .empty-state-icon { font-size: 80px; margin-bottom: 20px; }
+    .hidden { display: none !important; }
+    
+    @media (max-width: 768px) {
+        .nav-menu { display: none; }
+        .hero { padding: 40px 20px; }
+        .hero h1 { font-size: 32px; }
+        .product-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+        .form-grid { grid-template-columns: 1fr; }
+    }
+</style>
+</head>
+<body>
+<nav>
+<div class="nav-container">
+<div class="logo" onclick="changePage('home')">🛒 NDCSHOP</div>
+<ul class="nav-menu">
+<li onclick="changePage('home')" id="nav-home" class="active">Trang chủ</li>
+<li onclick="changePage('shop')" id="nav-shop">Cửa hàng</li>
+<li onclick="changePage('admin')" id="nav-admin">Admin</li>
+</ul>
+<div class="cart-icon" onclick="changePage('cart')">
+🛒 <span class="cart-count" id="cartCount">0</span>
+</div>
+</div>
+</nav>
+
+<div id="page-home" class="page">
+    <div class="container">
+        <div class="hero">
+            <h1>🎉 Chào mừng đến NDCShop</h1>
+            <p>Siêu thị điện tử hàng đầu Việt Nam</p>
+            <button class="hero-btn" onclick="changePage('shop')">Mua sắm ngay</button>
+        </div>
+        <h2 style="margin-bottom: 20px;">🔥 Sản phẩm nổi bật</h2>
+        <div class="product-grid" id="featuredProducts"></div>
+    </div>
+</div>
+
+<div id="page-shop" class="page hidden">
+    <div class="container">
+        <h1 style="margin-bottom: 20px;">🏪 Cửa hàng</h1>
+        <div class="shop-controls">
+            <div class="search-box">
+                <input type="text" id="searchInput" placeholder="Tìm kiếm sản phẩm...">
+            </div>
+            <select id="sortSelect">
+                <option value="">Sắp xếp</option>
+                <option value="asc">Giá tăng dần</option>
+                <option value="desc">Giá giảm dần</option>
+            </select>
+            <select id="filterSelect">
+                <option value="all">Tất cả</option>
+                <option value="hot">HOT</option>
+                <option value="new">Mới</option>
+                <option value="sale">Giảm giá</option>
+            </select>
+        </div>
+        <div class="product-grid" id="shopProducts"></div>
+        <div class="pagination-controls" id="paginationControls"></div>
+    </div>
+</div>
+
+<div id="page-cart" class="page hidden">
+    <div class="container">
+        <h1 style="margin-bottom: 20px;">🛒 Giỏ hàng của bạn</h1>
+        <div class="cart-container" id="cartContainer"></div>
+    </div>
+</div>
+
+<div id="page-admin" class="page hidden">
+    <div class="container">
+        <h1 style="margin-bottom: 20px;">⚙️ Quản trị hệ thống</h1>
+        <div class="admin-container">
+            <div class="admin-tabs">
+                <button class="admin-tab active" onclick="changeAdminTab('products', event)">Sản phẩm</button>
+                <button class="admin-tab" onclick="changeAdminTab('orders', event)">Đơn hàng</button>
+            </div>
+            <div id="admin-products">
+                <h2 id="formTitle">Thêm sản phẩm mới</h2>
+                <form onsubmit="saveProduct(event)">
+                    <input type="hidden" id="pId">
+                    <div class="form-group">
+                        <label>Tên sản phẩm</label>
+                        <input type="text" id="pName" required>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>Giá bán (VNĐ)</label>
+                            <input type="number" id="pPrice" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Giá gốc (để trống nếu không giảm giá)</label>
+                            <input type="number" id="pOldPrice">
+                        </div>
+                    </div>
+                     <div class="form-grid">
+                        <div class="form-group">
+                            <label>Tồn kho</label>
+                            <input type="number" id="pStock" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Tags (cách nhau bởi dấu phẩy, vd: hot, new)</label>
+                            <input type="text" id="pTags">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Mô tả</label>
+                        <textarea id="pDesc" required></textarea>
+                    </div>
+                    <button type="submit" class="btn-primary" id="saveBtn">Thêm sản phẩm</button>
+                    <button type="button" class="btn-secondary" onclick="resetForm()">Hủy</button>
+                </form>
+                
+                <h2 style="margin-top:40px; margin-bottom: 20px;">Danh sách sản phẩm</h2>
+                <div class="shop-controls">
+                     <div class="search-box">
+                        <input type="text" id="adminSearchInput" placeholder="Tìm kiếm sản phẩm trong trang quản trị...">
+                    </div>
+                </div>
+
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Tên</th>
+                            <th>Giá</th>
+                            <th>Tồn kho</th>
+                            <th>Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsBody"></tbody>
+                </table>
+                <div class="pagination-controls" id="adminPaginationControls"></div>
+            </div>
+            <div id="admin-orders" class="hidden">
+                <h2>Danh sách đơn hàng</h2>
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Mã</th>
+                            <th>Khách hàng</th>
+                            <th>Tổng tiền</th>
+                            <th>Trạng thái</th>
+                            <th>Ngày</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ordersBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let products = [
+        {id:1,name:"iPhone 15 Pro",price:29990000,oldPrice:34990000,stock:45,rating:4.8,reviews:234,tags:["hot","sale"],desc:"iPhone 15 Pro Max",cat:"Phone",icon:"📱"},
+        {id:2,name:"Samsung S24",price:27990000,oldPrice:null,stock:32,rating:4.7,reviews:189,tags:["new","hot"],desc:"Galaxy S24 Ultra",cat:"Phone",icon:"📱"},
+        {id:3,name:"MacBook Pro M3",price:45990000,oldPrice:49990000,stock:8,rating:4.9,reviews:456,tags:["hot","sale"],desc:"MacBook Pro 14",cat:"Laptop",icon:"💻"},
+        {id:4,name:"iPad Air M2",price:16990000,oldPrice:null,stock:67,rating:4.6,reviews:145,tags:["new"],desc:"iPad Air",cat:"Tablet",icon:"📱"},
+        {id:5,name:"Sony WH-1000XM5",price:8990000,oldPrice:10990000,stock:123,rating:4.8,reviews:678,tags:["sale","hot"],desc:"Tai nghe",cat:"Audio",icon:"🎧"},
+        {id:6,name:"Apple Watch S9",price:10990000,oldPrice:null,stock:89,rating:4.7,reviews:234,tags:["new","hot"],desc:"Apple Watch",cat:"Watch",icon:"⌚"},
+        {id:7,name:"Dell XPS 15",price:38990000,oldPrice:null,stock:5,rating:4.6,reviews:167,tags:["sale"],desc:"Dell XPS 15",cat:"Laptop",icon:"💻"},
+        {id:8,name:"AirPods Pro 2",price:6490000,oldPrice:null,stock:234,rating:4.8,reviews:892,tags:["hot"],desc:"AirPods Pro",cat:"Audio",icon:"🎧"},
+        {id:9,name:"LG OLED C3",price:35990000,oldPrice:null,stock:22,rating:4.9,reviews:312,tags:["new"],desc:"TV OLED 55 inch",cat:"TV",icon:"📺"},
+        {id:10,name:"PlayStation 5",price:14990000,oldPrice:null,stock:15,rating:4.9,reviews:1024,tags:["hot"],desc:"Máy chơi game Sony",cat:"Gaming",icon:"🎮"},
+        {id:11,name:"Nintendo Switch",price:7990000,oldPrice:null,stock:55,rating:4.7,reviews:987,tags:[],desc:"Máy chơi game cầm tay",cat:"Gaming",icon:"🎮"},
+        {id:12,name:"GoPro Hero 12",price:11990000,oldPrice:null,stock:40,rating:4.6,reviews:150,tags:["new"],desc:"Camera hành trình",cat:"Camera",icon:"📷"},
+        {id:13,name:"Kindle Paperwhite",price:3490000,oldPrice:null,stock:110,rating:4.8,reviews:750,tags:["hot"],desc:"Máy đọc sách Amazon",cat:"Device",icon:"📖"}
+    ];
+    let cart = [];
+    let orders = [];
+    let filtered = [...products];
+    let adminFilteredProducts = [...products];
+
+    // State cho phân trang trang Shop
+    let currentPage = 1;
+    let productsPerPage = 8;
+    
+    // State cho phân trang trang Admin
+    let adminCurrentPage = 1;
+    let adminProductsPerPage = 10; // Admin có thể xem nhiều hơn
+
+    function fmt(n){return n.toLocaleString('vi-VN')+'đ'}
+    function stars(r){return '⭐'.repeat(Math.floor(r))}
+    function tags(t){ if(!t || t.length === 0) return ''; return t.map(x=>`<span class="tag tag-${x}">${x.toUpperCase()}</span>`).join('')}
+
+    function card(p){
+        return`<div class="product-card" onclick="alert('${p.name}\\n${p.desc}\\nGiá: ${fmt(p.price)}\\nTồn: ${p.stock}')">
+            <div class="product-tags">${tags(p.tags)}</div>
+            <div class="product-image">${p.icon}</div>
+            <div class="product-info">
+                <div class="product-name">${p.name}</div>
+                <div class="product-price ${p.oldPrice?'sale':''}">
+                    ${fmt(p.price)}
+                    ${p.oldPrice?`<span class="old-price">${fmt(p.oldPrice)}</span>`:''}
+                </div>
+                <div class="product-rating">${stars(p.rating)} (${p.reviews})</div>
+                <button class="add-to-cart-btn" onclick="event.stopPropagation();addCart(${p.id})">Thêm vào giỏ 🛒</button>
+            </div>
+        </div>`
+    }
+
+    function render(){
+        document.getElementById('featuredProducts').innerHTML=products.filter(p=>p.tags.includes('hot')).slice(0,4).map(card).join('');
+        
+        const startIndex = (currentPage - 1) * productsPerPage;
+        const endIndex = startIndex + productsPerPage;
+        const paginatedProducts = filtered.slice(startIndex, endIndex);
+
+        const shopProductsEl = document.getElementById('shopProducts');
+        if (paginatedProducts.length === 0) {
+            shopProductsEl.innerHTML = '<div class="empty-state" style="grid-column: 1 / -1;"><div class="empty-state-icon">😢</div><h2>Không tìm thấy sản phẩm nào</h2></div>';
+        } else {
+            shopProductsEl.innerHTML = paginatedProducts.map(card).join('');
+        }
+        
+        renderPaginationControls();
+    }
+
+    function renderPaginationControls() {
+        const paginationControls = document.getElementById('paginationControls');
+        const totalPages = Math.ceil(filtered.length / productsPerPage);
+        
+        if (totalPages <= 1) {
+            paginationControls.innerHTML = ''; return;
+        }
+        let buttonsHTML = `<button onclick="changeShopPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&laquo; Trước</button>`;
+        for (let i = 1; i <= totalPages; i++) {
+            buttonsHTML += `<button onclick="changeShopPage(${i})" class="${i === currentPage ? 'active' : ''}">${i}</button>`;
+        }
+        buttonsHTML += `<button onclick="changeShopPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Sau &raquo;</button>`;
+        paginationControls.innerHTML = buttonsHTML;
+    }
+
+    function changeShopPage(pageNumber) {
+        currentPage = pageNumber;
+        render();
+        document.getElementById('shopProducts').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function addCart(id){
+        let p=products.find(x=>x.id===id);
+        let c=cart.find(x=>x.id===id);
+        if(c){c.qty++}else{cart.push({...p,qty:1})}
+        updateCart();
+        alert('Đã thêm vào giỏ! 🛒');
+    }
+
+    function updateCart(){
+        document.getElementById('cartCount').textContent=cart.reduce((s,x)=>s+x.qty,0);
+    }
+
+    function renderCart(){
+        let el=document.getElementById('cartContainer');
+        if(cart.length===0){
+            el.innerHTML='<div class="empty-state"><div class="empty-state-icon">🛒</div><h2>Giỏ hàng trống</h2></div>';
+            return;
+        }
+        let total=cart.reduce((s,x)=>s+(x.price*x.qty),0);
+        el.innerHTML=cart.map(x=>`
+            <div class="cart-item">
+                <div class="cart-item-image">${x.icon}</div>
+                <div class="cart-item-info">
+                    <div class="cart-item-name">${x.name}</div>
+                    <div class="cart-item-price">${fmt(x.price)}</div>
+                </div>
+                <div class="quantity-controls">
+                    <button class="qty-btn" onclick="updateQty(${x.id},-1)">-</button>
+                    <span>${x.qty}</span>
+                    <button class="qty-btn" onclick="updateQty(${x.id},1)">+</button>
+                </div>
+                <button class="remove-btn" onclick="removeCart(${x.id})">Xóa</button>
+            </div>
+        `).join('')+`
+            <div class="cart-summary">
+                <div class="summary-row"><span>Tạm tính:</span><span>${fmt(total)}</span></div>
+                <div class="summary-row"><span>Vận chuyển:</span><span>Miễn phí</span></div>
+                <div class="summary-row total"><span>Tổng:</span><span>${fmt(total)}</span></div>
+                <button class="checkout-btn" onclick="checkout()">Thanh toán 💳</button>
+            </div>`;
+    }
+
+    function updateQty(id,ch){
+        let c=cart.find(x=>x.id===id);
+        if(c){c.qty+=ch;if(c.qty<=0)removeCart(id);else{updateCart();renderCart()}}
+    }
+
+    function removeCart(id){
+        cart=cart.filter(x=>x.id!==id);
+        updateCart();
+        renderCart();
+    }
+
+    function checkout(){
+        if(cart.length===0)return;
+        let total=cart.reduce((s,x)=>s+(x.price*x.qty),0);
+        orders.push({id:Date.now(),customer:'Khách #'+orders.length,total,status:'pending',date:new Date().toLocaleDateString('vi-VN')});
+        alert('Đặt hàng thành công! 🎉');
+        cart=[];
+        updateCart();
+        renderCart();
+    }
+
+    function changePage(p){
+        document.querySelectorAll('.page').forEach(x=>x.classList.add('hidden'));
+        document.querySelectorAll('.nav-menu li').forEach(x=>x.classList.remove('active'));
+        document.getElementById('page-'+p).classList.remove('hidden');
+        let n=document.getElementById('nav-'+p);
+        if(n)n.classList.add('active');
+        if(p==='cart')renderCart();
+        if(p==='admin'){
+            adminFilteredProducts = [...products];
+            adminCurrentPage = 1;
+            renderOrders();
+            renderAdminProductsList();
+        }
+    }
+
+    function changeAdminTab(t, event){
+        document.querySelectorAll('.admin-tab').forEach(x=>x.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById('admin-products').classList.toggle('hidden',t!=='products');
+        document.getElementById('admin-orders').classList.toggle('hidden',t!=='orders');
+        if(t==='orders')renderOrders();
+    }
+
+    function saveProduct(e){
+        e.preventDefault();
+        let id=document.getElementById('pId').value;
+        let tagsValue = document.getElementById('pTags').value;
+        
+        let productData={
+            name: document.getElementById('pName').value,
+            price: +document.getElementById('pPrice').value,
+            oldPrice: +document.getElementById('pOldPrice').value || null,
+            stock: +document.getElementById('pStock').value,
+            desc: document.getElementById('pDesc').value,
+            tags: tagsValue ? tagsValue.split(',').map(tag => tag.trim().toLowerCase()) : []
+        };
+        
+        if(id){
+            let p=products.find(x=>x.id==id);
+            Object.assign(p, productData);
+            alert('Cập nhật sản phẩm thành công! ✅');
+        } else {
+            products.push({
+                id: Math.max(...products.map(p => p.id)) + 1, // an toàn hơn products.length
+                ...productData,
+                rating:4.5,reviews:0,cat:"Other",icon:"📦"
+            });
+            alert('Thêm sản phẩm thành công! ✅');
+        }
+        
+        filtered=[...products];
+        adminFilteredProducts=[...products];
+        render();
+        renderAdminProductsList();
+        resetForm();
+    }
+
+    function editProduct(id){
+        let p=products.find(x=>x.id===id);
+        document.getElementById('formTitle').textContent='Sửa sản phẩm';
+        document.getElementById('pId').value=p.id;
+        document.getElementById('pName').value=p.name;
+        document.getElementById('pPrice').value=p.price;
+        document.getElementById('pOldPrice').value=p.oldPrice || '';
+        document.getElementById('pStock').value=p.stock;
+        document.getElementById('pDesc').value=p.desc;
+        document.getElementById('pTags').value = p.tags ? p.tags.join(', ') : '';
+        document.getElementById('saveBtn').textContent='Cập nhật';
+        document.querySelector('#page-admin .admin-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function deleteProduct(id){
+        if(!confirm('Bạn có chắc muốn xóa sản phẩm này?'))return;
+        products=products.filter(x=>x.id!==id);
+        filtered=[...products];
+        adminFilteredProducts=[...products];
+        render();
+        renderAdminProductsList();
+        alert('Xóa sản phẩm thành công! 🗑️');
+    }
+
+    function resetForm(){
+        document.getElementById('formTitle').textContent='Thêm sản phẩm mới';
+        document.getElementById('pId').value='';
+        document.getElementById('pName').value='';
+        document.getElementById('pPrice').value='';
+        document.getElementById('pOldPrice').value='';
+        document.getElementById('pStock').value='';
+        document.getElementById('pDesc').value='';
+        document.getElementById('pTags').value='';
+        document.getElementById('saveBtn').textContent='Thêm sản phẩm';
+    }
+
+    // === CÁC HÀM MỚI CHO TRANG ADMIN ===
+
+    function renderAdminProductsList(){
+        const el = document.getElementById('productsBody');
+        
+        const startIndex = (adminCurrentPage - 1) * adminProductsPerPage;
+        const endIndex = startIndex + adminProductsPerPage;
+        const paginatedAdminProducts = adminFilteredProducts.slice(startIndex, endIndex);
+
+        if (paginatedAdminProducts.length === 0) {
+            el.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 40px; color:#999">Không tìm thấy sản phẩm nào.</td></tr>';
+        } else {
+             el.innerHTML=paginatedAdminProducts.map(p=>`
+                <tr>
+                    <td>${p.id}</td>
+                    <td>${p.name}</td>
+                    <td>
+                        ${p.oldPrice ? `<span style="text-decoration: line-through; color: #999;">${fmt(p.oldPrice)}</span><br>` : ''}
+                        <span style="font-weight: bold; color: #f5576c;">${fmt(p.price)}</span>
+                    </td>
+                    <td>${p.stock}</td>
+                    <td>
+                        <button class="btn-primary" style="padding:8px 15px;margin:0 5px" onclick="editProduct(${p.id})">✏️ Sửa</button>
+                        <button class="remove-btn" onclick="deleteProduct(${p.id})">🗑️ Xóa</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+       
+       renderAdminPaginationControls();
+    }
+    
+    function renderAdminPaginationControls() {
+        const paginationControls = document.getElementById('adminPaginationControls');
+        const totalPages = Math.ceil(adminFilteredProducts.length / adminProductsPerPage);
+        
+        if (totalPages <= 1) {
+            paginationControls.innerHTML = ''; return;
+        }
+
+        let buttonsHTML = `<button onclick="changeAdminPage(${adminCurrentPage - 1})" ${adminCurrentPage === 1 ? 'disabled' : ''}>&laquo; Trước</button>`;
+        for (let i = 1; i <= totalPages; i++) {
+            buttonsHTML += `<button onclick="changeAdminPage(${i})" class="${i === adminCurrentPage ? 'active' : ''}">${i}</button>`;
+        }
+        buttonsHTML += `<button onclick="changeAdminPage(${adminCurrentPage + 1})" ${adminCurrentPage === totalPages ? 'disabled' : ''}>Sau &raquo;</button>`;
+        paginationControls.innerHTML = buttonsHTML;
+    }
+
+    function changeAdminPage(pageNumber) {
+        adminCurrentPage = pageNumber;
+        renderAdminProductsList();
+    }
+
+
+    function renderOrders(){
+        let el=document.getElementById('ordersBody');
+        if(orders.length===0){
+            el.innerHTML='<tr><td colspan="5" style="text-align:center;color:#999">Chưa có đơn hàng</td></tr>';
+            return;
+        }
+        el.innerHTML=orders.map(o=>`
+            <tr>
+                <td>#${o.id}</td>
+                <td>${o.customer}</td>
+                <td>${fmt(o.total)}</td>
+                <td><span class="status-badge status-${o.status}">${o.status==='pending'?'Chờ xử lý':'Hoàn thành'}</span></td>
+                <td>${o.date}</td>
+            </tr>
+        `).join('');
+    }
+
+    // === EVENT LISTENERS CHO TRANG SHOP ===
+    document.getElementById('searchInput').addEventListener('input',e=>{
+        let t=e.target.value.toLowerCase();
+        filtered=products.filter(p=>p.name.toLowerCase().includes(t)||p.desc.toLowerCase().includes(t));
+        currentPage = 1;
+        render();
+    });
+
+    document.getElementById('sortSelect').addEventListener('change',e=>{
+        if(e.target.value==='asc')filtered.sort((a,b)=>a.price-b.price);
+        else if(e.target.value==='desc')filtered.sort((a,b)=>b.price-a.price);
+        currentPage = 1;
+        render();
+    });
+
+    document.getElementById('filterSelect').addEventListener('change',e=>{
+        let f=e.target.value;
+        if (f === 'all') {
+            filtered = [...products];
+        } else {
+            filtered = products.filter(p => p.tags && p.tags.includes(f));
+        }
+        currentPage = 1;
+        render();
+    }); 
+
+    // === EVENT LISTENER CHO TRANG ADMIN ===
+    document.getElementById('adminSearchInput').addEventListener('input', e => {
+        let keyword = e.target.value.toLowerCase();
+        adminFilteredProducts = products.filter(p => p.name.toLowerCase().includes(keyword));
+        adminCurrentPage = 1; // Reset về trang 1 khi tìm kiếm
+        renderAdminProductsList();
+    });
+
+    render();
+    updateCart();
+</script>
+</body>
+</html>
