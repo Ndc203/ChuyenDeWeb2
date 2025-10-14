@@ -7,15 +7,15 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void
     {
-        Schema::create('postcomments', function (Blueprint $table) {
-            $table->id('comment_id');
+        Schema::create('comments', function (Blueprint $table) {
+            $table->id('id');
             $table->unsignedBigInteger('post_id')->nullable();
             $table->unsignedBigInteger('user_id')->nullable();
             $table->text('content')->nullable();
-            $table->timestamp('created_at')->useCurrent();
+             $table->timestamps();
 
-            $table->foreign('post_id')->references('post_id')->on('posts')->onDelete('cascade');
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+            $table->foreign('post_id')->references('id')->on('posts')->onDelete('cascade');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

@@ -8,7 +8,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('postcategories', function (Blueprint $table) {
-            $table->id('post_category_id');
+            $table->id('id');
             $table->string('name');
             $table->string('description')->nullable();
         });

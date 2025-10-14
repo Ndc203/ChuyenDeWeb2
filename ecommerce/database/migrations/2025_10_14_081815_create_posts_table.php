@@ -8,7 +8,7 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('posts', function (Blueprint $table) {
-            $table->id('post_id');
+            $table->id('id');
             $table->unsignedBigInteger('user_id')->nullable();
             $table->unsignedBigInteger('category_id')->nullable();
             $table->string('title');
@@ -17,8 +17,8 @@ return new class extends Migration {
             $table->boolean('is_trending')->default(false);
             $table->timestamp('created_at')->useCurrent();
 
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
-            $table->foreign('category_id')->references('post_category_id')->on('postcategories')->onDelete('set null');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('category_id')->references('id')->on('postcategories')->onDelete('set null');
         });
     }
 
