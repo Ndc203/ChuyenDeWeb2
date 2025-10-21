@@ -15,6 +15,10 @@ Thư mục Laravel
 ```
 D:\ChuyenDeW2_OD\ChuyenDeWeb2_1\backend
 ```
+chạy laravle
+```
+php artisan serve
+```
 Đường dẫn
 ```
 http://127.0.0.1:8000
