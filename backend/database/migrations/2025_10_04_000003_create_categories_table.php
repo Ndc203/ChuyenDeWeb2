@@ -13,9 +13,18 @@ class CreateCategoriesTable extends Migration
             $table->string('name');
             $table->string('description')->nullable();
             $table->integer('parent_id')->nullable()->unsigned();
+
+            // ✅ Thêm cột trạng thái ngay sau parent_id
+            $table->enum('status', ['active', 'inactive'])
+                  ->default('active')
+                  ->comment('Trạng thái hoạt động');
+
             $table->timestamp('created_at')->useCurrent();
 
-            $table->foreign('parent_id')->references('category_id')->on('categories')->onDelete('set null');
+            $table->foreign('parent_id')
+                  ->references('category_id')
+                  ->on('categories')
+                  ->onDelete('set null');
         });
     }
 
