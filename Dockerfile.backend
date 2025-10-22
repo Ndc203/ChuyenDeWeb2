@@ -1,0 +1,36 @@
+# Sử dụng image PHP chính thức cho Laravel
+FROM php:8.2-fpm
+
+# Cài đặt các tiện ích và phụ thuộc cần thiết
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip
+
+# Cài đặt các tiện ích mở rộng PHP
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Cài đặt Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Đặt thư mục làm việc
+WORKDIR /var/www/backend
+
+# Sao chép mã nguồn backend vào container
+COPY ./backend /var/www/backend
+
+# Cài đặt các phụ thuộc PHP
+RUN composer install --no-interaction --optimize-autoloader
+
+# Phân quyền
+RUN chown -R www-data:www-data /var/www/backend/storage /var/www/backend/bootstrap/cache
+
+# Mở cổng 9000 cho PHP-FPM
+EXPOSE 9000
+
+# Khởi chạy PHP-FPM
+CMD ["php-fpm"]

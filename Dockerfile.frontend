@@ -1,0 +1,20 @@
+# Sử dụng image Node.js 20 dựa trên glibc
+FROM node:20-bullseye
+
+# Đặt thư mục làm việc
+WORKDIR /var/www/frontend
+
+# Sao chép package.json và package-lock.json
+COPY ./frontend/package.json ./frontend/package-lock.json* ./
+
+# Cài đặt phụ thuộc và module Rollup
+RUN npm install && npm install @rollup/rollup-linux-x64-gnu@latest
+
+# Sao chép mã nguồn
+COPY ./frontend .
+
+# Mở cổng 5173
+EXPOSE 5173
+
+# Khởi chạy dev server
+CMD ["npm", "run", "dev"]
