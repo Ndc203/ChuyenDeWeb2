@@ -6,6 +6,7 @@
  Cho chạy để cài đặt lại thư mục vendor, xong thì chạy "cd .." để ra lại thư mục chính
 2. Frontend
   - cd frontend
+  - Xóa dòng "@rollup......" trong file package.json
   - npm install
   cho chạy để cài đặt thư mục node_modules, xong thì chạy "cd .."
 3. Bắt đầu chạy để build Docker
