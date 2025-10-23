@@ -21,6 +21,7 @@ class CategoryController extends Controller
                 'id' => $category->category_id,
                 'name' => $category->name,
                 'slug' => $category->slug,
+                'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
                 'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
