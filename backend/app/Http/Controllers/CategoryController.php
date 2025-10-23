@@ -2,95 +2,141 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Category;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use PhpOffice\PhpSpreadsheet\Writer\Csv;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class CategoryController extends Controller
 {
     public function index()
     {
-        $rows = Category::select(['category_id','name','parent_id','status','created_at'])
-            ->with(['parent:category_id,name'])
-            ->orderBy('category_id','asc')
+        $rows = Category::with('parent:category_id,name')
+            ->orderBy('category_id')
             ->get()
-            ->map(fn($c) => [
-                'id'         => $c->category_id,
-                'name'       => $c->name,
-                'parent'     => optional($c->parent)->name,
-                'status'     => $c->status,
-                'created_at' => optional($c->created_at)?->format('Y-m-d H:i'),
+            ->map(fn (Category $category) => [
+                'id' => $category->category_id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'parent' => optional($category->parent)->name,
+                'status' => $category->status,
+                'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
             ]);
 
         return response()->json($rows->values(), 200, [], JSON_UNESCAPED_UNICODE);
     }
 
-    public function toggleStatus($id)
+    public function store(Request $request)
     {
-        $cat = Category::findOrFail($id);
-        $cat->status = $cat->status === 'active' ? 'inactive' : 'active';
-        $cat->save();
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+        ]);
+
+        $category = Category::create($data);
 
         return response()->json([
-            'ok'     => true,
-            'id'     => $cat->category_id,
-            'status' => $cat->status,
-            'message'=> 'Cập nhật trạng thái thành công'
+            'message' => 'Category created successfully.',
+            'data' => $category->fresh('parent'),
+        ], 201, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $category = Category::findOrFail($id);
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'description' => ['nullable', 'string'],
+            'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
+            'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+        ]);
+
+        $category->update($data);
+
+        return response()->json([
+            'message' => 'Category updated successfully.',
+            'data' => $category->fresh('parent'),
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function slugify(Request $request)
+    {
+        $name = $request->query('text', '');
+        $ignore = $request->query('ignore');
+
+        $slug = Category::generateUniqueSlug(
+            $name,
+            $ignore !== null ? (int) $ignore : null
+        );
+
+        return response()->json(['slug' => $slug], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function toggleStatus($id)
+    {
+        $category = Category::findOrFail($id);
+        $category->status = $category->status === 'active' ? 'inactive' : 'active';
+        $category->save();
+
+        return response()->json([
+            'ok' => true,
+            'id' => $category->category_id,
+            'status' => $category->status,
+            'message' => 'Status updated successfully.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function export(Request $request)
     {
-        $format = $request->query('format', 'excel'); // excel|pdf|csv
-        $filename = 'categories_'.date('Ymd_His');
+        $format = $request->query('format', 'excel');
+        $filename = 'categories_' . now()->format('Ymd_His');
 
         $rows = Category::with('parent:category_id,name')
             ->orderBy('category_id')
             ->get()
-            ->map(fn($c) => [
-                'ID'            => $c->category_id,
-                'Tên danh mục'  => $c->name,
-                'Danh mục cha'  => optional($c->parent)->name ?? 'Danh mục gốc',
-                'Trạng thái'    => $c->status,
-                'Ngày tạo'      => optional($c->created_at)?->format('Y-m-d H:i'),
+            ->map(fn (Category $category) => [
+                'ID' => $category->category_id,
+                'Name' => $category->name,
+                'Slug' => $category->slug,
+                'Parent' => optional($category->parent)->name ?? 'Root',
+                'Status' => $category->status,
+                'Created At' => optional($category->created_at)?->format('Y-m-d H:i'),
             ])
             ->values()
             ->toArray();
 
-        // ========== PDF ==========
         if ($format === 'pdf') {
-            $pdf = Pdf::loadView('categories_export', ['rows' => $rows]); // ✅ Dùng PDF facade
-            return $pdf->download($filename.'.pdf');
+            $pdf = Pdf::loadView('categories_export', ['rows' => $rows]);
+            return $pdf->download($filename . '.pdf');
         }
 
-        // ========== EXCEL / CSV ==========
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Tiêu đề cột (vì setCellValueByColumnAndRow không còn ở PhpSpreadsheet 2.x)
-        $headers = ['A' => 'ID', 'B' => 'Tên danh mục', 'C' => 'Danh mục cha', 'D' => 'Trạng thái', 'E' => 'Ngày tạo'];
+        $headers = ['A' => 'ID', 'B' => 'Name', 'C' => 'Slug', 'D' => 'Parent', 'E' => 'Status', 'F' => 'Created At'];
         foreach ($headers as $column => $title) {
-        $sheet->setCellValue($column.'1', $title);
-}
-
-
-        // Dòng dữ liệu
-        $r = 2;
-        foreach ($rows as $row) {
-            $sheet->setCellValue("A{$r}", $row['ID']);
-            $sheet->setCellValue("B{$r}", $row['Tên danh mục']);
-            $sheet->setCellValue("C{$r}", $row['Danh mục cha']);
-            $sheet->setCellValue("D{$r}", $row['Trạng thái']);
-            $sheet->setCellValue("E{$r}", $row['Ngày tạo']);
-            $r++;
+            $sheet->setCellValue($column . '1', $title);
         }
 
-        foreach (range('A','E') as $col) {
-            $sheet->getColumnDimension($col)->setAutoSize(true);
+        $rowIndex = 2;
+        foreach ($rows as $row) {
+            $sheet->setCellValue("A{$rowIndex}", $row['ID']);
+            $sheet->setCellValue("B{$rowIndex}", $row['Name']);
+            $sheet->setCellValue("C{$rowIndex}", $row['Slug']);
+            $sheet->setCellValue("D{$rowIndex}", $row['Parent']);
+            $sheet->setCellValue("E{$rowIndex}", $row['Status']);
+            $sheet->setCellValue("F{$rowIndex}", $row['Created At']);
+            $rowIndex++;
+        }
+
+        foreach (range('A', 'F') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
         }
 
         if ($format === 'csv') {
@@ -101,16 +147,16 @@ class CategoryController extends Controller
 
             return response()->streamDownload(function () use ($writer) {
                 $writer->save('php://output');
-            }, $filename.'.csv', [
+            }, $filename . '.csv', [
                 'Content-Type' => 'text/csv; charset=UTF-8',
             ]);
         }
 
-        // ========== Mặc định: EXCEL (XLSX) ==========
         $writer = new Xlsx($spreadsheet);
+
         return response()->streamDownload(function () use ($writer) {
             $writer->save('php://output');
-        }, $filename.'.xlsx', [
+        }, $filename . '.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
     }
