@@ -44,8 +44,6 @@ frontend:
 `docker-compose exec frontend bash`
 
 4. Chạy lệnh
-`rm -rf node_modules package-lock.json`
-`npm install`
 `npm install @rollup/rollup-linux-x64-gnu@latest`
 `npm run dev`
 
