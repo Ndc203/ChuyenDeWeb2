@@ -238,6 +238,7 @@ export default function AdminCategoriesPage() {
               <thead className="bg-slate-50">
                 <tr className="text-left text-slate-600">
                   <Th>TÊN DANH MỤC</Th>
+                  <Th>SLUG</Th>
                   <Th>DANH MỤC CHA</Th>
                   <Th className="w-48">TRẠNG THÁI</Th>
                   <Th className="w-40">NGÀY TẠO</Th>
@@ -247,7 +248,7 @@ export default function AdminCategoriesPage() {
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={5} className="p-6 text-center text-slate-500">
+                    <td colSpan={6} className="p-6 text-center text-slate-500">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
@@ -259,6 +260,7 @@ export default function AdminCategoriesPage() {
                       className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                     >
                       <td className="px-4 py-3 font-medium">{r.name}</td>
+                      <td className="px-4 py-3 text-slate-500">{r.slug}</td>
                       <td className="px-4 py-3">
                         {r.parent || "Danh mục gốc"}
                       </td>

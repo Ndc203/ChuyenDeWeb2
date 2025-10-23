@@ -9,18 +9,106 @@ class CategorySeeder extends Seeder
 {
     public function run(): void
     {
-        // Tầng gốc
-        $dienTu = Category::create(['name' => 'Điện tử', 'description' => 'Các sản phẩm điện tử']);
-        $thoiTrang = Category::create(['name' => 'Thời trang']);
-        $giaDung = Category::create(['name' => 'Gia dụng']);
-        $noiThat = Category::create(['name' => 'Nội thất']);
+        Category::query()->delete();
 
-        // Con của Điện tử
-        $dt = Category::create(['name' => 'Điện thoại', 'parent_id' => $dienTu->category_id]);
-        $lap = Category::create(['name' => 'Laptop', 'parent_id' => $dienTu->category_id]);
+        $trees = [
+            [
+                'name' => 'Dien tu',
+                'description' => 'Thiet bi cong nghe va phu kien',
+                'children' => [
+                    [
+                        'name' => 'Dien thoai',
+                        'description' => 'Smartphone va feature phone',
+                    ],
+                    [
+                        'name' => 'Laptop',
+                        'description' => 'Laptop, ultrabook va gaming',
+                    ],
+                    [
+                        'name' => 'Phu kien cong nghe',
+                        'description' => 'Tai nghe, sac du phong, day cap',
+                    ],
+                ],
+            ],
+            [
+                'name' => 'Gia dung',
+                'description' => 'Do gia dung cho gia dinh',
+                'children' => [
+                    [
+                        'name' => 'Nau nuong',
+                        'description' => 'Noi com dien, bep dien tu, noi chien',
+                    ],
+                    [
+                        'name' => 'Ve sinh nha cua',
+                        'description' => 'May hut bui, cay lau nha',
+                    ],
+                ],
+            ],
+            [
+                'name' => 'Thoi trang',
+                'description' => 'Quan ao, phu kien thoi trang',
+                'children' => [
+                    [
+                        'name' => 'Thoi trang nam',
+                        'children' => [
+                            [
+                                'name' => 'Ao thun nam',
+                                'description' => 'Ao thun cotton, form rong',
+                            ],
+                            [
+                                'name' => 'Giay the thao nam',
+                                'description' => 'Giay sneaker va chay bo',
+                            ],
+                        ],
+                    ],
+                    [
+                        'name' => 'Thoi trang nu',
+                        'children' => [
+                            [
+                                'name' => 'Dam ngu nu',
+                                'description' => 'Dam ngu lua va cotton',
+                            ],
+                            [
+                                'name' => 'Tui xach nu',
+                                'description' => 'Tui xach vai, tui deo cheo',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            [
+                'name' => 'Noi that',
+                'description' => 'Do noi that cho can ho',
+                'children' => [
+                    [
+                        'name' => 'Phong khach',
+                        'description' => 'Sofa, ban tra, ke tivi',
+                    ],
+                    [
+                        'name' => 'Phong ngu',
+                        'description' => 'Giuong, tu quan ao, nem',
+                    ],
+                ],
+            ],
+        ];
 
-        // Con của Thời trang
-        $aoNam = Category::create(['name' => 'Áo nam', 'parent_id' => $thoiTrang->category_id]);
-        Category::create(['name' => 'Áo sơ mi nam', 'parent_id' => $aoNam->category_id]);
+        foreach ($trees as $tree) {
+            $this->seedTree($tree);
+        }
+    }
+
+    private function seedTree(array $data, ?int $parentId = null): void
+    {
+        $category = Category::create([
+            'name' => $data['name'],
+            'slug' => Category::generateUniqueSlug($data['name']),
+            'description' => $data['description'] ?? null,
+            'parent_id' => $parentId,
+            'status' => $data['status'] ?? 'active',
+        ]);
+
+        foreach ($data['children'] ?? [] as $child) {
+            $this->seedTree($child, $category->category_id);
+        }
     }
 }
