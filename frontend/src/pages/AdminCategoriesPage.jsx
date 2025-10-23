@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useRef } from "react";
 import {
   Plus,
   Download,
@@ -16,10 +16,18 @@ import {
   Edit,
   Trash2,
   Eye,
+  X,
   CheckCircle2,
   Circle,
   HardDrive,
 } from "lucide-react";
+
+const emptyCategoryForm = () => ({
+  name: "",
+  description: "",
+  parentId: "",
+  status: "active",
+});
 
 export default function AdminCategoriesPage() {
   const [query, setQuery] = useState("");
@@ -27,22 +35,102 @@ export default function AdminCategoriesPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [openCreate, setOpenCreate] = useState(false);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [formError, setFormError] = useState("");
+  const [form, setForm] = useState(emptyCategoryForm);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
   ).replace(/\/$/, "");
 
   // === Fetch danh mục thật ===
-  useEffect(() => {
+  const loadCategories = useCallback(() => {
     setLoading(true);
-    fetch(`${API_URL}/api/categories`)
+    return fetch(`${API_URL}/api/categories`)
       .then((res) => res.json())
       .then((data) => (Array.isArray(data) ? setRows(data) : setRows([])))
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
   }, [API_URL]);
 
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
+
   // === Đổi trạng thái khi click con mắt ===
+  const handleOpenCreate = () => {
+    setForm(emptyCategoryForm());
+    setFormError("");
+    setCreateLoading(false);
+    setOpenCreate(true);
+  };
+
+  const handleCloseCreate = () => {
+    setOpenCreate(false);
+    setForm(emptyCategoryForm());
+    setFormError("");
+    setCreateLoading(false);
+  };
+
+  const updateFormValue = (key, value) => {
+    setForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleSubmitCreate = async (event) => {
+    event.preventDefault();
+    const name = form.name.trim();
+    if (!name) {
+      setFormError("Vui long nhap ten danh muc.");
+      return;
+    }
+
+    setCreateLoading(true);
+    setFormError("");
+
+    const payload = {
+      name,
+      description: form.description?.trim() ? form.description.trim() : null,
+      parent_id: form.parentId ? Number(form.parentId) : null,
+      status: form.status || "active",
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/categories`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          (data?.errors
+            ? Object.values(data.errors)
+                .flat()
+                .join(", ")
+            : "Khong the tao danh muc moi.");
+        setFormError(message);
+        return;
+      }
+
+      await loadCategories();
+      handleCloseCreate();
+    } catch (error) {
+      setFormError("Khong the ket noi toi may chu.");
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   async function handleToggleStatus(id) {
     setRows((prev) =>
       prev.map((it) => (it.id === id ? { ...it, _updating: true } : it))
@@ -91,6 +179,17 @@ export default function AdminCategoriesPage() {
     const set = new Set(rows.map((r) => r.parent || "Danh mục gốc"));
     return ["Tất cả danh mục cha", ...Array.from(set)];
   }, [rows]);
+
+  const parentOptions = useMemo(
+    () => [
+      { value: "", label: "Khong co danh muc cha" },
+      ...rows.map((r) => ({
+        value: String(r.id),
+        label: r.name || `Danh muc #${r.id}`,
+      })),
+    ],
+    [rows]
+  );
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -187,8 +286,11 @@ export default function AdminCategoriesPage() {
                   </div>
                 )}
               </div>
-              <button className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700">
-                <Plus size={16} /> Thêm Danh mục
+              <button
+                onClick={handleOpenCreate}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700"
+              >
+                <Plus size={16} /> Them danh muc
               </button>
             </div>
           </div>
@@ -300,10 +402,135 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
       </main>
+      <CreateCategoryModal
+        open={openCreate}
+        form={form}
+        onChange={updateFormValue}
+        onClose={handleCloseCreate}
+        onSubmit={handleSubmitCreate}
+        parentOptions={parentOptions}
+        loading={createLoading}
+        error={formError}
+      />
     </div>
   );
 }
 
+function CreateCategoryModal({
+  open,
+  onClose,
+  form,
+  onChange,
+  onSubmit,
+  parentOptions,
+  loading,
+  error,
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
+      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Them danh muc
+            </h2>
+            <p className="text-sm text-slate-500">
+              Nhap thong tin danh muc moi.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Ten danh muc
+            </label>
+            <input
+              value={form.name}
+              onChange={(e) => onChange("name", e.target.value)}
+              className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              placeholder="Vi du: Do dien tu"
+              required
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Mo ta
+            </label>
+            <textarea
+              value={form.description}
+              onChange={(e) => onChange("description", e.target.value)}
+              className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              placeholder="Thong tin mo ta nganh hang"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Danh muc cha
+              </label>
+              <select
+                value={form.parentId}
+                onChange={(e) => onChange("parentId", e.target.value)}
+                className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                {parentOptions.map((op) => (
+                  <option key={op.value} value={op.value}>
+                    {op.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Trang thai
+              </label>
+              <select
+                value={form.status}
+                onChange={(e) => onChange("status", e.target.value)}
+                className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="active">Dang hoat dong</option>
+                <option value="inactive">Tam dung</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Huy
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? "Dang luu..." : "Luu danh muc"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 /* === COMPONENT PHỤ === */
 function SectionLabel({ children }) {
   return (
@@ -403,3 +630,5 @@ function formatDate(s) {
     day: "2-digit",
   });
 }
+
+
