@@ -191,6 +191,8 @@ export default function AdminCategoriesPage() {
     [rows]
   );
 
+  const categoryTree = useMemo(() => buildCategoryTree(rows), [rows]);
+
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const matchQuery = (r.name || "")
@@ -333,10 +335,24 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="w-full px-10 py-4">
-          <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
-            <table className="w-full text-sm">
+        {/* Tree + Table */}
+        <div className="w-full px-10 pb-10">
+          <div className="grid gap-6 lg:grid-cols-[minmax(260px,320px),1fr]">
+            <div className="rounded-2xl border bg-white shadow-sm">
+              <div className="border-b px-5 py-4">
+                <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+                  Cay danh muc
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Hien thi cau truc cha - con.
+                </p>
+              </div>
+              <div className="max-h-[520px] overflow-y-auto px-3 py-4">
+                <CategoryTree nodes={categoryTree} />
+              </div>
+            </div>
+            <div className="overflow-hidden rounded-2xl border bg-white shadow-sm">
+              <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr className="text-left text-slate-600">
                   <Th>TÊN DANH MỤC</Th>
@@ -400,6 +416,7 @@ export default function AdminCategoriesPage() {
               </tbody>
             </table>
           </div>
+        </div>
         </div>
       </main>
       <CreateCategoryModal
@@ -621,6 +638,56 @@ function Select({ value, onChange, options, mapLabel }) {
   );
 }
 
+function buildCategoryTree(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  const nodeMap = new Map();
+
+  items.forEach((item) => {
+    if (!item || typeof item.id === "undefined") {
+      return;
+    }
+    nodeMap.set(item.id, {
+      id: item.id,
+      name: item.name,
+      slug: item.slug,
+      status: item.status,
+      parent_id: item.parent_id ?? null,
+      parent: item.parent,
+      created_at: item.created_at,
+      children: [],
+    });
+  });
+
+  const roots = [];
+
+  nodeMap.forEach((node) => {
+    if (node.parent_id && nodeMap.has(node.parent_id)) {
+      nodeMap.get(node.parent_id).children.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  const sortNodes = (list) => {
+    list.sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""), "vi", {
+        sensitivity: "base",
+      })
+    );
+    list.forEach((child) => {
+      if (child.children.length) {
+        sortNodes(child.children);
+      }
+    });
+  };
+
+  sortNodes(roots);
+  return roots;
+}
+
 function formatDate(s) {
   const d = new Date(s);
   if (Number.isNaN(+d)) return "";
@@ -629,6 +696,111 @@ function formatDate(s) {
     month: "2-digit",
     day: "2-digit",
   });
+}
+
+function CategoryTree({ nodes }) {
+  const [expanded, setExpanded] = useState(() => new Set());
+
+  useEffect(() => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      const ensure = (items) => {
+        items.forEach((item) => {
+          if (!next.has(item.id)) {
+            next.add(item.id);
+          }
+          if (item.children && item.children.length) {
+            ensure(item.children);
+          }
+        });
+      };
+      ensure(nodes);
+      return next;
+    });
+  }, [nodes]);
+
+  const toggle = (id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  if (!nodes.length) {
+    return (
+      <p className="px-2 text-sm text-slate-500">
+        Khong co danh muc nao.
+      </p>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {nodes.map((node) => (
+        <CategoryTreeNode
+          key={node.id}
+          node={node}
+          depth={0}
+          expanded={expanded}
+          onToggle={toggle}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CategoryTreeNode({ node, depth, expanded, onToggle }) {
+  const hasChildren = node.children && node.children.length > 0;
+  const isOpen = expanded.has(node.id);
+
+  return (
+    <div>
+      <div
+        className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-50"
+        style={{ paddingLeft: depth * 14 }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => onToggle(node.id)}
+            className="rounded-full p-1 text-slate-500 hover:bg-slate-100"
+          >
+            <ChevronDown
+              size={14}
+              className={`transition-transform ${isOpen ? "" : "-rotate-90"}`}
+            />
+          </button>
+        ) : (
+          <span className="w-4" />
+        )}
+        <div className="flex flex-1 items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-medium text-slate-700">{node.name}</p>
+            <p className="text-xs text-slate-400">{node.slug}</p>
+          </div>
+          <StatusBadge status={node.status} />
+        </div>
+      </div>
+      {hasChildren && isOpen && (
+        <div className="space-y-1">
+          {node.children.map((child) => (
+            <CategoryTreeNode
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              expanded={expanded}
+              onToggle={onToggle}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 
