@@ -1,5 +1,5 @@
 # TẠO NHÁNH MỚI TỪ BRANCH_MERGE ĐỂ CODE
-# [
+# [KHI MERGE VÀO NHỚ THÔNG BÁO NHÓM ZALO]
 
 B1. Chuyển sang nhánh gốc
 ```
