@@ -2,7 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import AdminCategoriesPage from "./pages/AdminCategoriesPage.jsx";
+import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
