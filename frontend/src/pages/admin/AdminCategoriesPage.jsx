@@ -13,6 +13,7 @@ import {
   Edit,
   Trash2,
   Eye,
+  Upload,
   X,
   CheckCircle2,
   Circle,
@@ -36,6 +37,15 @@ export default function AdminCategoriesPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(emptyCategoryForm);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importPreview, setImportPreview] = useState(null);
+  const [importSelected, setImportSelected] = useState([]);
+  const [importResult, setImportResult] = useState(null);
+  const [importSubmitting, setImportSubmitting] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const importInputRef = useRef(null);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
@@ -126,6 +136,161 @@ export default function AdminCategoriesPage() {
     }
   };
 
+  const resetImportState = useCallback(() => {
+    setImportLoading(false);
+    setImportError("");
+    setImportPreview(null);
+    setImportSelected([]);
+    setImportResult(null);
+    setImportSubmitting(false);
+    setImportFile(null);
+  }, []);
+
+  const handleCloseImport = () => {
+    setImportOpen(false);
+    resetImportState();
+  };
+
+  const handleTriggerImport = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleSelectImportFile = async (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    resetImportState();
+    setImportFile(file);
+    setImportOpen(true);
+    setImportLoading(true);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(
+        `${API_URL}/api/categories/import/preview`,
+        {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+          },
+          body: formData,
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          (data?.errors
+            ? Object.values(data.errors).flat().join(", ")
+            : "Khong the doc file da tai len.");
+        setImportPreview(null);
+        setImportSelected([]);
+        setImportError(message);
+        return;
+      }
+
+      setImportPreview(data);
+      const validIndexes = Array.isArray(data?.rows)
+        ? data.rows
+            .filter((row) => row?.is_valid)
+            .map((row) => Number(row.index))
+        : [];
+      setImportSelected(validIndexes);
+      setImportError("");
+    } catch (error) {
+      setImportError("Khong the ket noi toi may chu.");
+    } finally {
+      setImportLoading(false);
+      setImportResult(null);
+      setImportSubmitting(false);
+      if (input) {
+        input.value = "";
+      }
+    }
+  };
+
+  const handleToggleImportRow = (index) => {
+    setImportResult(null);
+    setImportError("");
+    setImportSelected((prev) =>
+      prev.includes(index)
+        ? prev.filter((item) => item !== index)
+        : [...prev, index]
+    );
+  };
+
+  const handleToggleImportAll = (checked) => {
+    setImportResult(null);
+    setImportError("");
+    if (!importPreview?.rows?.length) {
+      setImportSelected([]);
+      return;
+    }
+    if (checked) {
+      const valid = importPreview.rows
+        .filter((row) => row?.is_valid)
+        .map((row) => Number(row.index));
+      setImportSelected(valid);
+    } else {
+      setImportSelected([]);
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!importFile) {
+      setImportError("Vui long chon file Excel truoc.");
+      return;
+    }
+    if (!importSelected.length) {
+      setImportError("Vui long chon it nhat 1 dong hop le.");
+      return;
+    }
+
+    setImportSubmitting(true);
+    setImportError("");
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", importFile);
+    importSelected.forEach((index) =>
+      formData.append("selected[]", String(index))
+    );
+
+    try {
+      const response = await fetch(`${API_URL}/api/categories/import`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          (data?.errors
+            ? Object.values(data.errors).flat().join(", ")
+            : "Khong the nhap danh muc.");
+        setImportError(message);
+        return;
+      }
+
+      setImportResult(data);
+      await loadCategories();
+    } catch (error) {
+      setImportError("Khong the ket noi toi may chu.");
+    } finally {
+      setImportSubmitting(false);
+    }
+  };
+
   async function handleToggleStatus(id) {
     setRows((prev) =>
       prev.map((it) => (it.id === id ? { ...it, _updating: true } : it))
@@ -205,6 +370,13 @@ export default function AdminCategoriesPage() {
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={handleSelectImportFile}
+      />
       {/* Sidebar */}
       <AdminSidebar />
 
@@ -246,6 +418,14 @@ export default function AdminCategoriesPage() {
                   </div>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={handleTriggerImport}
+                disabled={importLoading || importSubmitting}
+                className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
+              >
+                <Upload size={16} /> Nhap Excel
+              </button>
               <button
                 onClick={handleOpenCreate}
                 className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700"
@@ -382,6 +562,21 @@ export default function AdminCategoriesPage() {
           </div>
         </div>
       </main>
+      <ImportCategoriesModal
+        open={importOpen}
+        loading={importLoading}
+        preview={importPreview}
+        selected={importSelected}
+        onToggleRow={handleToggleImportRow}
+        onToggleAll={handleToggleImportAll}
+        onClose={handleCloseImport}
+        onSubmit={handleConfirmImport}
+        fileName={importFile?.name || ""}
+        error={importError}
+        submitting={importSubmitting}
+        result={importResult}
+        onPickFile={handleTriggerImport}
+      />
       <CreateCategoryModal
         open={openCreate}
         form={form}
@@ -511,6 +706,308 @@ function CreateCategoryModal({
     </div>
   );
 }
+
+function ImportCategoriesModal({
+  open,
+  loading,
+  preview,
+  selected,
+  onToggleRow,
+  onToggleAll,
+  onClose,
+  onSubmit,
+  fileName,
+  error,
+  submitting,
+  result,
+  onPickFile,
+}) {
+  if (!open) return null;
+
+  const rows = Array.isArray(preview?.rows) ? preview.rows : [];
+  const summary = preview?.summary ?? {};
+
+  const selectableRows = rows.filter((row) => row?.is_valid);
+  const allSelected =
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selected.includes(Number(row.index)));
+  const selectedCount = selected.length;
+  const hasPreview = rows.length > 0;
+  const submitLabel = submitting
+    ? "Dang nhap..."
+    : result
+    ? "Nhap lai"
+    : "Nhap danh muc";
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
+      <div className="flex w-full max-w-5xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between px-6 py-5 border-b">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Nhap danh muc tu Excel
+            </h2>
+            <p className="text-sm text-slate-500">
+              Xem truoc cac dong hop le truoc khi chen vao he thong.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-700">
+                File dang xu ly
+              </p>
+              <p className="text-xs text-slate-500">
+                {fileName || "Chua chon file"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onPickFile}
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+              >
+                Chon file khac
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Dong
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  Da chen {result.summary?.inserted ?? 0} danh muc moi.
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  So dong that bai: {result.summary?.failed ?? 0}.
+                </div>
+              </div>
+              {Array.isArray(result.errors) && result.errors.length > 0 && (
+                <div className="max-h-40 overflow-auto rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <p className="font-medium">Chi tiet loi:</p>
+                  <ul className="mt-1 space-y-1 pl-4 list-disc">
+                    {result.errors.map((row) => (
+                      <li key={row.index ?? row.message}>
+                        <span className="font-medium">
+                          Dong {row.index ?? "?"}:
+                        </span>{" "}
+                        {row.message}
+                        {Array.isArray(row.errors) && row.errors.length > 0 && (
+                          <ul className="mt-1 space-y-1 pl-4 list-disc text-amber-600">
+                            {row.errors.map((msg, idx) => (
+                              <li key={idx}>{msg}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="mr-3 h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500" />
+              <p className="text-sm text-slate-500">Dang doc file...</p>
+            </div>
+          ) : hasPreview ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
+                  Tong dong: {summary.total ?? rows.length}
+                </span>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
+                  Hop le: {summary.valid ?? 0}
+                </span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">
+                  Loi: {summary.invalid ?? 0}
+                </span>
+                <span className="rounded-full bg-sky-100 px-3 py-1 font-medium text-sky-700">
+                  Trung DB: {summary.duplicates_in_db ?? 0}
+                </span>
+                <span className="rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700">
+                  Trung file: {summary.duplicates_in_file ?? 0}
+                </span>
+                <span className="ml-auto text-slate-600">
+                  Da chon {selectedCount} dong hop le
+                </span>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border">
+                <table className="min-w-full text-sm text-left">
+                  <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={(e) => onToggleAll(e.target.checked)}
+                          disabled={!selectableRows.length || submitting}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </th>
+                      <th className="px-3 py-2">Dong</th>
+                      <th className="px-3 py-2">Ten danh muc</th>
+                      <th className="px-3 py-2">Danh muc cha</th>
+                      <th className="px-3 py-2">Trang thai</th>
+                      <th className="px-3 py-2">Canh bao</th>
+                      <th className="px-3 py-2">Loi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.map((row) => {
+                      const index = Number(row.index);
+                      const checked = selected.includes(index);
+                      const disabled = !row.is_valid || submitting;
+                      const parent = row.parent;
+                      const parentLabel =
+                        !parent || !parent.type
+                          ? "Danh muc goc"
+                          : parent.type === "existing"
+                          ? `${parent.label} (ID ${parent.id})`
+                          : `${parent.label} (dong ${parent.index})`;
+
+                      return (
+                        <tr
+                          key={row.index}
+                          className={
+                            row.is_valid
+                              ? "bg-white"
+                              : "bg-rose-50/60"
+                          }
+                        >
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              disabled={disabled}
+                              onChange={() => onToggleRow(index)}
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top text-xs text-slate-500">
+                            #{index}
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <p className="text-sm font-medium text-slate-700">
+                              {row.data?.name || "Chua co ten"}
+                            </p>
+                            {row.data?.description && (
+                              <p className="mt-1 text-xs text-slate-400">
+                                {row.data.description}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 align-top text-sm text-slate-600">
+                            {parentLabel}
+                          </td>
+                          <td className="px-3 py-2 align-top text-xs">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                                row.data?.status === "active"
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-amber-50 text-amber-600"
+                              }`}
+                            >
+                              {row.data?.status || "unknown"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 align-top space-y-1 text-xs text-slate-600">
+                            {row.duplicate_in_file && (
+                              <span className="inline-block rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-600">
+                                Trung ten trong file
+                              </span>
+                            )}
+                            {Array.isArray(row.existing) &&
+                              row.existing.length > 0 && (
+                                <span className="block rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                                  Trung DB:{" "}
+                                  {row.existing
+                                    .map((item) => item.name)
+                                    .join(", ")}
+                                </span>
+                              )}
+                          </td>
+                          <td className="px-3 py-2 align-top text-xs text-rose-600">
+                            {Array.isArray(row.errors) && row.errors.length ? (
+                              <ul className="space-y-1 list-disc pl-4">
+                                {row.errors.map((msg, idx) => (
+                                  <li key={`${row.index}-err-${idx}`}>
+                                    {msg}
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-slate-400">---</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            !loading && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+                Khong tim thay du lieu hop le trong file nay.
+              </div>
+            )
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
+          <div className="text-xs text-slate-500">
+            Chi nhung dong hop le moi duoc chon de nhap.
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+            >
+              Huy
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={submitting || !selectedCount}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {submitLabel}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* === COMPONENTS === */
 function Th({ children, className = "" }) {
   return (
