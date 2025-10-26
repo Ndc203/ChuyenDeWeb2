@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Services\CategoryImportService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,6 +13,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class CategoryController extends Controller
 {
+    public function __construct(private CategoryImportService $importService)
+    {
+    }
+
     public function index()
     {
         $rows = Category::with('parent:category_id,name')
@@ -21,6 +26,7 @@ class CategoryController extends Controller
                 'id' => $category->category_id,
                 'name' => $category->name,
                 'slug' => $category->slug,
+                'description' => $category->description,
                 'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
@@ -93,6 +99,68 @@ class CategoryController extends Controller
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
+    public function trashed()
+    {
+        $rows = Category::onlyTrashed()
+            ->with('parent:category_id,name')
+            ->orderBy('category_id')
+            ->get()
+            ->map(fn (Category $category) => [
+                'id' => $category->category_id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'parent_id' => $category->parent_id,
+                'parent' => optional($category->parent)->name,
+                'status' => $category->status,
+                'deleted_at' => optional($category->deleted_at)?->format('Y-m-d H:i'),
+                'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
+            ]);
+
+        return response()->json($rows->values(), 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function destroy($id)
+    {
+        $category = Category::withCount('children')->findOrFail($id);
+
+        if ($category->children_count > 0) {
+            return response()->json([
+                'message' => 'Cannot delete category while it still has child categories.',
+            ], 422, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'ok' => true,
+            'id' => $category->category_id,
+            'message' => 'Category deleted successfully.',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function restore($id)
+    {
+        $category = Category::onlyTrashed()->findOrFail($id);
+
+        if ($category->parent_id !== null) {
+            $parent = Category::withTrashed()->find($category->parent_id);
+            if ($parent && $parent->trashed()) {
+                return response()->json([
+                    'message' => 'Cannot restore category while parent remains deleted.',
+                ], 422, [], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $category->restore();
+
+        return response()->json([
+            'ok' => true,
+            'id' => $category->category_id,
+            'message' => 'Category restored successfully.',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
     public function export(Request $request)
     {
         $format = $request->query('format', 'excel');
@@ -160,5 +228,49 @@ class CategoryController extends Controller
         }, $filename . '.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    public function importPreview(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $result = $this->importService->parse($request->file('file'));
+
+        return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function import(Request $request)
+    {
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'selected' => ['nullable', 'array'],
+            'selected.*' => ['integer'],
+        ]);
+
+        $parsed = $this->importService->parse($request->file('file'));
+
+        $selected = $data['selected'] ?? null;
+        if ($selected !== null) {
+            $selected = array_map('intval', $selected);
+            $availableIndexes = array_map(fn ($row) => (int) $row['index'], $parsed['rows']);
+            $missing = array_values(array_diff($selected, $availableIndexes));
+            if (count($missing)) {
+                return response()->json([
+                    'message' => 'Một số dòng không tồn tại trong file đã tải lên.',
+                    'missing_indexes' => $missing,
+                ], 422, [], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $result = $this->importService->import($parsed['rows'], $selected);
+
+        return response()->json([
+            'message' => 'Nhập danh mục hoàn tất.',
+            'created' => $result['created'],
+            'errors' => $result['errors'],
+            'summary' => $result['summary'],
+        ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }
