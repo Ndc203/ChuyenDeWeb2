@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Category;
+use App\Services\CategoryImportService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -12,6 +13,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class CategoryController extends Controller
 {
+    public function __construct(private CategoryImportService $importService)
+    {
+    }
+
     public function index()
     {
         $rows = Category::with('parent:category_id,name')
@@ -160,5 +165,49 @@ class CategoryController extends Controller
         }, $filename . '.xlsx', [
             'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         ]);
+    }
+
+    public function importPreview(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $result = $this->importService->parse($request->file('file'));
+
+        return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function import(Request $request)
+    {
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'selected' => ['nullable', 'array'],
+            'selected.*' => ['integer'],
+        ]);
+
+        $parsed = $this->importService->parse($request->file('file'));
+
+        $selected = $data['selected'] ?? null;
+        if ($selected !== null) {
+            $selected = array_map('intval', $selected);
+            $availableIndexes = array_map(fn ($row) => (int) $row['index'], $parsed['rows']);
+            $missing = array_values(array_diff($selected, $availableIndexes));
+            if (count($missing)) {
+                return response()->json([
+                    'message' => 'Một số dòng không tồn tại trong file đã tải lên.',
+                    'missing_indexes' => $missing,
+                ], 422, [], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $result = $this->importService->import($parsed['rows'], $selected);
+
+        return response()->json([
+            'message' => 'Nhập danh mục hoàn tất.',
+            'created' => $result['created'],
+            'errors' => $result['errors'],
+            'summary' => $result['summary'],
+        ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }
