@@ -53,12 +53,29 @@ export default function AdminCategoriesPage() {
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  const [editOpen, setEditOpen] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [editForm, setEditForm] = useState(emptyCategoryForm);
+  const [editTarget, setEditTarget] = useState(null);
   const importInputRef = useRef(null);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
   ).replace(/\/$/, "");
   const isDeletedView = viewMode === "deleted";
+
+  const buildFormFromCategory = useCallback((category) => {
+    if (!category) {
+      return emptyCategoryForm();
+    }
+    return {
+      name: category.name || "",
+      description: category.description || "",
+      parentId: category.parent_id ? String(category.parent_id) : "",
+      status: category.status || "active",
+    };
+  }, []);
 
   // === Fetch danh muc thuc te ===
   const loadCategories = useCallback(() => {
@@ -153,6 +170,87 @@ export default function AdminCategoriesPage() {
       setFormError("Khong the ket noi toi may chu.");
     } finally {
       setCreateLoading(false);
+    }
+  };
+
+  const updateEditFormValue = (key, value) => {
+    setEditForm((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  };
+
+  const handleOpenEdit = (category) => {
+    if (!category) return;
+    setEditTarget(category);
+    setEditForm(buildFormFromCategory(category));
+    setEditError("");
+    setEditLoading(false);
+    setEditOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    if (editLoading) {
+      return;
+    }
+    setEditOpen(false);
+    setEditTarget(null);
+    setEditForm(emptyCategoryForm());
+    setEditError("");
+  };
+
+  const handleSubmitEdit = async (event) => {
+    event.preventDefault();
+    if (!editTarget) return;
+    const name = editForm.name.trim();
+    if (!name) {
+      setEditError("Vui long nhap ten danh muc.");
+      return;
+    }
+
+    setEditLoading(true);
+    setEditError("");
+
+    const payload = {
+      name,
+      description: editForm.description?.trim()
+        ? editForm.description.trim()
+        : null,
+      parent_id: editForm.parentId ? Number(editForm.parentId) : null,
+      status: editForm.status || "active",
+    };
+
+    try {
+      const response = await fetch(`${API_URL}/api/categories/${editTarget.id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message =
+          data?.message ||
+          (data?.errors
+            ? Object.values(data.errors).flat().join(", ")
+            : "Khong the cap nhat danh muc.");
+        setEditError(message);
+        return;
+      }
+
+      await loadCategories();
+      setEditOpen(false);
+      setEditTarget(null);
+      setEditForm(emptyCategoryForm());
+      setEditError("");
+    } catch (error) {
+      setEditError("Khong the ket noi toi may chu.");
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -464,6 +562,16 @@ export default function AdminCategoriesPage() {
     ];
   }, [rows, isDeletedView]);
 
+  const editParentOptions = useMemo(() => {
+    if (!editTarget) {
+      return parentOptions;
+    }
+    const excludeId = String(editTarget.id);
+    return parentOptions.filter(
+      (option) => option.value === "" || option.value !== excludeId
+    );
+  }, [parentOptions, editTarget]);
+
   const categoryTree = useMemo(
     () => (isDeletedView ? [] : buildCategoryTree(rows)),
     [rows, isDeletedView]
@@ -726,7 +834,12 @@ export default function AdminCategoriesPage() {
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
-                                <IconBtn title="Sua" intent="primary">
+                                <IconBtn
+                                  title="Sua"
+                                  intent="primary"
+                                  onClick={() => handleOpenEdit(r)}
+                                  disabled={r._updating}
+                                >
                                   <Edit size={16} />
                                 </IconBtn>
                                 <IconBtn
@@ -775,7 +888,19 @@ export default function AdminCategoriesPage() {
         loading={deleteLoading}
         error={deleteError}
       />
-      <CreateCategoryModal
+      <CategoryFormModal
+        mode="edit"
+        open={editOpen}
+        form={editForm}
+        onChange={updateEditFormValue}
+        onClose={handleCloseEdit}
+        onSubmit={handleSubmitEdit}
+        parentOptions={editParentOptions}
+        loading={editLoading}
+        error={editError}
+      />
+      <CategoryFormModal
+        mode="create"
         open={openCreate}
         form={form}
         onChange={updateFormValue}
@@ -866,7 +991,8 @@ function DeleteCategoryModal({
   );
 }
 
-function CreateCategoryModal({
+function CategoryFormModal({
+  mode = "create",
   open,
   onClose,
   form,
@@ -878,22 +1004,31 @@ function CreateCategoryModal({
 }) {
   if (!open) return null;
 
+  const isEdit = mode === "edit";
+  const title = isEdit ? "Sua danh muc" : "Them danh muc";
+  const subtitle = isEdit
+    ? "Cap nhat thong tin danh muc."
+    : "Nhap thong tin danh muc moi.";
+  const submitLabel = isEdit ? "Luu danh muc" : "Tao danh muc";
+  const processingLabel = isEdit ? "Dang luu..." : "Dang tao...";
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">
-              Them danh muc
+              {title}
             </h2>
             <p className="text-sm text-slate-500">
-              Nhap thong tin danh muc moi.
+              {subtitle}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+            disabled={loading}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
           >
             <X size={18} />
           </button>
@@ -964,7 +1099,8 @@ function CreateCategoryModal({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              disabled={loading}
+              className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
               Huy
             </button>
@@ -973,7 +1109,7 @@ function CreateCategoryModal({
               disabled={loading}
               className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
-              {loading ? "Dang luu..." : "Luu danh muc"}
+              {loading ? processingLabel : submitLabel}
             </button>
           </div>
         </form>

@@ -26,6 +26,7 @@ class CategoryController extends Controller
                 'id' => $category->category_id,
                 'name' => $category->name,
                 'slug' => $category->slug,
+                'description' => $category->description,
                 'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
@@ -108,6 +109,7 @@ class CategoryController extends Controller
                 'id' => $category->category_id,
                 'name' => $category->name,
                 'slug' => $category->slug,
+                'description' => $category->description,
                 'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
@@ -272,4 +274,3 @@ class CategoryController extends Controller
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }
-
