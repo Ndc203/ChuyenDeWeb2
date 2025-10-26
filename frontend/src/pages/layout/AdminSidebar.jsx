@@ -30,20 +30,38 @@ export default function AdminSidebar() {
 
       {/* Navigation */}
       <nav className="px-2">
-        <SideItem icon={<LayoutGrid size={18} />} label="Tổng quan" />
+        <SideItem icon={<LayoutGrid size={18} />} label="Tổng quan" to="/" />
+
         <SectionLabel>QUẢN LÝ SẢN PHẨM</SectionLabel>
-        <SideItem icon={<Package size={18} />} label="Danh sách Sản phẩm" />
-        <SideItem icon={<HardDrive size={18} />} label="Tồn kho" />
-        <SideItem icon={<Tag size={18} />} label="Thuộc tính SP" />
+        <SideItem icon={<Package size={18} />} label="Danh sách Sản phẩm" to="/admin/products" />
+        <SideItem icon={<HardDrive size={18} />} label="Tồn kho" to="/admin/stock" />
+        <SideItem icon={<Tag size={18} />} label="Thuộc tính SP" to="/admin/attributes" />
+
         <SectionLabel>QUẢN LÝ CẤU TRÚC</SectionLabel>
-        <SideItem active icon={<ListTree size={18} />} label="Danh mục Sản phẩm" />
-        <SideItem icon={<ImageIcon size={18} />} label="Thương hiệu" />
+        <SideItem icon={<ListTree size={18} />} label="Danh mục Sản phẩm" to="/admin/categories" />
+        <SideItem icon={<ImageIcon size={18} />} label="Thương hiệu" to="/admin/brands" />
+
         <SectionLabel>QUẢN LÝ GIAO DỊCH</SectionLabel>
-        <SideItem icon={<Home size={18} />} label="Đơn hàng" />
-        <SideItem icon={<Tag size={18} />} label="Mã giảm giá" />
+        <SideItem icon={<Home size={18} />} label="Đơn hàng" to="/admin/orders" />
+        <SideItem icon={<Tag size={18} />} label="Mã giảm giá" to="/admin/coupons" />
+
         <SectionLabel>NGƯỜI DÙNG</SectionLabel>
-        <SideItem icon={<Users size={18} />} label="Danh sách Người dùng" />
-        <SideItem icon={<UserCheck size={18} />} label="Lịch sử hoạt động" />
+        <SideItem icon={<Users size={18} />} label="Danh sách Người dùng" to="/admin/users" />
+        <SideItem icon={<UserCheck size={18} />} label="Lịch sử hoạt động" to="/admin/activity" />
+
+        <SectionLabel>BÀI VIẾT</SectionLabel>
+        <SideItem
+          label="Danh sách Bài viết"
+          to="/admin/posts"
+        />
+        <SideItem
+          label="Danh sách Chuyên mục Bài Viết"
+          to="/admin/postcategories"
+        />
+        <SideItem
+          label="Danh sách Bình luận"
+          to="/admin/comment"
+        />
       </nav>
 
       {/* Logout */}
@@ -58,23 +76,25 @@ export default function AdminSidebar() {
 
 function SectionLabel({ children }) {
   return (
-    <div className="px-4 mt-3 mb-1 text-[10px] font-semibold tracking-wider text-slate-400">
+    <div className="px-4 mt-3 mb-1 text-[10px] font-semibold tracking-wider text-slate-400 uppercase">
       {children}
     </div>
   );
 }
 
-function SideItem({ icon, label, active }) {
+function SideItem({ icon, label, to }) {
   return (
-    <button
-      className={`w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm ${
-        active
-          ? "bg-indigo-50 text-indigo-700"
-          : "text-slate-700 hover:bg-slate-50"
-      }`}
-      type="button"
+    <NavLink
+      to={to}
+      className={({ isActive }) =>
+        `w-full flex items-center gap-3 px-4 py-2 rounded-xl text-sm transition ${
+          isActive
+            ? "bg-indigo-50 text-indigo-700 font-medium"
+            : "text-slate-700 hover:bg-slate-50"
+        }`
+      }
     >
       {icon} {label}
-    </button>
+    </NavLink>
   );
 }
