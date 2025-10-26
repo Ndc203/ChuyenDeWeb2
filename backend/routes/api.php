@@ -8,6 +8,8 @@ Route::get('/test', fn () => response()->json(['message' => 'API is running.']))
 Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories', 'index');
     Route::post('/categories', 'store');
+    Route::post('/categories/import/preview', 'importPreview');
+    Route::post('/categories/import', 'import');
     Route::put('/categories/{id}', 'update');
     Route::patch('/categories/{id}/toggle', 'toggleStatus');
     Route::get('/categories/export', 'export');
