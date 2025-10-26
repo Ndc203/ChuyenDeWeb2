@@ -18,6 +18,7 @@ import {
   X,
   CheckCircle2,
   Circle,
+  Power,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
@@ -58,6 +59,7 @@ export default function AdminCategoriesPage() {
   const [editError, setEditError] = useState("");
   const [editForm, setEditForm] = useState(emptyCategoryForm);
   const [editTarget, setEditTarget] = useState(null);
+  const [viewTarget, setViewTarget] = useState(null);
   const importInputRef = useRef(null);
 
   const API_URL = (
@@ -252,6 +254,15 @@ export default function AdminCategoriesPage() {
     } finally {
       setEditLoading(false);
     }
+  };
+
+  const handleOpenView = (category) => {
+    if (!category) return;
+    setViewTarget(category);
+  };
+
+  const handleCloseView = () => {
+    setViewTarget(null);
   };
 
   const resetImportState = useCallback(() => {
@@ -814,23 +825,41 @@ export default function AdminCategoriesPage() {
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {isDeletedView ? (
-                              <IconBtn
-                                title="Khoi phuc"
-                                intent="primary"
-                                onClick={() => handleRestore(r.id)}
-                                disabled={r._restoring}
-                              >
-                                <RotateCcw size={16} />
-                              </IconBtn>
+                              <>
+                                <IconBtn
+                                  title="Xem chi tiet"
+                                  intent="neutral"
+                                  onClick={() => handleOpenView(r)}
+                                >
+                                  <Eye size={16} />
+                                </IconBtn>
+                                <IconBtn
+                                  title="Khoi phuc"
+                                  intent="primary"
+                                  onClick={() => handleRestore(r.id)}
+                                  disabled={r._restoring}
+                                >
+                                  <RotateCcw size={16} />
+                                </IconBtn>
+                              </>
                             ) : (
                               <>
                                 <IconBtn
-                                  title="Doi trang thai"
-                                  intent={
-                                    r.status === "active" ? "primary" : "danger"
+                                  title={
+                                    r.status === "active"
+                                      ? "Chuyen sang tam dung"
+                                      : "Kich hoat danh muc"
                                   }
+                                  intent={r.status === "active" ? "danger" : "primary"}
                                   disabled={r._updating}
                                   onClick={() => handleToggleStatus(r.id)}
+                                >
+                                  <Power size={16} />
+                                </IconBtn>
+                                <IconBtn
+                                  title="Xem chi tiet"
+                                  intent="neutral"
+                                  onClick={() => handleOpenView(r)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
@@ -888,6 +917,7 @@ export default function AdminCategoriesPage() {
         loading={deleteLoading}
         error={deleteError}
       />
+      <ViewCategoryModal category={viewTarget} onClose={handleCloseView} />
       <CategoryFormModal
         mode="edit"
         open={editOpen}
@@ -1429,13 +1459,15 @@ function Th({ children, className = "" }) {
     </th>
   );
 }
-function IconBtn({ children, title, intent, onClick, disabled }) {
+function IconBtn({ children, title, intent = "primary", onClick, disabled }) {
   const base =
     "inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-slate-600 hover:bg-slate-50 disabled:opacity-50";
-  const color =
-    intent === "primary"
-      ? "border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-      : "border-rose-200 text-rose-600 hover:bg-rose-50";
+  const palette = {
+    primary: "border-indigo-200 text-indigo-600 hover:bg-indigo-50",
+    danger: "border-rose-200 text-rose-600 hover:bg-rose-50",
+    neutral: "border-slate-200 text-slate-600 hover:bg-slate-100",
+  };
+  const color = palette[intent] ?? palette.primary;
   return (
     <button
       className={`${base} ${color}`}
@@ -1447,6 +1479,103 @@ function IconBtn({ children, title, intent, onClick, disabled }) {
     </button>
   );
 }
+
+function ViewCategoryModal({ category, onClose }) {
+  if (!category) return null;
+  const { name, slug, status, parent, created_at, description } = category;
+
+  return (
+    <div
+      className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 px-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Thong tin danh muc
+            </h2>
+            <p className="text-sm text-slate-500">
+              Xem chi tiet danh muc va trang thai hien tai.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mt-5 space-y-4 text-sm text-slate-600">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Ten danh muc
+            </p>
+            <p className="text-base font-semibold text-slate-800">
+              {name || "(Khong co ten)"}
+            </p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Slug
+              </p>
+              <p className="font-medium text-slate-700">
+                {slug || "(Khong co)"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Trang thai
+              </p>
+              <StatusBadge status={status} />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Danh muc cha
+              </p>
+              <p className="font-medium text-slate-700">
+                {parent || "Danh muc goc"}
+              </p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Ngay tao
+              </p>
+              <p className="font-medium text-slate-700">
+                {formatDate(created_at)}
+              </p>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Mo ta
+            </p>
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600">
+              {description ? description : "Khong co mo ta"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Dong
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatusBadge({ status }) {
   const active = status === "active";
   return (
