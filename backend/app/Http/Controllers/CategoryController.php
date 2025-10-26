@@ -26,6 +26,7 @@ class CategoryController extends Controller
                 'id' => $category->category_id,
                 'name' => $category->name,
                 'slug' => $category->slug,
+                'description' => $category->description,
                 'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
@@ -95,6 +96,68 @@ class CategoryController extends Controller
             'id' => $category->category_id,
             'status' => $category->status,
             'message' => 'Status updated successfully.',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function trashed()
+    {
+        $rows = Category::onlyTrashed()
+            ->with('parent:category_id,name')
+            ->orderBy('category_id')
+            ->get()
+            ->map(fn (Category $category) => [
+                'id' => $category->category_id,
+                'name' => $category->name,
+                'slug' => $category->slug,
+                'description' => $category->description,
+                'parent_id' => $category->parent_id,
+                'parent' => optional($category->parent)->name,
+                'status' => $category->status,
+                'deleted_at' => optional($category->deleted_at)?->format('Y-m-d H:i'),
+                'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
+            ]);
+
+        return response()->json($rows->values(), 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function destroy($id)
+    {
+        $category = Category::withCount('children')->findOrFail($id);
+
+        if ($category->children_count > 0) {
+            return response()->json([
+                'message' => 'Cannot delete category while it still has child categories.',
+            ], 422, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'ok' => true,
+            'id' => $category->category_id,
+            'message' => 'Category deleted successfully.',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function restore($id)
+    {
+        $category = Category::onlyTrashed()->findOrFail($id);
+
+        if ($category->parent_id !== null) {
+            $parent = Category::withTrashed()->find($category->parent_id);
+            if ($parent && $parent->trashed()) {
+                return response()->json([
+                    'message' => 'Cannot restore category while parent remains deleted.',
+                ], 422, [], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $category->restore();
+
+        return response()->json([
+            'ok' => true,
+            'id' => $category->category_id,
+            'message' => 'Category restored successfully.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
