@@ -56,9 +56,11 @@ export default function AdminSidebar() {
         />
         <SideItem
           label="Danh sách Chuyên mục Bài Viết"
+          to="/admin/postcategories"
         />
         <SideItem
           label="Danh sách Bình luận"
+          to="/admin/comment"
         />
       </nav>
 
