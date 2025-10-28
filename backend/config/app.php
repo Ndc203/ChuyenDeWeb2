@@ -1,6 +1,12 @@
 <?php
 
 return [
+    Barryvdh\DomPDF\ServiceProvider::class,
+    Maatwebsite\Excel\ExcelServiceProvider::class,
+
+    'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
+    'Excel' => Maatwebsite\Excel\Facades\Excel::class,
+
 
     /*
     |--------------------------------------------------------------------------

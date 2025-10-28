@@ -4,7 +4,9 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
+use App\Http\Controllers\PostExportController;
 
+Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::apiResource('posts', PostController::class);
 Route::apiResource('postcategories', PostCategoryController ::class);
 
