@@ -2,6 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\PostController;
+use App\Http\Controllers\PostCategoryController;
+
+Route::apiResource('posts', PostController::class);
+Route::apiResource('postcategories', PostCategoryController ::class);
 
 Route::get('/test', fn () => response()->json(['message' => 'API is running.']));
 

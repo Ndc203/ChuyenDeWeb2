@@ -1781,4 +1781,3 @@ function CategoryTreeNode({ node, depth, expanded, onToggle }) {
     </div>
   );
 }
-
