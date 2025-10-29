@@ -51,22 +51,41 @@ const sampleProducts = [
   },
 ];
 
+// read persisted created products from sessionStorage (created via the add product form)
+function loadCreatedProducts() {
+  try {
+    const key = "ndc_created_products";
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed;
+  } catch (err) {
+    return [];
+  }
+}
+
 export default function AdminProductsPage() {
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("all");
+  const navigate = useNavigate();
+
+  // include created products from sessionStorage so newly added items appear
+  const created = loadCreatedProducts();
+  const allProducts = [...created, ...sampleProducts];
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return sampleProducts.filter((p) => {
+    return allProducts.filter((p) => {
       if (category !== "all" && p.category !== category) return false;
       if (!q) return true;
       return (
-        p.title.toLowerCase().includes(q) ||
-        p.brand.toLowerCase().includes(q) ||
-        p.category.toLowerCase().includes(q)
+        (p.title || "").toLowerCase().includes(q) ||
+        (p.brand || "").toLowerCase().includes(q) ||
+        (p.category || "").toLowerCase().includes(q)
       );
     });
-  }, [query, category]);
+  }, [query, category, allProducts]);
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -101,8 +120,8 @@ export default function AdminProductsPage() {
               </div>
 
               <div className="flex items-center gap-3">
-                <div className="text-sm text-slate-500">Hiển thị {rows.length} / {sampleProducts.length} sản phẩm</div>
-                <button className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-2xl text-sm">
+                <div className="text-sm text-slate-500">Hiển thị {rows.length} / {allProducts.length} sản phẩm</div>
+                <button onClick={() => navigate('/admin/products/new')} className="inline-flex items-center gap-2 bg-indigo-600 text-white px-3 py-2 rounded-2xl text-sm">
                   <Plus size={16} /> Thêm sản phẩm
                 </button>
               </div>
@@ -150,7 +169,7 @@ export default function AdminProductsPage() {
 
                       <td className="py-4">
                         <div className="flex gap-2">
-                          {p.status.map((s, i) => (
+                          {(p.status || []).map((s, i) => (
                             <div key={i} className="px-2 py-1 rounded-full text-[11px] bg-pink-50 text-pink-600">{s}</div>
                           ))}
                         </div>
