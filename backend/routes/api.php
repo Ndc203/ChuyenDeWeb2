@@ -1,15 +1,49 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
+use App\Http\Controllers\UserController;
 
+/*
+|--------------------------------------------------------------------------
+| API Routes
+|--------------------------------------------------------------------------
+| Tất cả route trong file này đều có tiền tố "/api"
+| Ví dụ: http://127.0.0.1:8000/api/test
+*/
+
+// ✅ Route kiểm tra kết nối
+Route::get('/test', function () {
+    return response()->json(['message' => '✅ API đang hoạt động!']);
+});
+
+// ✅ Auth routes (public)
+Route::controller(AuthController::class)->group(function () {
+    Route::post('/register', 'register');
+    Route::post('/login', 'login');
+});
+
+// ✅ Protected routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+    Route::apiResource('users', UserController::class)->only(['index']);
+});
+
+
+// ✅ Post routes
 Route::apiResource('posts', PostController::class);
-Route::apiResource('postcategories', PostCategoryController ::class);
 
-Route::get('/test', fn () => response()->json(['message' => 'API is running.']));
+// ✅ Post Category routes
+Route::apiResource('postcategories', PostCategoryController::class);
 
+// ✅ Category routes
 Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories', 'index');
     Route::post('/categories', 'store');

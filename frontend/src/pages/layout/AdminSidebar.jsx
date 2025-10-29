@@ -10,10 +10,38 @@ import {
   UserCheck,
   LogOut,
 } from "lucide-react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 export default function AdminSidebar() {
-  const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    const token = localStorage.getItem("authToken");
+
+    if (!token) {
+      navigate("/login");
+      return;
+    }
+
+    try {
+      await axios.post(
+        "http://127.0.0.1:8000/api/logout",
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Lỗi khi đăng xuất:", error);
+      // Dù có lỗi hay không, vẫn xóa token và điều hướng
+    } finally {
+      localStorage.removeItem("authToken");
+      navigate("/login");
+    }
+  };
 
   return (
     <aside className="w-64 hidden md:flex flex-col gap-4 border-r bg-white/90 backdrop-blur-sm">
@@ -66,7 +94,10 @@ export default function AdminSidebar() {
 
       {/* Logout */}
       <div className="mt-auto p-4">
-        <button className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm hover:bg-slate-50">
+        <button
+          onClick={handleLogout}
+          className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm hover:bg-slate-50"
+        >
           <LogOut size={16} /> Đăng xuất
         </button>
       </div>
