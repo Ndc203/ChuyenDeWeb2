@@ -1,10 +1,12 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
+use App\Http\Controllers\UserController;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,11 +21,21 @@ Route::get('/test', function () {
     return response()->json(['message' => '✅ API đang hoạt động!']);
 });
 
-// ✅ Auth routes
+// ✅ Auth routes (public)
 Route::controller(AuthController::class)->group(function () {
     Route::post('/register', 'register');
     Route::post('/login', 'login');
 });
+
+// ✅ Protected routes
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+    Route::apiResource('users', UserController::class)->only(['index']);
+});
+
 
 // ✅ Post routes
 Route::apiResource('posts', PostController::class);

@@ -1,4 +1,3 @@
-// src/pages/auth/Register.jsx
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
@@ -65,7 +64,8 @@ export default function Register() {
     <div
       style={{
         minHeight: "100vh",
-        background: "linear-gradient(135deg, #d4fce4 0%, #a7f3d0 100%)",
+        // CÙNG MÀU VỚI FORM ĐĂNG NHẬP
+        background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
@@ -384,7 +384,7 @@ export default function Register() {
               style={{ marginRight: "8px" }}
             />
             Tôi đồng ý với{" "}
-            <a href="#" style={{ color: "#10b981", textDecoration: "underline" }}>
+            <a href="#" style={{ color: "#0ea5e9", textDecoration: "underline" }}>
               điều khoản sử dụng
             </a>
           </label>
@@ -394,7 +394,7 @@ export default function Register() {
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: "#10b981",
+              backgroundColor: "#0ea5e9",
               color: "#fff",
               border: "none",
               borderRadius: "12px",
@@ -403,8 +403,8 @@ export default function Register() {
               cursor: "pointer",
               transition: "background 0.2s",
             }}
-            onMouseOver={(e) => (e.target.style.backgroundColor = "#0d8b63")}
-            onMouseOut={(e) => (e.target.style.backgroundColor = "#10b981")}
+            onMouseOver={(e) => (e.target.style.backgroundColor = "#0284c7")}
+            onMouseOut={(e) => (e.target.style.backgroundColor = "#0ea5e9")}
           >
             Đăng ký
           </button>
@@ -421,7 +421,7 @@ export default function Register() {
           Đã có tài khoản?{" "}
           <Link
             to="/login"
-            style={{ color: "#10b981", fontWeight: "600", textDecoration: "none" }}
+            style={{ color: "#0ea5e9", fontWeight: "600", textDecoration: "none" }}
           >
             Đăng nhập ngay
           </Link>

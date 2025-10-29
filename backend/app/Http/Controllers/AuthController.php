@@ -49,14 +49,25 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // Tạo token giả (giữ nguyên)
-        $token = base64_encode(bin2hex(random_bytes(32)));
+        // Tạo token bằng Sanctum
+        $token = $user->createToken('apitoken')->plainTextToken;
 
         return response()->json([
             'success' => true,
             'message' => 'Đăng nhập thành công',
             'data' => $user,
             'token' => $token,
+        ]);
+    }
+
+    // API: POST /api/logout
+    public function logout(Request $request)
+    {
+        $request->user()->currentAccessToken()->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đăng xuất thành công',
         ]);
     }
 }
