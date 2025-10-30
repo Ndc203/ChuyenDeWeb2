@@ -8,6 +8,7 @@ use App\Http\Controllers\BrandController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\PostExportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -39,6 +40,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 // ✅ Post routes
+
+Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::apiResource('posts', PostController::class);
 
 // ✅ Post Category routes
@@ -62,8 +65,14 @@ Route::controller(CategoryController::class)->group(function () {
 // �o. Brand routes
 Route::controller(BrandController::class)->group(function () {
     Route::get('/brands', 'index');
+    Route::get('/brands/trashed', 'trashed');
+    Route::get('/brands/export', 'export');
+    Route::post('/brands/import/preview', 'importPreview');
+    Route::post('/brands/import', 'import');
     Route::post('/brands', 'store');
     Route::put('/brands/{id}', 'update');
+    Route::patch('/brands/{id}/toggle', 'toggleStatus');
+    Route::patch('/brands/{id}/restore', 'restore');
     Route::delete('/brands/{id}', 'destroy');
     Route::get('/brands/slugify', 'slugify');
 });
