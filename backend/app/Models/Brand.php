@@ -4,24 +4,28 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 class Brand extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $table = 'brands';
     protected $primaryKey = 'brand_id';
-    public $timestamps = false;
+    public $timestamps = true;
 
     protected $fillable = [
         'name',
         'slug',
         'description',
+        'status',
     ];
 
     protected $casts = [
         'created_at' => 'datetime',
+        'updated_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     protected static function booted(): void
@@ -44,7 +48,7 @@ class Brand extends Model
         $count = 2;
 
         while (
-            static::query()
+            static::withTrashed()
                 ->when($ignoreId, fn ($query) => $query->where('brand_id', '!=', $ignoreId))
                 ->where('slug', $slug)
                 ->exists()

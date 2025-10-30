@@ -65,8 +65,11 @@ Route::controller(CategoryController::class)->group(function () {
 // �o. Brand routes
 Route::controller(BrandController::class)->group(function () {
     Route::get('/brands', 'index');
+    Route::get('/brands/trashed', 'trashed');
     Route::post('/brands', 'store');
     Route::put('/brands/{id}', 'update');
+    Route::patch('/brands/{id}/toggle', 'toggleStatus');
+    Route::patch('/brands/{id}/restore', 'restore');
     Route::delete('/brands/{id}', 'destroy');
     Route::get('/brands/slugify', 'slugify');
 });
