@@ -4,6 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\BrandController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
@@ -56,4 +57,13 @@ Route::controller(CategoryController::class)->group(function () {
     Route::patch('/categories/{id}/restore', 'restore');
     Route::get('/categories/export', 'export');
     Route::get('/categories/slugify', 'slugify');
+});
+
+// �o. Brand routes
+Route::controller(BrandController::class)->group(function () {
+    Route::get('/brands', 'index');
+    Route::post('/brands', 'store');
+    Route::put('/brands/{id}', 'update');
+    Route::delete('/brands/{id}', 'destroy');
+    Route::get('/brands/slugify', 'slugify');
 });
