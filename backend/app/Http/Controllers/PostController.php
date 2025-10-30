@@ -54,27 +54,34 @@ class PostController extends Controller
     }
 
     public function show($id)
-    {
-        return Post::with(['category', 'user'])->findOrFail($id);
+{
+    $post = Post::findOrFail($id);
+    return response()->json($post);
+}
+
+
+   public function update(Request $request, $id)
+{
+    $post = Post::findOrFail($id);
+    $post->title = $request->title;
+    $post->excerpt = $request->excerpt;
+    $post->content = $request->content;
+    $post->status = $request->status;
+    $post->category_id = $request->category_id;
+
+    if ($request->hasFile('image')) {
+        $image = $request->file('image');
+        $filename = time().'_'.$image->getClientOriginalName();
+        $image->move(public_path('images/posts'), $filename);
+        $post->image = $filename;
     }
 
-    public function update(Request $request, $id)
-    {
-        $post = Post::findOrFail($id);
+    $post->save();
 
-        $validated = $request->validate([
-            'category_id' => 'sometimes|exists:postcategories,id',
-            'title' => 'sometimes|string|max:255',
-            'content' => 'sometimes|string',
-            'excerpt' => 'nullable|string',
-            'status' => 'in:draft,published',
-            'is_trending' => 'boolean',
-        ]);
+    return response()->json(['message' => 'Cập nhật bài viết thành công', 'post' => $post]);
+}
 
-        $post->update($validated);
 
-        return response()->json($post);
-    }
 
     public function destroy($id)
     {

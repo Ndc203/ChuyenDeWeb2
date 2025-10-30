@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Plus,
   Download,
@@ -16,7 +22,6 @@ import AdminSidebar from "../layout/AdminSidebar.jsx";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 
-
 const emptyPostForm = () => ({
   title: "",
   excerpt: "",
@@ -25,7 +30,7 @@ const emptyPostForm = () => ({
   image: null,
   status: "draft",
   is_trending: false,
-  category_id: "", 
+  category_id: "",
 });
 
 export default function AdminPostPage() {
@@ -37,9 +42,32 @@ export default function AdminPostPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [formError, setFormError] = useState("");
   const [form, setForm] = useState(emptyPostForm);
+  const [openDetail, setOpenDetail] = useState(false);
+  const [detailPost, setDetailPost] = useState(null);
+  const [openEdit, setOpenEdit] = useState(false);
+  const [editPost, setEditPost] = useState(null);
 
-  const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+  const API_URL = (
+    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
+  ).replace(/\/$/, "");
 
+  // === Xem chi tiết bài viết ===
+  async function handleViewDetail(id) {
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${id}`);
+      if (!res.ok) throw new Error("Không thể tải chi tiết bài viết");
+      const data = await res.json();
+      setDetailPost(data);
+      setOpenDetail(true);
+    } catch (err) {
+      alert(err.message || "Không thể kết nối tới máy chủ.");
+    }
+  }
+
+  function handleCloseDetail() {
+    setOpenDetail(false);
+    setDetailPost(null);
+  }
   // === Lấy danh sách bài viết ===
   const loadPosts = useCallback(() => {
     setLoading(true);
@@ -106,7 +134,9 @@ export default function AdminPostPage() {
       if (!response.ok) {
         const message =
           data?.message ||
-          (data?.errors ? Object.values(data.errors).flat().join(", ") : "Không thể tạo bài viết mới.");
+          (data?.errors
+            ? Object.values(data.errors).flat().join(", ")
+            : "Không thể tạo bài viết mới.");
         setFormError(message);
         return;
       }
@@ -174,6 +204,48 @@ export default function AdminPostPage() {
       return matchQuery && matchStatus;
     });
   }, [rows, query, statusFilter]);
+  // === Xoá bài viết ===
+  async function handleDelete(id) {
+    if (!confirm("Bạn có chắc chắn muốn xoá bài viết này?")) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${id}`, {
+        method: "DELETE",
+        headers: { Accept: "application/json" },
+      });
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.message || "Không thể xoá bài viết.");
+        return;
+      }
+
+      // Cập nhật lại danh sách bài viết
+      setRows((prev) => prev.filter((it) => it.id !== id));
+      alert("Đã xoá bài viết thành công!");
+    } catch (err) {
+      console.error(err);
+      alert("Không thể kết nối tới máy chủ.");
+    }
+  }
+
+  // === Mở form sửa ===
+  async function handleEdit(id) {
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${id}`);
+      if (!res.ok) throw new Error("Không thể tải thông tin bài viết.");
+      const data = await res.json();
+      setEditPost(data);
+      setOpenEdit(true);
+    } catch (err) {
+      alert(err.message || "Lỗi kết nối tới máy chủ.");
+    }
+  }
+
+  function handleCloseEdit() {
+    setOpenEdit(false);
+    setEditPost(null);
+  }
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
@@ -186,7 +258,9 @@ export default function AdminPostPage() {
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
           <div className="w-full px-10 py-4 flex items-center justify-between">
             <div>
-              <h1 className="text-lg md:text-xl font-semibold">Quản lý Bài viết</h1>
+              <h1 className="text-lg md:text-xl font-semibold">
+                Quản lý Bài viết
+              </h1>
               <p className="text-xs text-slate-500 mt-1">
                 Dữ liệu lấy từ Laravel API thật
               </p>
@@ -306,19 +380,25 @@ export default function AdminPostPage() {
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <IconBtn
-                            title="Đổi trạng thái"
-                            intent={
-                              r.status === "published" ? "primary" : "danger"
-                            }
-                            disabled={r._updating}
-                            onClick={() => handleToggleStatus(r.id)}
+                            title="Xem chi tiết"
+                            intent="primary"
+                            onClick={() => handleViewDetail(r.id)}
                           >
                             <Eye size={16} />
                           </IconBtn>
-                          <IconBtn title="Sửa" intent="primary">
+                          <IconBtn
+                            title="Sửa"
+                            intent="warning"
+                            onClick={() => handleEdit(r.id)}
+                          >
                             <Edit size={16} />
                           </IconBtn>
-                          <IconBtn title="Xoá" intent="danger">
+
+                          <IconBtn
+                            title="Xoá"
+                            intent="danger"
+                            onClick={() => handleDelete(r.id)}
+                          >
                             <Trash2 size={16} />
                           </IconBtn>
                         </div>
@@ -339,6 +419,19 @@ export default function AdminPostPage() {
         onSubmit={handleSubmitCreate}
         loading={createLoading}
         error={formError}
+      />
+      <PostDetailModal
+        open={openDetail}
+        onClose={handleCloseDetail}
+        post={detailPost}
+        API_URL={API_URL}
+      />
+      <EditPostModal
+        open={openEdit}
+        onClose={handleCloseEdit}
+        post={editPost}
+        onUpdated={() => loadPosts()} // ✅ đổi fetchPosts -> loadPosts
+        API_URL={API_URL}
       />
     </div>
   );
@@ -449,7 +542,6 @@ function CreatePostModal({
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
-
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">
@@ -620,6 +712,285 @@ function CreatePostModal({
               className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm hover:bg-indigo-700 disabled:opacity-50"
             >
               {loading ? "Đang lưu..." : "Tạo bài viết"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+function PostDetailModal({ open, onClose, post, API_URL }) {
+  if (!open || !post) return null;
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Xem chi tiết bài viết
+          </h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Thông tin bài viết */}
+        <div className="space-y-4 text-sm">
+          <div>
+            <strong className="block text-slate-700 mb-1">Tiêu đề:</strong>
+            <p className="text-slate-800">{post.title}</p>
+          </div>
+
+          {post.image && (
+            <div>
+              <strong className="block text-slate-700 mb-1">
+                Ảnh đại diện:
+              </strong>
+              <img
+                src={`${API_URL}/images/posts/${post.image}`}
+                alt={post.title}
+                className="w-full max-h-60 object-cover rounded-xl border"
+              />
+            </div>
+          )}
+
+          <div>
+            <strong className="block text-slate-700 mb-1">Tóm tắt:</strong>
+            <p className="text-slate-600">{post.excerpt || "—"}</p>
+          </div>
+
+          <div>
+            <strong className="block text-slate-700 mb-1">Nội dung:</strong>
+            <div
+              className="prose prose-sm max-w-none text-slate-700"
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <span>
+              <strong>Trạng thái:</strong>{" "}
+              {post.status === "published" ? "Đã xuất bản ✅" : "Bản nháp 📝"}
+            </span>
+            <span>
+              <strong>Ngày tạo:</strong> {formatDate(post.created_at)}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
+  const [form, setForm] = useState({
+    title: "",
+    excerpt: "",
+    content: "",
+    status: "draft",
+    category_id: "",
+    image: null,
+    is_trending: false,
+  });
+  const [categories, setCategories] = useState([]);
+
+  // Lấy danh mục
+  useEffect(() => {
+    if (!open) return;
+    fetch(`${API_URL}/api/postcategories`)
+      .then((res) => res.json())
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]));
+  }, [open, API_URL]);
+
+  // Gán dữ liệu bài viết vào form khi mở modal
+  useEffect(() => {
+    if (post) {
+      setForm({
+        title: post.title || "",
+        excerpt: post.excerpt || "",
+        content: post.content || "",
+        status: post.status || "draft",
+        category_id: post.category_id || "",
+        is_trending: !!post.is_trending,
+        image: null,
+      });
+    }
+  }, [post]);
+
+  if (!open) return null;
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+
+    if (!form.category_id) {
+      alert("Vui lòng chọn danh mục bài viết.");
+      return;
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append("title", form.title);
+      formData.append("excerpt", form.excerpt);
+      formData.append("content", form.content);
+      formData.append("status", form.status);
+      formData.append("category_id", Number(form.category_id)); // ✅ ép kiểu thành số
+      formData.append("is_trending", form.is_trending ? 1 : 0);
+      if (form.image) formData.append("image", form.image);
+
+      const res = await fetch(`${API_URL}/api/posts/${post.id}`, {
+        method: "POST", // ⚠ Laravel PUT phải spoof qua POST + _method=PUT
+        headers: { Accept: "application/json" },
+        body: (() => {
+          formData.append("_method", "PUT"); // ✅ spoof method
+          return formData;
+        })(),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        alert(data.message || "Không thể cập nhật bài viết.");
+        return;
+      }
+
+      alert("✅ Cập nhật bài viết thành công!");
+      onUpdated();
+      onClose();
+    } catch (err) {
+      console.error(err);
+      alert("Không thể kết nối tới máy chủ.");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
+      <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold text-slate-800">
+            ✏️ Sửa bài viết
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Tiêu đề */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600">
+              Tiêu đề
+            </label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+              required
+            />
+          </div>
+
+          {/* Tóm tắt */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600">
+              Tóm tắt
+            </label>
+            <textarea
+              value={form.excerpt}
+              onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
+              className="w-full border rounded-lg px-3 py-2"
+            />
+          </div>
+
+          {/* Danh mục */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600">
+              Danh mục bài viết
+            </label>
+            <select
+              value={form.category_id || ""}
+              onChange={(e) =>
+                setForm({ ...form, category_id: Number(e.target.value) })
+              } // ✅ ép kiểu
+              className="w-full border rounded-lg px-3 py-2"
+              required
+            >
+              <option value="">-- Chọn danh mục --</option>
+              {categories.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Nội dung */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600">
+              Nội dung
+            </label>
+            <ReactQuill
+              value={form.content}
+              onChange={(value) => setForm({ ...form, content: value })}
+              theme="snow"
+            />
+          </div>
+
+          {/* Ảnh đại diện */}
+          <div>
+            <label className="block text-sm font-medium text-slate-600">
+              Ảnh mới (nếu muốn thay)
+            </label>
+            <input
+              type="file"
+              onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
+              className="w-full border rounded-lg px-3 py-2"
+              accept="image/*"
+            />
+          </div>
+
+          {/* Trạng thái + Trending */}
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center mt-6">
+              <input
+                id="is_trending_edit"
+                type="checkbox"
+                checked={form.is_trending}
+                onChange={(e) =>
+                  setForm({ ...form, is_trending: e.target.checked })
+                }
+                className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+              />
+              <label
+                htmlFor="is_trending_edit"
+                className="ml-2 text-sm text-slate-700 select-none"
+              >
+                Nổi bật (Trending)
+              </label>
+            </div>
+          </div>
+
+          {/* Nút hành động */}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+            >
+              Huỷ
+            </button>
+            <button
+              type="submit"
+              className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm hover:bg-indigo-700"
+            >
+              Lưu thay đổi
             </button>
           </div>
         </form>
