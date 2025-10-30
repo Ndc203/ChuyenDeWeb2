@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Plus,
   RefreshCcw,
@@ -11,6 +17,9 @@ import {
   Eye,
   RotateCcw,
   Search,
+  Download,
+  FileSpreadsheet,
+  FileText,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
@@ -46,6 +55,8 @@ export default function AdminBrandsPage() {
   const [togglingId, setTogglingId] = useState(null);
   const [restoringId, setRestoringId] = useState(null);
   const [viewTarget, setViewTarget] = useState(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef(null);
 
   const isDeletedView = viewMode === "deleted";
 
@@ -73,6 +84,26 @@ export default function AdminBrandsPage() {
   useEffect(() => {
     loadBrands();
   }, [loadBrands]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!exportRef.current || exportRef.current.contains(event.target)) {
+        return;
+      }
+      setExportOpen(false);
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const handleExport = useCallback(
+    (format) => {
+      window.open(`${API_URL}/api/brands/export?format=${format}`, "_blank");
+      setExportOpen(false);
+    },
+    [API_URL]
+  );
 
   const filteredRows = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -373,31 +404,46 @@ export default function AdminBrandsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-xl font-semibold text-slate-800">
-                  Quan ly Thuong hieu
+                  Quản lý Thương hiệu
                 </h1>
                 <p className="text-sm text-slate-500">
-                  Du lieu dong bo tu Laravel API. Quan ly trang thai va thong
-                  tin thuong hieu.
+                  Dữ liệu đồng bộ từ Laravel API. Quản lý trạng thái và thông
+                  tin thương hiệu.
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={loadBrands}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
-                  disabled={loading}
-                >
-                  <RefreshCcw
-                    size={16}
-                    className={loading ? "animate-spin" : ""}
-                  />
-                  Lam moi
-                </button>
+                <div className="relative" ref={exportRef}>
+                  <button
+                    onClick={() => setExportOpen((value) => !value)}
+                    className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+                  >
+                    <Download size={16} />
+                    Xuất file
+                  </button>
+                  {exportOpen && (
+                    <div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
+                      <button
+                        onClick={() => handleExport("excel")}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>📊 Tải Excel</span>
+                      </button>
+                      <button
+                        onClick={() => handleExport("pdf")}
+                        className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
+                      >
+                        <span>📄 Tải PDF</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button
                   onClick={handleOpenCreate}
                   className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                 >
                   <Plus size={16} />
-                  Them thuong hieu
+                  Thêm thương hiệu
                 </button>
               </div>
             </div>
@@ -405,7 +451,7 @@ export default function AdminBrandsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Che do hien thi
+                  Chế độ hiển thị
                 </span>
                 <div className="inline-flex rounded-full border bg-white p-1 text-xs shadow-sm">
                   <button
@@ -443,7 +489,7 @@ export default function AdminBrandsPage() {
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Tim kiem thuong hieu..."
-                    className="w-full rounded-xl border bg-white pl-11 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                    className="w-full rounded-xl border bg-white pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                   />
                 </div>
                 <select
@@ -684,10 +730,10 @@ function StatusBadge({ status }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${styles}`}
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${styles}`}
     >
       <Icon size={14} />
-      {isActive ? "Hoat dong" : "Tam dung"}
+      {isActive ? "Hoạt động" : "Tạm dừng"}
     </span>
   );
 }

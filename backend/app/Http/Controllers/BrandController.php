@@ -6,6 +6,9 @@ use App\Models\Brand;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class BrandController extends Controller
 {
@@ -157,6 +160,76 @@ class BrandController extends Controller
             'available' => !$exists,
             'modified' => $slug !== $baseSlug,
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function export(Request $request)
+    {
+        $format = $request->query('format', 'excel');
+        $filename = 'brands_' . now()->format('Ymd_His');
+
+        $rows = Brand::query()
+            ->orderBy('brand_id')
+            ->get()
+            ->map(fn (Brand $brand) => [
+                'ID' => $brand->brand_id,
+                'Name' => $brand->name,
+                'Slug' => $brand->slug,
+                'Status' => $brand->status,
+                'Description' => $brand->description ?? '',
+                'Created At' => optional($brand->created_at)?->format('Y-m-d H:i'),
+            ])
+            ->values()
+            ->toArray();
+
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('brands_export', ['rows' => $rows]);
+            return $pdf->download($filename . '.pdf');
+        }
+
+        if ($format !== 'excel') {
+            return response()->json([
+                'message' => 'Định dạng xuất không hợp lệ.',
+            ], 422, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        $spreadsheet = new Spreadsheet();
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $headers = [
+            'A' => 'ID',
+            'B' => 'Name',
+            'C' => 'Slug',
+            'D' => 'Status',
+            'E' => 'Description',
+            'F' => 'Created At',
+        ];
+
+        foreach ($headers as $column => $title) {
+            $sheet->setCellValue($column . '1', $title);
+        }
+
+        $rowIndex = 2;
+        foreach ($rows as $row) {
+            $sheet->setCellValue("A{$rowIndex}", $row['ID']);
+            $sheet->setCellValue("B{$rowIndex}", $row['Name']);
+            $sheet->setCellValue("C{$rowIndex}", $row['Slug']);
+            $sheet->setCellValue("D{$rowIndex}", $row['Status']);
+            $sheet->setCellValue("E{$rowIndex}", $row['Description']);
+            $sheet->setCellValue("F{$rowIndex}", $row['Created At']);
+            $rowIndex++;
+        }
+
+        foreach (range('A', 'F') as $column) {
+            $sheet->getColumnDimension($column)->setAutoSize(true);
+        }
+
+        $writer = new Xlsx($spreadsheet);
+
+        return response()->streamDownload(function () use ($writer) {
+            $writer->save('php://output');
+        }, $filename . '.xlsx', [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
     }
 
     private function purgeExpiredTrashed(): void
