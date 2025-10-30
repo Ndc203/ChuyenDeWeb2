@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Brand;
+use App\Services\BrandImportService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -12,6 +13,10 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class BrandController extends Controller
 {
+    public function __construct(private BrandImportService $importService)
+    {
+    }
+
     public function index()
     {
         $rows = Brand::query()
@@ -32,7 +37,12 @@ class BrandController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
+            'name' => [
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('brands', 'name')->whereNull('deleted_at'),
+            ],
             'description' => ['nullable', 'string'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ]);
@@ -61,7 +71,15 @@ class BrandController extends Controller
         $brand = Brand::findOrFail($id);
 
         $data = $request->validate([
-            'name' => ['sometimes', 'required', 'string', 'max:255'],
+            'name' => [
+                'sometimes',
+                'required',
+                'string',
+                'max:255',
+                Rule::unique('brands', 'name')
+                    ->ignore($brand->brand_id, 'brand_id')
+                    ->whereNull('deleted_at'),
+            ],
             'description' => ['nullable', 'string'],
             'status' => ['sometimes', 'required', 'string', Rule::in(['active', 'inactive'])],
         ]);
@@ -137,6 +155,54 @@ class BrandController extends Controller
             'ok' => true,
             'id' => $brand->brand_id,
             'message' => 'Brand restored successfully.',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function importPreview(Request $request)
+    {
+        $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+        ]);
+
+        $result = $this->importService->parse($request->file('file'));
+
+        return response()->json($result, 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function import(Request $request)
+    {
+        $data = $request->validate([
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'selected' => ['nullable', 'array'],
+            'selected.*' => ['integer'],
+        ]);
+
+        $parsed = $this->importService->parse($request->file('file'));
+
+        $selected = $data['selected'] ?? null;
+        if ($selected !== null) {
+            $selected = array_map('intval', $selected);
+            $availableIndexes = array_map(
+                fn ($row) => (int) $row['index'],
+                $parsed['rows']
+            );
+            $missing = array_values(array_diff($selected, $availableIndexes));
+
+            if (count($missing)) {
+                return response()->json([
+                    'message' => 'Một số dòng được chọn không tồn tại trong dữ liệu xem trước.',
+                    'missing_indexes' => $missing,
+                ], 422, [], JSON_UNESCAPED_UNICODE);
+            }
+        }
+
+        $result = $this->importService->import($parsed['rows'], $selected);
+
+        return response()->json([
+            'message' => 'Nhập thương hiệu hoàn tất.',
+            'created' => $result['created'],
+            'errors' => $result['errors'],
+            'summary' => $result['summary'],
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 

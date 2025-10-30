@@ -20,6 +20,8 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  Upload,
+  X,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
@@ -57,6 +59,15 @@ export default function AdminBrandsPage() {
   const [viewTarget, setViewTarget] = useState(null);
   const [exportOpen, setExportOpen] = useState(false);
   const exportRef = useRef(null);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importError, setImportError] = useState("");
+  const [importPreview, setImportPreview] = useState(null);
+  const [importSelected, setImportSelected] = useState([]);
+  const [importResult, setImportResult] = useState(null);
+  const [importSubmitting, setImportSubmitting] = useState(false);
+  const [importFile, setImportFile] = useState(null);
+  const importInputRef = useRef(null);
 
   const isDeletedView = viewMode === "deleted";
 
@@ -104,6 +115,166 @@ export default function AdminBrandsPage() {
     },
     [API_URL]
   );
+
+  const resetImportState = useCallback(() => {
+    setImportLoading(false);
+    setImportError("");
+    setImportPreview(null);
+    setImportSelected([]);
+    setImportResult(null);
+    setImportSubmitting(false);
+  }, []);
+
+  const handleCloseImport = useCallback(() => {
+    setImportOpen(false);
+    resetImportState();
+    setImportFile(null);
+    if (importInputRef.current) {
+      importInputRef.current.value = "";
+    }
+  }, [resetImportState, importInputRef]);
+
+  const handleTriggerImport = useCallback(() => {
+    importInputRef.current?.click();
+  }, []);
+
+  const handleSelectImportFile = useCallback(
+    async (event) => {
+      const input = event.target;
+      const file = input?.files?.[0];
+      if (!file) {
+        return;
+      }
+
+      resetImportState();
+      setImportFile(file);
+      setImportOpen(true);
+      setImportLoading(true);
+      setImportError("");
+      setImportPreview(null);
+      setImportSelected([]);
+      setImportResult(null);
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch(`${API_URL}/api/brands/import/preview`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          const message =
+            data?.message ||
+            data?.errors?.file?.[0] ||
+            "Không thể đọc file. Vui lòng kiểm tra lại.";
+          setImportError(message);
+          setImportPreview(null);
+          setImportSelected([]);
+        } else {
+          const data = await response.json();
+          setImportPreview(data);
+          const validIndexes = Array.isArray(data?.rows)
+            ? data.rows
+                .filter((row) => row?.is_valid)
+                .map((row) => Number(row.index))
+            : [];
+          setImportSelected(validIndexes);
+        }
+      } catch (error) {
+        setImportError("Không thể kết nối tới máy chủ. Vui lòng thử lại sau.");
+        setImportPreview(null);
+        setImportSelected([]);
+      } finally {
+        setImportLoading(false);
+        if (importInputRef.current) {
+          importInputRef.current.value = "";
+        }
+      }
+    },
+    [API_URL, resetImportState]
+  );
+
+  const handleToggleImportRow = useCallback((index) => {
+    setImportResult(null);
+    setImportError("");
+    setImportSelected((prev) => {
+      const exists = prev.includes(index);
+      if (exists) {
+        return prev.filter((value) => value !== index);
+      }
+      return [...prev, index];
+    });
+  }, []);
+
+  const handleToggleImportAll = useCallback(
+    (checked) => {
+      setImportResult(null);
+      setImportError("");
+      if (!Array.isArray(importPreview?.rows) || !importPreview.rows.length) {
+        setImportSelected([]);
+        return;
+      }
+
+      if (checked) {
+        const indexes = importPreview.rows
+          .filter((row) => row?.is_valid)
+          .map((row) => Number(row.index));
+        setImportSelected(indexes);
+      } else {
+        setImportSelected([]);
+      }
+    },
+    [importPreview]
+  );
+
+  const handleConfirmImport = useCallback(async () => {
+    if (!importFile) {
+      setImportError("Vui lòng chọn file Excel trước.");
+      return;
+    }
+
+    if (!importSelected.length) {
+      setImportError("Vui lòng chọn ít nhất một dòng hợp lệ.");
+      return;
+    }
+
+    setImportSubmitting(true);
+    setImportError("");
+    setImportResult(null);
+
+    const formData = new FormData();
+    formData.append("file", importFile);
+    importSelected.forEach((index) => {
+      formData.append("selected[]", String(index));
+    });
+
+    try {
+      const response = await fetch(`${API_URL}/api/brands/import`, {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const message =
+          data?.message || "Không thể nhập thương hiệu. Vui lòng thử lại.";
+        setImportError(message);
+        setImportResult(null);
+      } else {
+        setImportResult(data);
+        await loadBrands();
+      }
+    } catch (error) {
+      setImportError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+      setImportResult(null);
+    } finally {
+      setImportSubmitting(false);
+    }
+  }, [API_URL, importFile, importSelected, loadBrands]);
 
   const filteredRows = useMemo(() => {
     const keyword = query.trim().toLowerCase();
@@ -398,6 +569,13 @@ export default function AdminBrandsPage() {
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="flex min-h-screen">
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          className="hidden"
+          onChange={handleSelectImportFile}
+        />
         <AdminSidebar />
         <main className="flex-1 px-4 py-6 sm:px-8">
           <header className="mb-6 space-y-4">
@@ -411,7 +589,7 @@ export default function AdminBrandsPage() {
                   tin thương hiệu.
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-end gap-2">
                 <div className="relative" ref={exportRef}>
                   <button
                     onClick={() => setExportOpen((value) => !value)}
@@ -438,6 +616,15 @@ export default function AdminBrandsPage() {
                   )}
                 </div>
 
+                <button
+                  type="button"
+                  onClick={handleTriggerImport}
+                  disabled={importLoading || importSubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <Upload size={16} />
+                  Nhập Excel
+                </button>
                 <button
                   onClick={handleOpenCreate}
                   className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
@@ -676,6 +863,22 @@ export default function AdminBrandsPage() {
         </main>
       </div>
 
+      <ImportBrandsModal
+        open={importOpen}
+        loading={importLoading}
+        preview={importPreview}
+        selected={importSelected}
+        onToggleRow={handleToggleImportRow}
+        onToggleAll={handleToggleImportAll}
+        onClose={handleCloseImport}
+        onSubmit={handleConfirmImport}
+        fileName={importFile?.name || ""}
+        error={importError}
+        submitting={importSubmitting}
+        result={importResult}
+        onPickFile={handleTriggerImport}
+      />
+
       <BrandFormModal
         open={formOpen}
         mode={formMode}
@@ -690,6 +893,298 @@ export default function AdminBrandsPage() {
       />
 
       <BrandViewModal brand={viewTarget} onClose={handleCloseView} />
+    </div>
+  );
+}
+
+function ImportBrandsModal({
+  open,
+  loading,
+  preview,
+  selected,
+  onToggleRow,
+  onToggleAll,
+  onClose,
+  onSubmit,
+  fileName,
+  error,
+  submitting,
+  result,
+  onPickFile,
+}) {
+  if (!open) return null;
+
+  const rows = Array.isArray(preview?.rows) ? preview.rows : [];
+  const summary = preview?.summary ?? {};
+  const selectableRows = rows.filter((row) => row?.is_valid);
+  const allSelected =
+    selectableRows.length > 0 &&
+    selectableRows.every((row) => selected.includes(Number(row.index)));
+  const selectedCount = selected.length;
+  const hasPreview = rows.length > 0;
+  const submitLabel = submitting
+    ? "Đang nhập..."
+    : result
+    ? "Nhập lại"
+    : "Nhập thương hiệu";
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
+      <div className="flex w-full max-w-4xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between border-b px-6 py-5">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Nhập thương hiệu từ Excel
+            </h2>
+            <p className="text-sm text-slate-500">
+              Xem trước dữ liệu và chọn những dòng cần thêm vào hệ thống.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-slate-700">
+                File đang xử lý
+              </p>
+              <p className="text-xs text-slate-500">
+                {fileName || "Chưa chọn file"}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={onPickFile}
+                className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
+              >
+                Chọn file khác
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+              {error}
+            </div>
+          )}
+
+          {result && (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+                  Đã thêm {result.summary?.inserted ?? 0} thương hiệu mới.
+                </div>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  Số dòng thất bại: {result.summary?.failed ?? 0}.
+                </div>
+              </div>
+              {Array.isArray(result.errors) && result.errors.length > 0 && (
+                <div className="max-h-40 overflow-auto rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+                  <p className="font-medium">Chi tiết lỗi:</p>
+                  <ul className="mt-1 space-y-1 list-disc pl-4">
+                    {result.errors.map((row) => (
+                      <li key={row.index ?? row.message}>
+                        <span className="font-medium">
+                          Dòng {row.index ?? "?"}:
+                        </span>{" "}
+                        {row.message}
+                        {Array.isArray(row.errors) && row.errors.length > 0 && (
+                          <ul className="mt-1 space-y-1 list-disc pl-4 text-amber-600">
+                            {row.errors.map((msg, idx) => (
+                              <li key={idx}>{msg}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="mr-3 h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500" />
+              <p className="text-sm text-slate-500">Đang đọc file...</p>
+            </div>
+          ) : hasPreview ? (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
+                  Tổng dòng: {summary.total ?? rows.length}
+                </span>
+                <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
+                  Hợp lệ: {summary.valid ?? 0}
+                </span>
+                <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">
+                  Lỗi: {summary.invalid ?? 0}
+                </span>
+                <span className="rounded-full bg-sky-100 px-3 py-1 font-medium text-sky-700">
+                  Trùng DB: {summary.duplicates_in_db ?? 0}
+                </span>
+                <span className="rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700">
+                  Trùng file: {summary.duplicates_in_file ?? 0}
+                </span>
+                <span className="ml-auto text-slate-600">
+                  Đã chọn {selectedCount} dòng hợp lệ
+                </span>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border">
+                <table className="min-w-full text-sm text-left">
+                  <thead className="bg-slate-100 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-3 py-2">
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          onChange={(event) =>
+                            onToggleAll(event.target.checked)
+                          }
+                          disabled={submitting || selectableRows.length === 0}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </th>
+                      <th className="px-3 py-2">Dòng</th>
+                      <th className="px-3 py-2">Tên thương hiệu</th>
+                      <th className="px-3 py-2">Mô tả</th>
+                      <th className="px-3 py-2">Trạng thái</th>
+                      <th className="px-3 py-2">Cảnh báo</th>
+                      <th className="px-3 py-2">Lỗi</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {rows.map((row) => {
+                      const index = Number(row.index);
+                      const isSelected = selected.includes(index);
+                      const isValid = !!row?.is_valid;
+                      const rowErrors = Array.isArray(row?.errors)
+                        ? row.errors
+                        : [];
+                      const hasDuplicatesInFile = row?.duplicate_in_file;
+                      const existing =
+                        Array.isArray(row?.existing) && row.existing.length
+                          ? row.existing
+                          : [];
+
+                      return (
+                        <tr
+                          key={index}
+                          className={isValid ? "bg-white" : "bg-rose-50/60"}
+                        >
+                          <td className="px-3 py-2 align-top">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => onToggleRow(index)}
+                              disabled={!isValid || submitting}
+                              className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                            />
+                          </td>
+                          <td className="px-3 py-2 align-top text-xs text-slate-500">
+                            #{index}
+                          </td>
+                          <td className="px-3 py-2 align-top">
+                            <p className="text-sm font-medium text-slate-700">
+                              {row?.data?.name || "Chưa có tên"}
+                            </p>
+                          </td>
+                          <td className="px-3 py-2 align-top text-sm text-slate-600">
+                            {row?.data?.description || "—"}
+                          </td>
+                          <td className="px-3 py-2 align-top text-xs">
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium ${
+                                (row?.data?.status ?? "inactive") === "active"
+                                  ? "bg-emerald-50 text-emerald-600"
+                                  : "bg-amber-50 text-amber-600"
+                              }`}
+                            >
+                              {row?.data?.status ?? "inactive"}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 align-top space-y-1 text-xs text-slate-600">
+                            {hasDuplicatesInFile && (
+                              <span className="inline-block rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-600">
+                                Trùng tên trong file
+                              </span>
+                            )}
+                            {existing.length > 0 && (
+                              <span className="block rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
+                                Trùng DB:{" "}
+                                {existing
+                                  .map((item) => item?.name)
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 align-top text-xs text-rose-600">
+                            {rowErrors.length > 0 ? (
+                              <ul className="space-y-1 list-disc pl-4">
+                                {rowErrors.map((message, idx) => (
+                                  <li key={idx}>{message}</li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <span className="text-slate-400">---</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
+              Không tìm thấy dữ liệu hợp lệ trong file này.
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
+          <div className="text-xs text-slate-500">
+            Chỉ những dòng hợp lệ mới được chọn để nhập.
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+              disabled={submitting}
+            >
+              Hủy
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={loading || submitting || selectedCount === 0}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {submitting && <Loader2 size={16} className="animate-spin" />}
+              {submitLabel}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
