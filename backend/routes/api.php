@@ -66,6 +66,7 @@ Route::controller(CategoryController::class)->group(function () {
 Route::controller(BrandController::class)->group(function () {
     Route::get('/brands', 'index');
     Route::get('/brands/trashed', 'trashed');
+    Route::get('/brands/export', 'export');
     Route::post('/brands', 'store');
     Route::put('/brands/{id}', 'update');
     Route::patch('/brands/{id}/toggle', 'toggleStatus');
