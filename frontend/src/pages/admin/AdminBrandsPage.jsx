@@ -78,16 +78,16 @@ export default function AdminBrandsPage() {
     const keyword = query.trim().toLowerCase();
     const byKeyword = keyword
       ? rows.filter((brand) => {
-        const haystack = [
-          brand.name || "",
-          brand.slug || "",
-          brand.description || "",
-          brand.deleted_at || "",
-        ]
-          .join(" ")
-          .toLowerCase();
-        return haystack.includes(keyword);
-      })
+          const haystack = [
+            brand.name || "",
+            brand.slug || "",
+            brand.description || "",
+            brand.deleted_at || "",
+          ]
+            .join(" ")
+            .toLowerCase();
+          return haystack.includes(keyword);
+        })
       : rows;
 
     if (statusFilter === "all") {
@@ -339,12 +339,15 @@ export default function AdminBrandsPage() {
   const handleRestore = async (brand) => {
     setRestoringId(brand.id);
     try {
-      const response = await fetch(`${API_URL}/api/brands/${brand.id}/restore`, {
-        method: "PATCH",
-        headers: {
-          Accept: "application/json",
-        },
-      });
+      const response = await fetch(
+        `${API_URL}/api/brands/${brand.id}/restore`,
+        {
+          method: "PATCH",
+          headers: {
+            Accept: "application/json",
+          },
+        }
+      );
 
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -353,7 +356,9 @@ export default function AdminBrandsPage() {
 
       setRows((prev) => prev.filter((row) => row.id !== brand.id));
     } catch (error) {
-      alert(error.message || "Khong the khoi phuc thuong hieu. Vui long thu lai.");
+      alert(
+        error.message || "Khong the khoi phuc thuong hieu. Vui long thu lai."
+      );
     } finally {
       setRestoringId(null);
     }
@@ -371,7 +376,8 @@ export default function AdminBrandsPage() {
                   Quan ly Thuong hieu
                 </h1>
                 <p className="text-sm text-slate-500">
-                  Du lieu dong bo tu Laravel API. Quan ly trang thai va thong tin thuong hieu.
+                  Du lieu dong bo tu Laravel API. Quan ly trang thai va thong
+                  tin thuong hieu.
                 </p>
               </div>
               <div className="flex items-center gap-2">
@@ -411,7 +417,7 @@ export default function AdminBrandsPage() {
                         : "bg-indigo-600 text-white shadow"
                     }`}
                   >
-                    Dang hoat dong
+                    hoat dong
                   </button>
                   <button
                     type="button"
@@ -547,7 +553,10 @@ export default function AdminBrandsPage() {
                                   disabled={restoringId === brand.id}
                                 >
                                   {restoringId === brand.id ? (
-                                    <Loader2 size={16} className="animate-spin" />
+                                    <Loader2
+                                      size={16}
+                                      className="animate-spin"
+                                    />
                                   ) : (
                                     <RotateCcw size={16} />
                                   )}
@@ -562,13 +571,18 @@ export default function AdminBrandsPage() {
                                       : "Kich hoat thuong hieu"
                                   }
                                   intent={
-                                    brand.status === "active" ? "danger" : "primary"
+                                    brand.status === "active"
+                                      ? "danger"
+                                      : "primary"
                                   }
                                   disabled={togglingId === brand.id}
                                   onClick={() => handleToggleStatus(brand)}
                                 >
                                   {togglingId === brand.id ? (
-                                    <Loader2 size={16} className="animate-spin" />
+                                    <Loader2
+                                      size={16}
+                                      className="animate-spin"
+                                    />
                                   ) : (
                                     <Power size={16} />
                                   )}
@@ -594,7 +608,10 @@ export default function AdminBrandsPage() {
                                   disabled={deletingId === brand.id}
                                 >
                                   {deletingId === brand.id ? (
-                                    <Loader2 size={16} className="animate-spin" />
+                                    <Loader2
+                                      size={16}
+                                      className="animate-spin"
+                                    />
                                   ) : (
                                     <Trash2 size={16} />
                                   )}
@@ -853,7 +870,7 @@ function BrandFormModal({
               onChange={(e) => onChange("status", e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             >
-              <option value="active">Dang hoat dong</option>
+              <option value="active">hoat dong</option>
               <option value="inactive">Tam dung</option>
             </select>
           </div>
