@@ -9,6 +9,8 @@ import {
   Users,
   UserCheck,
   LogOut,
+  History,
+  BarChart,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -75,7 +77,8 @@ export default function AdminSidebar() {
 
         <SectionLabel>NGƯỜI DÙNG</SectionLabel>
         <SideItem icon={<Users size={18} />} label="Danh sách Người dùng" to="/admin/users" />
-        <SideItem icon={<UserCheck size={18} />} label="Lịch sử hoạt động" to="/admin/activity" />
+        <SideItem icon={<History size={18} />} label="Lịch sử hoạt động" to="/admin/activity-history" />
+        <SideItem icon={<BarChart size={18} />} label="Thống kê người dùng" to="/admin/user-statistics" />
 
         <SectionLabel>BÀI VIẾT</SectionLabel>
         <SideItem

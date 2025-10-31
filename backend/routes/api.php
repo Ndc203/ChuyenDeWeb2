@@ -9,6 +9,7 @@ use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PostExportController;
+use App\Http\Controllers\ActivityLogController;
 
 /*
 |--------------------------------------------------------------------------
@@ -36,6 +37,8 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     Route::apiResource('users', UserController::class)->only(['index']);
+    Route::get('/users/statistics', [UserController::class, 'userStatistics']);
+    Route::get('/activity-history', [ActivityLogController::class, 'index']);
 });
 
 
