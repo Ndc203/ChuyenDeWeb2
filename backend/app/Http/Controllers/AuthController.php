@@ -18,10 +18,10 @@ class AuthController extends Controller
         ]);
 
         $user = User::create([
-            'username' => $validated['username'],     // ĐÚNG CỘT
+            'username' => $validated['username'],
             'email' => $validated['email'],
             'password' => Hash::make($validated['password']),
-            'status' => 'active',
+            'status' => 'active', // Set status to "active" on registration
             'role' => 'customer',
         ]);
 
@@ -48,6 +48,11 @@ class AuthController extends Controller
                 'message' => 'Sai email hoặc mật khẩu',
             ], 401);
         }
+
+        // Update status and last login time on successful login
+        $user->status = 'active';
+        // $user->last_login = now(); // Uncomment this if you have a last_login column
+        $user->save();
 
         // Tạo token bằng Sanctum
         $token = $user->createToken('apitoken')->plainTextToken;
