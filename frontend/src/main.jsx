@@ -20,7 +20,7 @@ const router = createBrowserRouter([
   { path: "/admin/users", element: <AdminUsersPage /> },
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
-  { path: "*", element: <Login /> }, // 404 → về login
+  //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
 ReactDOM.createRoot(document.getElementById("root")).render(
