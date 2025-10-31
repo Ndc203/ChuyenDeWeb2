@@ -45,6 +45,7 @@ Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::apiResource('posts', PostController::class);
 
 // ✅ Post Category routes
+Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
 Route::apiResource('postcategories', PostCategoryController::class);
 
 // ✅ Category routes

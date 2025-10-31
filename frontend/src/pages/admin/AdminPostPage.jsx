@@ -261,9 +261,6 @@ export default function AdminPostPage() {
               <h1 className="text-lg md:text-xl font-semibold">
                 Quản lý Bài viết
               </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                Dữ liệu lấy từ Laravel API thật
-              </p>
             </div>
             <div className="flex items-center gap-2">
               <div className="relative" ref={exportRef}>
