@@ -1,15 +1,13 @@
-
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import AdminSidebar from "../layout/AdminSidebar";
 import { Plus, BarChart2, Search, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
-// --- DUMMY DATA ENHANCEMENT ---
 const enhanceUserData = (user) => ({
   ...user,
   avatar: `https://i.pravatar.cc/40?u=${user.email}`,
-  last_login: new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString(),
+  last_login: user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString(),
 });
 
 const formatDate = (dateString) => {
@@ -19,6 +17,7 @@ const formatDate = (dateString) => {
 };
 
 const RoleBadge = ({ role }) => {
+  if (!role) return null;
   const roleStyles = {
     admin: "bg-purple-100 text-purple-700",
     customer: "bg-blue-100 text-blue-700",
@@ -30,6 +29,7 @@ const RoleBadge = ({ role }) => {
 };
 
 const StatusBadge = ({ status }) => {
+  if (!status) return null;
   const isHoatDong = status === "Hoạt động";
   const isBiCam = status === "Bị cấm";
   let style = "bg-gray-100 text-gray-700";
@@ -44,14 +44,55 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-// Edit User Modal Component
+const AddUserModal = ({ onClose, onSave }) => {
+    const [newUser, setNewUser] = useState({ username: '', email: '', password: '', role: 'customer', status: 'Hoạt động' });
+    const [error, setError] = useState('');
+
+    const handleChange = (e) => {
+        setNewUser({ ...newUser, [e.target.name]: e.target.value });
+    };
+
+    const handleSave = () => {
+        if (!newUser.username || !newUser.email || !newUser.password) {
+            setError('Tên, email, và mật khẩu là bắt buộc.');
+            return;
+        }
+        setError('');
+        onSave(newUser);
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold">Thêm người dùng mới</h3>
+                    <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X size={24} /></button>
+                </div>
+                {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                <div className="space-y-4">
+                    <input name="username" value={newUser.username} onChange={handleChange} placeholder="Tên người dùng" className="w-full border-slate-300 rounded-md" />
+                    <input name="email" type="email" value={newUser.email} onChange={handleChange} placeholder="Email" className="w-full border-slate-300 rounded-md" />
+                    <input name="password" type="password" value={newUser.password} onChange={handleChange} placeholder="Mật khẩu" className="w-full border-slate-300 rounded-md" />
+                    <select name="role" value={newUser.role} onChange={handleChange} className="w-full border-slate-300 rounded-md">
+                        <option value="customer">Người dùng</option>
+                        <option value="editor">Điều hành viên</option>
+                        <option value="admin">Quản trị viên</option>
+                    </select>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                    <button onClick={onClose} className="px-4 py-2 text-sm bg-white border border-slate-300 rounded-md hover:bg-slate-50">Hủy</button>
+                    <button onClick={handleSave} className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">Tạo người dùng</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const EditUserModal = ({ user, onClose, onSave }) => {
     const [role, setRole] = useState(user.role);
     const [status, setStatus] = useState(user.status);
 
-    const handleSave = () => {
-        onSave(user.user_id, { role, status });
-    };
+    const handleSave = () => onSave(user.user_id, { role, status });
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
@@ -61,30 +102,14 @@ const EditUserModal = ({ user, onClose, onSave }) => {
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X size={24} /></button>
                 </div>
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Tên người dùng</label>
-                        <input type="text" disabled value={user.username} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100" />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-slate-700">Email</label>
-                        <input type="text" disabled value={user.email} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100" />
-                    </div>
-                    <div>
-                        <label htmlFor="role" className="block text-sm font-medium text-slate-700">Vai trò</label>
-                        <select id="role" value={role} onChange={e => setRole(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md">
-                            <option value="customer">Người dùng</option>
-                            <option value="editor">Điều hành viên</option>
-                            <option value="admin">Quản trị viên</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="status" className="block text-sm font-medium text-slate-700">Trạng thái</label>
-                        <select id="status" value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md">
-                            <option value="Hoạt động">Hoạt động</option>
-                            <option value="Không hoạt động">Không hoạt động</option>
-                            <option value="Bị cấm">Bị cấm</option>
-                        </select>
-                    </div>
+                    <input type="text" disabled value={user.username} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100" />
+                    <input type="text" disabled value={user.email} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100" />
+                    <select value={role} onChange={e => setRole(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md">
+                        <option value="customer">Người dùng</option><option value="editor">Điều hành viên</option><option value="admin">Quản trị viên</option>
+                    </select>
+                    <select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md">
+                        <option value="Hoạt động">Hoạt động</option><option value="Không hoạt động">Không hoạt động</option><option value="Bị cấm">Bị cấm</option>
+                    </select>
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
                     <button onClick={onClose} className="px-4 py-2 text-sm bg-white border border-slate-300 rounded-md hover:bg-slate-50">Hủy</button>
@@ -99,8 +124,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const navigate = useNavigate();
-
+  
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -108,28 +132,20 @@ export default function AdminUsersPage() {
   const [usersPerPage] = useState(8);
   const [selectedUsers, setSelectedUsers] = useState([]);
 
-  // State for modal
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   const fetchUsers = async () => {
     const token = localStorage.getItem("authToken");
-    if (!token) {
-      setError("Authentication token not found.");
-      setLoading(false);
-      return;
-    }
+    if (!token) { setError("Authentication token not found."); setLoading(false); return; }
     try {
       setLoading(true);
       const response = await axios.get(`${API_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
-      const mockUsers = response.data.map((user, index) => ({
-          ...user,
-          role: user.role || (index % 3 === 0 ? 'admin' : (index % 3 === 1 ? 'editor' : 'customer')),
-          status: user.status || (index % 4 === 0 ? 'Bị cấm' : (index % 4 === 1 ? 'Không hoạt động' : 'Hoạt động')),
-      }));
-      setUsers(mockUsers.map(enhanceUserData));
+      // Removed mock status and role data. Now it relies on API data.
+      setUsers(response.data.map(enhanceUserData));
     } catch (err) {
       setError(err.response?.data?.message || "Failed to fetch users.");
     } finally {
@@ -137,9 +153,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  useEffect(() => {
-    fetchUsers();
-  }, [API_URL]);
+  useEffect(() => { fetchUsers(); }, [API_URL]);
 
   const handleDelete = async (userId) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) {
@@ -148,32 +162,33 @@ export default function AdminUsersPage() {
         await axios.delete(`${API_URL}/api/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
         setUsers(users.filter(user => user.user_id !== userId));
         alert("Người dùng đã được xóa thành công!");
-      } catch (err) {
-        alert("Lỗi khi xóa người dùng: " + (err.response?.data?.message || err.message));
-      }
+      } catch (err) { alert("Lỗi khi xóa người dùng: " + (err.response?.data?.message || err.message)); }
     }
   };
 
-  const handleOpenModal = (user) => {
-    setEditingUser(user);
-    setIsModalOpen(true);
-  };
-
-  const handleCloseModal = () => {
-    setEditingUser(null);
-    setIsModalOpen(false);
-  };
+  const handleOpenEditModal = (user) => { setEditingUser(user); setIsEditModalOpen(true); };
+  const handleCloseEditModal = () => { setEditingUser(null); setIsEditModalOpen(false); };
 
   const handleSaveUser = async (userId, updatedData) => {
     const token = localStorage.getItem("authToken");
     try {
-        // Note: Your API might expect a different payload structure
         await axios.put(`${API_URL}/api/users/${userId}`, updatedData, { headers: { Authorization: `Bearer ${token}` } });
         setUsers(users.map(user => user.user_id === userId ? { ...user, ...updatedData } : user));
         alert("Cập nhật người dùng thành công!");
-        handleCloseModal();
+        handleCloseEditModal();
+    } catch (err) { alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message)); }
+  };
+
+  const handleAddUser = async (newUserData) => {
+    const token = localStorage.getItem("authToken");
+    try {
+        await axios.post(`${API_URL}/api/users`, newUserData, { headers: { Authorization: `Bearer ${token}` } });
+        // Instead of optimistically updating, re-fetch the entire list for consistency.
+        await fetchUsers(); 
+        alert("Thêm người dùng thành công!");
+        setIsAddModalOpen(false);
     } catch (err) {
-        alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message));
+        alert("Lỗi khi thêm người dùng: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -210,7 +225,7 @@ export default function AdminUsersPage() {
             </div>
             <div className="flex items-center gap-2">
               <Link to="/admin/user-statistics" className="flex items-center gap-2 text-sm bg-white border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50"><BarChart2 size={16} /> Thống kê</Link>
-              <button className="flex items-center gap-2 text-sm bg-indigo-600 text-white rounded-md px-3 py-2 hover:bg-indigo-700"><Plus size={16} /> Thêm người dùng</button>
+              <button onClick={() => setIsAddModalOpen(true)} className="flex items-center gap-2 text-sm bg-indigo-600 text-white rounded-md px-3 py-2 hover:bg-indigo-700"><Plus size={16} /> Thêm người dùng</button>
             </div>
           </div>
 
@@ -264,7 +279,7 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2 text-slate-500">
                             <Link to={`/admin/user/${user.user_id}`} className="hover:text-indigo-600"><Eye size={16} /></Link>
-                            <button onClick={() => handleOpenModal(user)} className="hover:text-indigo-600"><Pencil size={16} /></button>
+                            <button onClick={() => handleOpenEditModal(user)} className="hover:text-indigo-600"><Pencil size={16} /></button>
                             <button onClick={() => handleDelete(user.user_id)} className="hover:text-red-600"><Trash2 size={16} /></button>
                         </div>
                       </td>
@@ -283,7 +298,8 @@ export default function AdminUsersPage() {
             </div>
           </div>
         </div>
-        {isModalOpen && <EditUserModal user={editingUser} onClose={handleCloseModal} onSave={handleSaveUser} />}
+        {isEditModalOpen && <EditUserModal user={editingUser} onClose={handleCloseEditModal} onSave={handleSaveUser} />}
+        {isAddModalOpen && <AddUserModal onClose={() => setIsAddModalOpen(false)} onSave={handleAddUser} />}
       </main>
     </div>
   );
