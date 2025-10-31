@@ -10,6 +10,7 @@ import AdminPostPage from "./pages/admin/AdminPostPage.jsx";
 import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
 import AdminBrandsPage from "./pages/admin/AdminBrandsPage.jsx";
 import AdminProductsPage from "./pages/admin/AdminProductsPage.jsx";
+import AdminProductAddPage from "./pages/admin/AdminProductAddPage.jsx";
 import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
 
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
   { path: "/admin/products", element: <AdminProductsPage /> },
+  { path: "/admin/products/add", element: <AdminProductAddPage /> },
   { path: "/admin/posts", element: <AdminPostPage /> },
   { path: "/admin/brands", element: <AdminBrandsPage /> },
   { path: "/admin/users", element: <AdminUsersPage /> },

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Plus,
   Download,
@@ -24,6 +25,7 @@ const emptyProductForm = () => ({
 });
 
 export default function AdminProductsPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [rows, setRows] = useState([]);
@@ -101,7 +103,10 @@ export default function AdminProductsPage() {
               <button className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50">
                 <Download size={16} /> Xuất file
               </button>
-              <button className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700">
+              <button
+                onClick={() => navigate("/admin/products/add")}
+                className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700"
+              >
                 <Plus size={16} /> Thêm sản phẩm
               </button>
             </div>
@@ -181,8 +186,20 @@ export default function AdminProductsPage() {
                       {/* Sản phẩm */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs">
-                            IMG
+                          <div className="h-12 w-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs overflow-hidden">
+                            {product.image ? (
+                              <img
+                                src={product.image}
+                                alt={product.name}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  e.target.style.display = "none";
+                                  e.target.parentElement.innerHTML = "IMG";
+                                }}
+                              />
+                            ) : (
+                              "IMG"
+                            )}
                           </div>
                           <div>
                             <div className="font-medium text-slate-800">
