@@ -19,6 +19,8 @@ import AdminPermissionsPage from "./pages/admin/AdminPermissionsPage.jsx";
 import AdminProfilePage from "./pages/admin/AdminProfilePage.jsx";
 import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
+import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
+import ResetPassword from "./pages/auth/ResetPassword.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
@@ -36,6 +38,8 @@ const router = createBrowserRouter([
   { path: "/admin/profile", element: <AdminProfilePage /> },
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
+  { path: "/forgot-password", element: <ForgotPassword /> },
+  { path: "/reset-password", element: <ResetPassword /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
