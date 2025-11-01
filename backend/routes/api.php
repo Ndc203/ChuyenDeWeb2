@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
@@ -66,7 +67,7 @@ Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories/slugify', 'slugify');
 });
 
-// �o. Brand routes
+// ✅ Brand routes
 Route::controller(BrandController::class)->group(function () {
     Route::get('/brands', 'index');
     Route::get('/brands/trashed', 'trashed');
@@ -79,4 +80,17 @@ Route::controller(BrandController::class)->group(function () {
     Route::patch('/brands/{id}/restore', 'restore');
     Route::delete('/brands/{id}', 'destroy');
     Route::get('/brands/slugify', 'slugify');
+});
+
+// ✅ Product routes
+Route::controller(ProductController::class)->group(function () {
+    Route::get('/products', 'index');
+    Route::get('/products/trashed', 'trashed');
+    Route::get('/products/slugify', 'slugify');
+    Route::post('/products', 'store');
+    Route::get('/products/{id}', 'show');
+    Route::put('/products/{id}', 'update');
+    Route::patch('/products/{id}/toggle', 'toggleStatus');
+    Route::patch('/products/{id}/restore', 'restore');
+    Route::delete('/products/{id}', 'destroy');
 });

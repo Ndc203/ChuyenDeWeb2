@@ -1,0 +1,8 @@
+{
+    "augment.completions.disableCompletionsByLanguage": [
+        "git-commit",
+        "scminput",
+        ""
+    ],
+    "CodeGPT.apiKey": "Claude Code"
+}
