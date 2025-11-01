@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
@@ -30,6 +31,8 @@ Route::get('/test', function () {
 Route::controller(AuthController::class)->group(function () {
     Route::post('/register', 'register');
     Route::post('/login', 'login');
+    Route::post('/forgot-password', 'forgotPassword');
+    Route::post('/reset-password', 'resetPassword');
 });
 
 // ✅ Protected routes
@@ -71,7 +74,7 @@ Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories/slugify', 'slugify');
 });
 
-// �o. Brand routes
+// ✅ Brand routes
 Route::controller(BrandController::class)->group(function () {
     Route::get('/brands', 'index');
     Route::get('/brands/trashed', 'trashed');
