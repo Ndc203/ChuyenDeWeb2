@@ -290,7 +290,7 @@ export default function AdminProductsPage() {
                           </button>
                           <button
                             title="Sửa"
-                            onClick={() => navigate(`/admin/products/edit/${product.product_id}`)}
+                            onClick={() => navigate(`/admin/products/edit/${product.id}`)}
                             className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-100"
                           >
                             <Edit size={16} />
