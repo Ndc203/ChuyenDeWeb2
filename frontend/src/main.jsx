@@ -8,6 +8,9 @@ import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage.jsx";
 import AdminPostPage from "./pages/admin/AdminPostPage.jsx";
 import AdminPostCategoriesPage from "./pages/admin/AdminPostCategoriesPage.jsx";
+import AdminCommentsPage from "./pages/admin/AdminCommentsPage.jsx"; 
+import AdminPostStatsPage from "./pages/admin/AdminPostStatsPage.jsx";
+import AdminDashboardPage from "./pages/admin/AdminDashboardPage.jsx";
 import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
 import AdminBrandsPage from "./pages/admin/AdminBrandsPage.jsx";
 import AdminActivityHistoryPage from "./pages/admin/AdminActivityHistoryPage.jsx";
@@ -22,6 +25,9 @@ const router = createBrowserRouter([
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
   { path: "/admin/postcategories", element: <AdminPostCategoriesPage /> },
   { path: "/admin/posts", element: <AdminPostPage /> },
+  { path: "/admin/comments", element: <AdminCommentsPage /> },
+  { path: "/admin/post-statistics", element: <AdminPostStatsPage /> },
+  { path: "/admin/dashboard", element: <AdminDashboardPage /> }, 
   { path: "/admin/brands", element: <AdminBrandsPage /> },
   { path: "/admin/users", element: <AdminUsersPage /> },
   { path: "/admin/activity-history", element: <AdminActivityHistoryPage /> },
