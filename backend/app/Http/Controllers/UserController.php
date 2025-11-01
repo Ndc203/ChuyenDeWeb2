@@ -47,4 +47,21 @@ class UserController extends Controller
     {
         //
     }
+
+    public function userStatistics()
+    {
+        $totalUsers = User::count();
+        $activeUsers = User::where('status', 'active')->count();
+        $inactiveUsers = User::where('status', 'inactive')->count();
+        $adminUsers = User::where('role', 'admin')->count();
+        $customerUsers = User::where('role', 'customer')->count();
+
+        return response()->json([
+            'totalUsers' => $totalUsers,
+            'activeUsers' => $activeUsers,
+            'inactiveUsers' => $inactiveUsers,
+            'adminUsers' => $adminUsers,
+            'customerUsers' => $customerUsers,
+        ]);
+    }
 }
