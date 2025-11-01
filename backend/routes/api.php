@@ -89,9 +89,23 @@ Route::controller(BrandController::class)->group(function () {
     Route::get('/brands/slugify', 'slugify');
 });
 
+
 Route::get('/brands/count', fn() => ['count' => DB::table('brands')->count()]);
 Route::get('/categories/count', fn() => ['count' => DB::table('categories')->count()]);
 Route::get('/posts/count', fn() => ['count' => DB::table('posts')->count()]);
 Route::get('/comments/count', fn() => ['count' => DB::table('comments')->count()]);
 Route::get('/users/count', fn() => ['count' => DB::table('users')->count()]);
 Route::get('/orders/count', fn() => ['count' => DB::table('orders')->count()]);
+
+// ✅ Product routes
+Route::controller(ProductController::class)->group(function () {
+    Route::get('/products', 'index');
+    Route::get('/products/trashed', 'trashed');
+    Route::get('/products/slugify', 'slugify');
+    Route::post('/products', 'store');
+    Route::get('/products/{id}', 'show');
+    Route::put('/products/{id}', 'update');
+    Route::patch('/products/{id}/toggle', 'toggleStatus');
+    Route::patch('/products/{id}/restore', 'restore');
+    Route::delete('/products/{id}', 'destroy');
+});

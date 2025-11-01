@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AdminSidebar from "../layout/AdminSidebar";
 import { Plus, BarChart2, Search, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -125,8 +125,11 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
+  const [searchParams] = useSearchParams();
+  const initialRoleFilter = searchParams.get('role') || "all";
+
   const [searchTerm, setSearchTerm] = useState("");
-  const [roleFilter, setRoleFilter] = useState("all");
+  const [roleFilter, setRoleFilter] = useState(initialRoleFilter);
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [usersPerPage] = useState(8);
