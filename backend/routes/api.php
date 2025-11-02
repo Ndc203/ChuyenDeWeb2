@@ -11,6 +11,7 @@ use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PostExportController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\StockController;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,4 +96,11 @@ Route::controller(ProductController::class)->group(function () {
     Route::patch('/products/{id}/toggle', 'toggleStatus');
     Route::patch('/products/{id}/restore', 'restore');
     Route::delete('/products/{id}', 'destroy');
+});
+
+// ✅ Stock routes
+Route::controller(StockController::class)->group(function () {
+    Route::get('/stock', 'index');
+    Route::get('/stock/history', 'history');
+    Route::post('/stock/update', 'updateStock');
 });
