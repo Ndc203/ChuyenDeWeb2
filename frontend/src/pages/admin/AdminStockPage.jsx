@@ -49,9 +49,14 @@ export default function AdminStockPage() {
   };
 
   // Filter stocks
-  const filteredStocks = stocks.filter((stock) =>
-    stock.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredStocks = stocks.filter((stock) => {
+    const query = searchQuery.toLowerCase();
+    return (
+      stock.name.toLowerCase().includes(query) ||
+      (stock.brand && stock.brand.toLowerCase().includes(query)) ||
+      (stock.category && stock.category.toLowerCase().includes(query))
+    );
+  });
 
   // Filter history
   const filteredHistory = history.filter((item) =>
@@ -198,6 +203,12 @@ export default function AdminStockPage() {
                       Sản phẩm
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Thương hiệu
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                      Danh mục
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                       Tồn kho hiện tại
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
@@ -218,7 +229,7 @@ export default function AdminStockPage() {
                   {filteredStocks.length === 0 ? (
                     <tr>
                       <td
-                        colSpan="6"
+                        colSpan="8"
                         className="px-6 py-8 text-center text-slate-500"
                       >
                         Không tìm thấy sản phẩm nào
@@ -243,6 +254,12 @@ export default function AdminStockPage() {
                               {stock.name}
                             </span>
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-slate-700">
+                          {stock.brand}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-slate-700">
+                          {stock.category}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-slate-700">
                           {stock.current_stock}

@@ -13,43 +13,48 @@ class StockController extends Controller
      */
     public function index()
     {
-        $stocks = Product::select(
-            'id',
-            'name',
-            'image',
-            'stock',
-            'price',
-            'updated_at'
-        )
-        ->orderBy('updated_at', 'desc')
-        ->get()
-        ->map(function ($product) {
-            // Tính tồn kho tối thiểu (10% của giá hoặc tối thiểu 5)
-            $minStock = max(5, (int)($product->price / 1000000));
-            
-            // Xác định trạng thái
-            if ($product->stock == 0) {
-                $status = 'Hết hàng';
-                $statusColor = 'red';
-            } elseif ($product->stock <= $minStock) {
-                $status = 'Sắp hết';
-                $statusColor = 'yellow';
-            } else {
-                $status = 'Còn hàng';
-                $statusColor = 'green';
-            }
+        $stocks = Product::with(['category', 'brand'])
+            ->select(
+                'product_id',
+                'name',
+                'image',
+                'stock',
+                'price',
+                'updated_at',
+                'category_id',
+                'brand_id'
+            )
+            ->orderBy('updated_at', 'desc')
+            ->get()
+            ->map(function ($product) {
+                // Tính tồn kho tối thiểu (10% của giá hoặc tối thiểu 5)
+                $minStock = max(5, (int)($product->price / 1000000));
 
-            return [
-                'id' => $product->id,
-                'name' => $product->name,
-                'image' => $product->image,
-                'current_stock' => $product->stock,
-                'min_stock' => $minStock,
-                'status' => $status,
-                'status_color' => $statusColor,
-                'last_updated' => $product->updated_at->format('d/m/Y'),
-            ];
-        });
+                // Xác định trạng thái
+                if ($product->stock == 0) {
+                    $status = 'Hết hàng';
+                    $statusColor = 'red';
+                } elseif ($product->stock <= $minStock) {
+                    $status = 'Sắp hết';
+                    $statusColor = 'yellow';
+                } else {
+                    $status = 'Còn hàng';
+                    $statusColor = 'green';
+                }
+
+                return [
+                    'id' => $product->product_id, // Change to product_id
+                    'name' => $product->name,
+                    'image' => $product->image,
+                    'brand' => optional($product->brand)->name,
+                    'category' => optional($product->category)->name,
+                    'current_stock' => $product->stock,
+                    'min_stock' => $minStock,
+                    'status' => $status,
+                    'status_color' => $statusColor,
+                    'last_updated' => $product->updated_at->format('d/m/Y'),
+                ];
+            });
 
         return response()->json($stocks);
     }
@@ -102,7 +107,7 @@ class StockController extends Controller
     public function updateStock(Request $request)
     {
         $request->validate([
-            'product_id' => 'required|exists:products,id',
+            'product_id' => 'required|exists:products,product_id',
             'type' => 'required|in:import,export',
             'quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:500',
