@@ -18,6 +18,7 @@ import AdminProductAddPage from "./pages/admin/AdminProductAddPage.jsx";
 import AdminProductEditPage from "./pages/admin/AdminProductEditPage.jsx";
 import AdminActivityHistoryPage from "./pages/admin/AdminActivityHistoryPage.jsx";
 import AdminUserStatisticsPage from "./pages/admin/AdminUserStatisticsPage.jsx";
+import AdminStockPage from "./pages/admin/AdminStockPage.jsx";
 import AdminPermissionsPage from "./pages/admin/AdminPermissionsPage.jsx";
 import AdminProfilePage from "./pages/admin/AdminProfilePage.jsx";
 import Login from "./pages/auth/Login.jsx";
@@ -32,6 +33,7 @@ const router = createBrowserRouter([
   { path: "/admin/products", element: <AdminProductsPage /> },
   { path: "/admin/products/add", element: <AdminProductAddPage /> },
   { path: "/admin/products/edit/:id", element: <AdminProductEditPage /> },
+  { path: "/admin/stock", element: <AdminStockPage /> },
   { path: "/admin/posts", element: <AdminPostPage /> },
   { path: "/admin/comments", element: <AdminCommentsPage /> },
   { path: "/admin/post-statistics", element: <AdminPostStatsPage /> },
