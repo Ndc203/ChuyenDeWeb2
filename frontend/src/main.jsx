@@ -13,17 +13,28 @@ import AdminPostStatsPage from "./pages/admin/AdminPostStatsPage.jsx";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage.jsx";
 import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
 import AdminBrandsPage from "./pages/admin/AdminBrandsPage.jsx";
+import AdminProductsPage from "./pages/admin/AdminProductsPage.jsx";
+import AdminProductAddPage from "./pages/admin/AdminProductAddPage.jsx";
+import AdminProductEditPage from "./pages/admin/AdminProductEditPage.jsx";
 import AdminActivityHistoryPage from "./pages/admin/AdminActivityHistoryPage.jsx";
 import AdminUserStatisticsPage from "./pages/admin/AdminUserStatisticsPage.jsx";
+import AdminStockPage from "./pages/admin/AdminStockPage.jsx";
 import AdminPermissionsPage from "./pages/admin/AdminPermissionsPage.jsx";
 import AdminProfilePage from "./pages/admin/AdminProfilePage.jsx";
+import AdminCouponsPage from "./pages/admin/AdminCouponsPage.jsx";
 import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
+import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
+import ResetPassword from "./pages/auth/ResetPassword.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
   { path: "/admin/postcategories", element: <AdminPostCategoriesPage /> },
+  { path: "/admin/products", element: <AdminProductsPage /> },
+  { path: "/admin/products/add", element: <AdminProductAddPage /> },
+  { path: "/admin/products/edit/:id", element: <AdminProductEditPage /> },
+  { path: "/admin/stock", element: <AdminStockPage /> },
   { path: "/admin/posts", element: <AdminPostPage /> },
   { path: "/admin/comments", element: <AdminCommentsPage /> },
   { path: "/admin/post-statistics", element: <AdminPostStatsPage /> },
@@ -36,6 +47,9 @@ const router = createBrowserRouter([
   { path: "/admin/profile", element: <AdminProfilePage /> },
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
+  { path: "/forgot-password", element: <ForgotPassword /> },
+  { path: "/reset-password", element: <ResetPassword /> },
+  { path: "/admin/coupons", element: <AdminCouponsPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 

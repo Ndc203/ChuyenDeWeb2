@@ -139,7 +139,7 @@ export default function Login() {
               <input type="checkbox" checked={form.remember} onChange={(e) => setForm({ ...form, remember: e.target.checked })} style={{ marginRight: "6px" }} />
               <span style={{ color: "#475569" }}>Ghi nhớ đăng nhập</span>
             </label>
-            <a href="#" style={{ color: "#0ea5e9", textDecoration: "none", fontWeight: "500" }}>Quên mật khẩu?</a>
+            <Link to="/forgot-password" style={{ color: "#0ea5e9", textDecoration: "none", fontWeight: "500" }}>Quên mật khẩu?</Link>
           </div>
 
           <button
