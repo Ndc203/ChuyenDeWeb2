@@ -11,6 +11,7 @@ use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PostExportController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\ProfileController;
 
 /*
 |--------------------------------------------------------------------------
@@ -42,6 +43,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy', 'store']);
     Route::get('/users/statistics', [UserController::class, 'userStatistics']);
     Route::get('/activity-history', [ActivityLogController::class, 'index']);
+
+    // Profile routes for the authenticated user
+    Route::controller(ProfileController::class)->prefix('me')->group(function () {
+        Route::get('/', 'getProfile');
+        Route::put('/update', 'updateProfile');
+        Route::post('/change-password', 'changePassword');
+    });
 });
 
 
