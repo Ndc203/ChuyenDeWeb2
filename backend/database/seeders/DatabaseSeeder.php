@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
             PostCategorySeeder::class,
             PostSeeder::class,
             PostCommentSeeder::class,
+            ProductSeeder::class,
+            CouponSeeder::class,
         ]);
     }
 }

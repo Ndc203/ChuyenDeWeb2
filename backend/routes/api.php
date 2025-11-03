@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\PostController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
@@ -12,6 +13,10 @@ use App\Http\Controllers\PostExportController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\CommentController;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\StockController;
+use App\Http\Controllers\CouponController;
+
+
 
 /*
 |--------------------------------------------------------------------------
@@ -30,6 +35,8 @@ Route::get('/test', function () {
 Route::controller(AuthController::class)->group(function () {
     Route::post('/register', 'register');
     Route::post('/login', 'login');
+    Route::post('/forgot-password', 'forgotPassword');
+    Route::post('/reset-password', 'resetPassword');
 });
 
 // ✅ Protected routes
@@ -71,7 +78,7 @@ Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories/slugify', 'slugify');
 });
 
-// �o. Brand routes
+// ✅ Brand routes
 Route::controller(BrandController::class)->group(function () {
     Route::get('/brands', 'index');
     Route::get('/brands/trashed', 'trashed');
@@ -86,9 +93,35 @@ Route::controller(BrandController::class)->group(function () {
     Route::get('/brands/slugify', 'slugify');
 });
 
+
 Route::get('/brands/count', fn() => ['count' => DB::table('brands')->count()]);
 Route::get('/categories/count', fn() => ['count' => DB::table('categories')->count()]);
 Route::get('/posts/count', fn() => ['count' => DB::table('posts')->count()]);
 Route::get('/comments/count', fn() => ['count' => DB::table('comments')->count()]);
 Route::get('/users/count', fn() => ['count' => DB::table('users')->count()]);
 Route::get('/orders/count', fn() => ['count' => DB::table('orders')->count()]);
+
+// ✅ Product routes
+Route::controller(ProductController::class)->group(function () {
+    Route::get('/products', 'index');
+    Route::get('/products/trashed', 'trashed');
+    Route::get('/products/slugify', 'slugify');
+    Route::post('/products', 'store');
+    Route::get('/products/{id}', 'show');
+    Route::put('/products/{id}', 'update');
+    Route::patch('/products/{id}/toggle', 'toggleStatus');
+    Route::patch('/products/{id}/restore', 'restore');
+    Route::delete('/products/{id}', 'destroy');
+});
+
+// ✅ Stock routes
+Route::controller(StockController::class)->group(function () {
+    Route::get('/stock', 'index');
+    Route::get('/stock/history', 'history');
+    Route::post('/stock/update', 'updateStock');
+});
+// coupon routes
+Route::controller(CouponController::class)->group(function () {
+    Route::get('/coupons', 'index');
+});
+
