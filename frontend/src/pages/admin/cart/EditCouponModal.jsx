@@ -4,15 +4,30 @@ import { X } from 'lucide-react';
 // Lấy API_URL từ biến môi trường
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
-// Helper nhỏ để format ngày cho input datetime-local
 // Input datetime-local cần định dạng "YYYY-MM-DDTHH:MM"
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
   try {
     const date = new Date(dateString);
-    // Lấy chuỗi ISO (YYYY-MM-DDTHH:MM:SS.mmmZ)
-    // Cắt bớt phần giây và mili-giây (lấy 16 ký tự đầu)
+    /* Lấy chuỗi ISO (YYYY-MM-DDTHH:MM:SS.mmmZ)
+    Cắt bớt phần giây và mili-giây (lấy 16 ký tự đầu)
     return date.toISOString().slice(0, 16);
+  } catch (error) {
+    console.error("Lỗi định dạng ngày:", dateString, error);
+    return '';
+  }
+};*/
+    // Tự build chuỗi YYYY-MM-DDTHH:MM bằng cách lấy các giá trị local, không dùng .toISOString()
+    const pad = (num) => num.toString().padStart(2, '0');
+
+    const Y = date.getFullYear();
+    const M = pad(date.getMonth() + 1); // getMonth() bắt đầu từ 0
+    const D = pad(date.getDate());
+    const H = pad(date.getHours());     // getHours() trả về 0-23 (24h)
+    const Min = pad(date.getMinutes());
+
+    return `${Y}-${M}-${D}T${H}:${Min}`;
+
   } catch (error) {
     console.error("Lỗi định dạng ngày:", dateString, error);
     return '';
@@ -31,7 +46,7 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
   const [maxUsage, setMaxUsage] = useState(100);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState(null);
 
@@ -122,14 +137,14 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
   return (
     // Lớp "phủ" (overlay)
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-      
+
       {/* Khung nội dung Modal */}
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-5 border-b flex items-center justify-between">
           <h2 className="text-lg font-semibold text-slate-800">Chỉnh sửa mã giảm giá</h2>
-          <button 
-            onClick={handleClose} 
+          <button
+            onClick={handleClose}
             className="p-2 text-slate-400 hover:bg-slate-100 rounded-full"
           >
             <X size={20} />
@@ -167,7 +182,7 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
             <FormInput label="Ngày bắt đầu" type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} required />
             <FormInput label="Ngày kết thúc" type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} required />
           </div>
-          
+
           {/* Hiển thị Lỗi (nếu có) */}
           {errors && (
             <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
@@ -180,15 +195,15 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
 
         {/* Footer (Nút bấm) */}
         <div className="p-5 border-t flex justify-end gap-3">
-          <button 
-            type="button" 
+          <button
+            type="button"
             onClick={handleClose}
             className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200"
           >
             Hủy
           </button>
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             onClick={handleSubmit} // Submit form
             disabled={isLoading}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
@@ -207,12 +222,12 @@ function FormInput({ label, type = 'text', value, onChange, ...props }) {
   return (
     <label className="block w-full">
       <span className="text-sm font-medium text-slate-600">{label}</span>
-      <input 
-        type={type} 
+      <input
+        type={type}
         value={value || ''} // Đảm bảo value không phải là null (gây lỗi React)
         onChange={onChange}
         className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        {...props} 
+        {...props}
       />
     </label>
   );
@@ -222,8 +237,8 @@ function FormSelect({ label, value, onChange, children }) {
   return (
     <label className="block w-full">
       <span className="text-sm font-medium text-slate-600">{label}</span>
-      <select 
-        value={value} 
+      <select
+        value={value}
         onChange={onChange}
         className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
       >

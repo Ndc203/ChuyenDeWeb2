@@ -12,7 +12,17 @@ const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', { style: 'curre
 // Helper function to format date
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
-  return new Date(dateString).toLocaleDateString('vi-VN');
+  
+  const options = {
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric',
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: false // <-- Chìa khóa để bật 24h
+  };
+  
+  return new Date(dateString).toLocaleString('vi-VN', options);
 };
 
 // Stat Card Component
@@ -98,6 +108,19 @@ export default function AdminCouponsPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedCoupon, setSelectedCoupon] = useState(null); // <-- Để lưu coupon đang được sửa
 
+  // State mới để theo dõi thời gian
+  const [currentTime, setCurrentTime] = useState(() => new Date());
+
+  // useEffect để cập nhật 'currentTime' sau mỗi 30 giây
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 5000); // 30,000 ms = 30 giây
+
+    // Dọn dẹp khi component bị gỡ
+    return () => clearInterval(intervalId);
+  }, []); // [] nghĩa là chỉ chạy 1 lần khi tải trang
+
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({
@@ -133,7 +156,7 @@ export default function AdminCouponsPage() {
   }, []);
 
   const getCouponStatus = useCallback((coupon) => {
-    const now = new Date();
+    const now = currentTime;
     const startDate = new Date(coupon.start_date);
     const endDate = new Date(coupon.end_date);
 
@@ -142,12 +165,13 @@ export default function AdminCouponsPage() {
     if (coupon.usage_count >= coupon.max_usage) return 'Đã hết lượt';
     if (now < startDate) return 'Sắp diễn ra';
     return 'Hoạt động';
-  }, []);
+  }, [currentTime]);
 
   const processedCoupons = useMemo(() => {
     if (!paginationData?.data) return [];
     return paginationData.data.map(c => ({ ...c, derived_status: getCouponStatus(c) }));
   }, [paginationData, getCouponStatus]);
+
 
   //sửa coupon
   const handleOpenEditModal = (coupon) => {
