@@ -54,7 +54,7 @@ class BrandController extends Controller
         $brand = Brand::create($data)->refresh();
 
         return response()->json([
-            'message' => 'Brand created successfully.',
+            'message' => 'Tạo thương hiệu thành công.',
             'data' => [
                 'id' => $brand->brand_id,
                 'name' => $brand->name,
@@ -88,7 +88,7 @@ class BrandController extends Controller
         $brand->refresh();
 
         return response()->json([
-            'message' => 'Brand updated successfully.',
+            'message' => 'Cập nhật thương hiệu thành công.',
             'data' => [
                 'id' => $brand->brand_id,
                 'name' => $brand->name,
@@ -108,7 +108,7 @@ class BrandController extends Controller
         return response()->json([
             'ok' => true,
             'id' => $brand->brand_id,
-            'message' => 'Brand moved to recycle bin successfully.',
+            'message' => 'Đã chuyển thương hiệu vào thùng rác.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -122,7 +122,7 @@ class BrandController extends Controller
             'ok' => true,
             'id' => $brand->brand_id,
             'status' => $brand->status,
-            'message' => 'Brand status updated successfully.',
+            'message' => 'Cập nhật trạng thái thương hiệu thành công.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -154,7 +154,7 @@ class BrandController extends Controller
         return response()->json([
             'ok' => true,
             'id' => $brand->brand_id,
-            'message' => 'Brand restored successfully.',
+            'message' => 'Khôi phục thương hiệu thành công.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -238,11 +238,11 @@ class BrandController extends Controller
             ->get()
             ->map(fn (Brand $brand) => [
                 'ID' => $brand->brand_id,
-                'Name' => $brand->name,
+                'Tên thương hiệu' => $brand->name,
                 'Slug' => $brand->slug,
-                'Status' => $brand->status,
-                'Description' => $brand->description ?? '',
-                'Created At' => optional($brand->created_at)?->format('Y-m-d H:i'),
+                'Trạng thái' => $brand->status,
+                'Mô tả' => $brand->description ?? '',
+                'Ngày tạo' => optional($brand->created_at)?->format('Y-m-d H:i'),
             ])
             ->values()
             ->toArray();
@@ -263,11 +263,11 @@ class BrandController extends Controller
 
         $headers = [
             'A' => 'ID',
-            'B' => 'Name',
+            'B' => 'Tên thương hiệu',
             'C' => 'Slug',
-            'D' => 'Status',
-            'E' => 'Description',
-            'F' => 'Created At',
+            'D' => 'Trạng thái',
+            'E' => 'Mô tả',
+            'F' => 'Ngày tạo',
         ];
 
         foreach ($headers as $column => $title) {
@@ -277,11 +277,11 @@ class BrandController extends Controller
         $rowIndex = 2;
         foreach ($rows as $row) {
             $sheet->setCellValue("A{$rowIndex}", $row['ID']);
-            $sheet->setCellValue("B{$rowIndex}", $row['Name']);
+            $sheet->setCellValue("B{$rowIndex}", $row['Tên thương hiệu']);
             $sheet->setCellValue("C{$rowIndex}", $row['Slug']);
-            $sheet->setCellValue("D{$rowIndex}", $row['Status']);
-            $sheet->setCellValue("E{$rowIndex}", $row['Description']);
-            $sheet->setCellValue("F{$rowIndex}", $row['Created At']);
+            $sheet->setCellValue("D{$rowIndex}", $row['Trạng thái']);
+            $sheet->setCellValue("E{$rowIndex}", $row['Mô tả']);
+            $sheet->setCellValue("F{$rowIndex}", $row['Ngày tạo']);
             $rowIndex++;
         }
 
