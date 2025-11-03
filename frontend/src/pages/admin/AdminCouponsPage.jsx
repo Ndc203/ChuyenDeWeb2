@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, Fragment } from "reac
 import { Plus, Search, Edit, Trash2, Tag, Percent, Calendar, BarChart, CheckCircle, XCircle, Clock, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import AddCouponModal from "./cart/AddCouponModal.jsx";
+import EditCouponModal from "./cart/EditCouponModal.jsx";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
@@ -94,6 +95,8 @@ export default function AdminCouponsPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false); //add coupon modal
   // 'refreshTrigger' là một "mẹo" để làm mới bảng
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedCoupon, setSelectedCoupon] = useState(null); // <-- Để lưu coupon đang được sửa
 
   useEffect(() => {
     setLoading(true);
@@ -146,8 +149,13 @@ export default function AdminCouponsPage() {
     return paginationData.data.map(c => ({ ...c, derived_status: getCouponStatus(c) }));
   }, [paginationData, getCouponStatus]);
 
+  //sửa coupon
+  const handleOpenEditModal = (coupon) => {
+    setSelectedCoupon(coupon); // 1. Lưu coupon được chọn
+    setIsEditModalOpen(true);    // 2. Mở modal
+  };
 
-
+  //xóa coupon
   const handleDelete = async (id) => {
     if (!confirm("Bạn có chắc muốn xoá mã giảm giá này?")) return;
     // ... Delete logic (can be implemented later)
@@ -284,7 +292,7 @@ export default function AdminCouponsPage() {
                           {/* Thao tác */}
                           <td className="px-5 py-4 align-top text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
+                              <button onClick={() => handleOpenEditModal(coupon)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
                               <button onClick={() => handleDelete(coupon.coupon_id)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md"><Trash2 size={16} /></button>
                             </div>
                           </td>
@@ -308,6 +316,16 @@ export default function AdminCouponsPage() {
           setIsAddModalOpen(false);//đóng modal
           setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
         }}
+      />
+      {/* 6. MODAL SỬA */}
+      <EditCouponModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onSuccess={() => {
+          setIsEditModalOpen(false); // 1. Đóng modal
+          setRefreshTrigger(prev => prev + 1); // 2. Kích hoạt refresh dữ liệu bảng
+        }}
+        coupon={selectedCoupon} // <-- Prop quan trọng để truyền dữ liệu
       />
     </Fragment>
   );
