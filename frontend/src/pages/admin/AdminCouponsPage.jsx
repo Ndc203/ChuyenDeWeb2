@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { Plus, Search, Edit, Trash2, Tag, Percent, Calendar, BarChart, CheckCircle, XCircle, Clock, Zap, ChevronLeft, ChevronRight } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import AddCouponModal from "./cart/AddCouponModal.jsx";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
@@ -90,6 +91,9 @@ export default function AdminCouponsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false); //add coupon modal
+  // 'refreshTrigger' là một "mẹo" để làm mới bảng
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     setLoading(true);
@@ -100,7 +104,8 @@ export default function AdminCouponsPage() {
       type: typeFilter,
     });
 
-    fetch(`${API_URL}/api/coupons?${params.toString()}`)
+    fetch(`${API_URL}/api/coupons?${params.toString()}`,
+      { cache: 'no-store' }) // tránh cache để luôn lấy dữ liệu mới nhất(nhất là sau khi thêm mới)
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Lỗi HTTP! Trạng thái: ${res.status}`);
@@ -113,7 +118,7 @@ export default function AdminCouponsPage() {
         setPaginationData(null);
       })
       .finally(() => setLoading(false));
-  }, [currentPage, searchQuery, statusFilter, typeFilter]);
+  }, [currentPage, searchQuery, statusFilter, typeFilter, refreshTrigger]);
 
   useEffect(() => {
     setLoadingStats(true);
@@ -150,148 +155,161 @@ export default function AdminCouponsPage() {
   };
 
   return (
-    <div className="min-h-screen flex bg-slate-50 text-slate-800">
-      <AdminSidebar />
-      <main className="flex-1 w-full min-w-0">
-        <div className="w-full px-6 md:px-10 py-6">
-          {/* 1. Header */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý Mã giảm giá</h1>
-              <p className="text-sm text-slate-500 mt-1">Tạo và quản lý các mã giảm giá cho khách hàng.</p>
+    // Fragment cho phép return nhiều element
+    <Fragment>
+      <div className="min-h-screen flex bg-slate-50 text-slate-800">
+        <AdminSidebar />
+        <main className="flex-1 w-full min-w-0">
+          <div className="w-full px-6 md:px-10 py-6">
+            {/* 1. Header */}
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+              <div>
+                <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý Mã giảm giá</h1>
+                <p className="text-sm text-slate-500 mt-1">Tạo và quản lý các mã giảm giá cho khách hàng.</p>
+              </div>
+              <button onClick={() => setIsAddModalOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-indigo-700 shadow-sm">
+                <Plus size={18} /> Thêm mã giảm giá
+              </button>
             </div>
-            <button className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-indigo-700 shadow-sm">
-              <Plus size={18} /> Thêm mã giảm giá
-            </button>
-          </div>
 
-          {/* 2. Dashboard */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-            <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats?.total ?? '...'} color="bg-slate-100" loading={loadingStats} />
-            <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats?.active ?? '...'} color="bg-green-100" loading={loadingStats} />
-            <StatCard icon={<XCircle size={24} className="text-red-600" />} title="Đã hết hạn" value={stats?.expired ?? '...'} color="bg-red-100" loading={loadingStats} />
-            <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '...'} color="bg-orange-100" loading={loadingStats} />
-          </div>
-
-          {/* 3. Toolbar */}
-          <div className="p-4 bg-white rounded-xl shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="relative flex-grow max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full rounded-lg border-slate-300 pl-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                placeholder="Tìm kiếm theo mã hoặc mô tả..."
-              />
+            {/* 2. Dashboard */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
+              <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats?.total ?? '...'} color="bg-slate-100" loading={loadingStats} />
+              <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats?.active ?? '...'} color="bg-green-100" loading={loadingStats} />
+              <StatCard icon={<XCircle size={24} className="text-red-600" />} title="Đã hết hạn" value={stats?.expired ?? '...'} color="bg-red-100" loading={loadingStats} />
+              <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '...'} color="bg-orange-100" loading={loadingStats} />
             </div>
-            <div className="flex items-center gap-4">
-              <select
-                value={statusFilter}
-                onChange={e => setStatusFilter(e.target.value)}
-                className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              >
-                <option value="all">Tất cả trạng thái</option>
-                <option value="Hoạt động">Hoạt động</option>
-                <option value="Hết hạn">Hết hạn</option>
-                <option value="Đã hết lượt">Đã hết lượt</option>
-                <option value="Sắp diễn ra">Sắp diễn ra</option>
-                <option value="Vô hiệu hóa">Vô hiệu hóa</option>
-              </select>
-              <select
-                value={typeFilter}
-                onChange={e => setTypeFilter(e.target.value)}
-                className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-              >
-                <option value="all">Tất cả loại</option>
-                <option value="percentage">Phần trăm</option>
-                <option value="fixed_amount">Số tiền</option>
-              </select>
+
+            {/* 3. Toolbar */}
+            <div className="p-4 bg-white rounded-xl shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
+              <div className="relative flex-grow max-w-md">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full rounded-lg border-slate-300 pl-10 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  placeholder="Tìm kiếm theo mã hoặc mô tả..."
+                />
+              </div>
+              <div className="flex items-center gap-4">
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="Hoạt động">Hoạt động</option>
+                  <option value="Hết hạn">Hết hạn</option>
+                  <option value="Đã hết lượt">Đã hết lượt</option>
+                  <option value="Sắp diễn ra">Sắp diễn ra</option>
+                  <option value="Vô hiệu hóa">Vô hiệu hóa</option>
+                </select>
+                <select
+                  value={typeFilter}
+                  onChange={e => setTypeFilter(e.target.value)}
+                  className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                >
+                  <option value="all">Tất cả loại</option>
+                  <option value="percentage">Phần trăm</option>
+                  <option value="fixed_amount">Số tiền</option>
+                </select>
+              </div>
+            </div>
+
+            {/* 4. Data Table */}
+            <div className="overflow-hidden shadow-sm rounded-xl bg-white">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left text-slate-600">
+                      <Th>Mã giảm giá</Th>
+                      <Th>Loại & Giá trị</Th>
+                      <Th>Điều kiện & Thời gian</Th>
+                      <Th>Sử dụng</Th>
+                      <Th>Trạng thái</Th>
+                      <Th className="text-right">Thao tác</Th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {loading ? (
+                      <tr><td colSpan="6" className="p-6 text-center text-slate-500">Đang tải...</td></tr>
+                    ) : processedCoupons.length === 0 ? (
+                      <tr><td colSpan="6" className="p-6 text-center text-slate-500">Không tìm thấy mã giảm giá nào.</td></tr>
+                    ) : (
+                      processedCoupons.map((coupon) => (
+                        <tr key={coupon.coupon_id} className="hover:bg-slate-50">
+                          {/* Mã giảm giá */}
+                          <td className="px-5 py-4 align-top">
+                            <p className="font-semibold text-slate-800 font-mono">{coupon.code}</p>
+                            <p className="text-slate-500 text-xs mt-1 truncate max-w-xs">{coupon.description}</p>
+                          </td>
+
+                          {/* Loại & Giá trị */}
+                          <td className="px-5 py-4 align-top">
+                            <TypeBadge type={coupon.type} />
+                            <p className="font-semibold text-slate-700 mt-1.5">
+                              {coupon.type === 'percentage' ? `${coupon.value}%` : formatCurrency(coupon.value)}
+                            </p>
+                            {coupon.type === 'percentage' && coupon.max_value && (
+                              <p className="text-xs text-slate-500">Tối đa: {formatCurrency(coupon.max_value)}</p>
+                            )}
+                          </td>
+
+                          {/* Điều kiện & Thời gian */}
+                          <td className="px-5 py-4 align-top text-slate-600">
+                            <p>Đơn tối thiểu: <span className="font-medium text-slate-700">{formatCurrency(coupon.min_order_value)}</span></p>
+                            <p className="mt-1">Hiệu lực: <span className="font-medium text-slate-700">{formatDate(coupon.start_date)} - {formatDate(coupon.end_date)}</span></p>
+                          </td>
+
+                          {/* Sử dụng */}
+                          <td className="px-5 py-4 align-top">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="font-semibold text-slate-700">{coupon.usage_count} / {coupon.max_usage}</span>
+                              <span className="text-xs text-slate-500">{((coupon.usage_count / coupon.max_usage) * 100).toFixed(0)}%</span>
+                            </div>
+                            <div className="w-full bg-slate-200 rounded-full h-1.5">
+                              <div
+                                className="bg-indigo-600 h-1.5 rounded-full"
+                                style={{ width: `${(coupon.usage_count / coupon.max_usage) * 100}%` }}
+                              ></div>
+                            </div>
+                          </td>
+
+                          {/* Trạng thái */}
+                          <td className="px-5 py-4 align-top">
+                            <StatusBadge status={coupon.derived_status} />
+                          </td>
+
+                          {/* Thao tác */}
+                          <td className="px-5 py-4 align-top text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
+                              <button onClick={() => handleDelete(coupon.coupon_id)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md"><Trash2 size={16} /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <Pagination pagination={paginationData} onPageChange={setCurrentPage} />
             </div>
           </div>
-
-          {/* 4. Data Table */}
-          <div className="overflow-hidden shadow-sm rounded-xl bg-white">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-50">
-                  <tr className="text-left text-slate-600">
-                    <Th>Mã giảm giá</Th>
-                    <Th>Loại & Giá trị</Th>
-                    <Th>Điều kiện & Thời gian</Th>
-                    <Th>Sử dụng</Th>
-                    <Th>Trạng thái</Th>
-                    <Th className="text-right">Thao tác</Th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {loading ? (
-                    <tr><td colSpan="6" className="p-6 text-center text-slate-500">Đang tải...</td></tr>
-                  ) : processedCoupons.length === 0 ? (
-                    <tr><td colSpan="6" className="p-6 text-center text-slate-500">Không tìm thấy mã giảm giá nào.</td></tr>
-                  ) : (
-                    processedCoupons.map((coupon) => (
-                      <tr key={coupon.coupon_id} className="hover:bg-slate-50">
-                        {/* Mã giảm giá */}
-                        <td className="px-5 py-4 align-top">
-                          <p className="font-semibold text-slate-800 font-mono">{coupon.code}</p>
-                          <p className="text-slate-500 text-xs mt-1 truncate max-w-xs">{coupon.description}</p>
-                        </td>
-
-                        {/* Loại & Giá trị */}
-                        <td className="px-5 py-4 align-top">
-                          <TypeBadge type={coupon.type} />
-                          <p className="font-semibold text-slate-700 mt-1.5">
-                            {coupon.type === 'percentage' ? `${coupon.value}%` : formatCurrency(coupon.value)}
-                          </p>
-                          {coupon.type === 'percentage' && coupon.max_value && (
-                            <p className="text-xs text-slate-500">Tối đa: {formatCurrency(coupon.max_value)}</p>
-                          )}
-                        </td>
-
-                        {/* Điều kiện & Thời gian */}
-                        <td className="px-5 py-4 align-top text-slate-600">
-                          <p>Đơn tối thiểu: <span className="font-medium text-slate-700">{formatCurrency(coupon.min_order_value)}</span></p>
-                          <p className="mt-1">Hiệu lực: <span className="font-medium text-slate-700">{formatDate(coupon.start_date)} - {formatDate(coupon.end_date)}</span></p>
-                        </td>
-
-                        {/* Sử dụng */}
-                        <td className="px-5 py-4 align-top">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="font-semibold text-slate-700">{coupon.usage_count} / {coupon.max_usage}</span>
-                            <span className="text-xs text-slate-500">{((coupon.usage_count / coupon.max_usage) * 100).toFixed(0)}%</span>
-                          </div>
-                          <div className="w-full bg-slate-200 rounded-full h-1.5">
-                            <div
-                              className="bg-indigo-600 h-1.5 rounded-full"
-                              style={{ width: `${(coupon.usage_count / coupon.max_usage) * 100}%` }}
-                            ></div>
-                          </div>
-                        </td>
-
-                        {/* Trạng thái */}
-                        <td className="px-5 py-4 align-top">
-                          <StatusBadge status={coupon.derived_status} />
-                        </td>
-
-                        {/* Thao tác */}
-                        <td className="px-5 py-4 align-top text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <button className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
-                            <button onClick={() => handleDelete(coupon.coupon_id)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md"><Trash2 size={16} /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <Pagination pagination={paginationData} onPageChange={setCurrentPage} />
-          </div>
-        </div>
-      </main>
-    </div>
+        </main>
+      </div>
+      {/* 5. MODAL THÊM MỚI */}
+      <AddCouponModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        // Thêm một prop để tải lại dữ liệu sau khi thêm thành công
+        onSuccess={() => {
+          setIsAddModalOpen(false);//đóng modal
+          setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
+        }}
+      />
+    </Fragment>
   );
 }
 
