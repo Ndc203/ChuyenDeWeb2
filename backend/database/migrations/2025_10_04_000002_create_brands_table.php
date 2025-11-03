@@ -11,8 +11,11 @@ class CreateBrandsTable extends Migration
         Schema::create('brands', function (Blueprint $table) {
             $table->increments('brand_id');
             $table->string('name');
+            $table->string('slug')->unique();
             $table->string('description')->nullable();
-            $table->timestamp('created_at')->default(DB::raw('CURRENT_TIMESTAMP'));
+            $table->string('status')->default('active');
+            $table->timestamps();
+            $table->softDeletes();
         });
     }
 
