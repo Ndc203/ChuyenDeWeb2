@@ -125,5 +125,7 @@ Route::controller(CouponController::class)->group(function () {
     Route::get('/coupons', 'index');
     Route::get('/coupons/statistics', [CouponController::class, 'statistics']);
     Route::post('/coupons', 'store');
+    Route::put('/coupons/{coupon}', [CouponController::class, 'update']);
+    Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
 });
 
