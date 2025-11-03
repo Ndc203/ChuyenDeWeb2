@@ -145,4 +145,24 @@ class CouponController extends Controller
             'usedUp'  => $usedUp,
         ]);
     }
+
+    /**
+     * Bật hoặc tắt trạng thái 'is_active' của mã giảm giá.
+     *
+     * @param  \App\Models\Coupon  $coupon
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function toggleStatus(Coupon $coupon): JsonResponse
+    {
+        try {
+            // Lật ngược giá trị (true -> false, false -> true)
+            $coupon->is_active = !$coupon->is_active;
+            $coupon->save();
+
+            return response()->json($coupon);
+
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Không thể cập nhật trạng thái.'], 500);
+        }
+    }
 }
