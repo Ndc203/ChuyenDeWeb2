@@ -127,5 +127,6 @@ Route::controller(CouponController::class)->group(function () {
     Route::post('/coupons', 'store');
     Route::put('/coupons/{coupon}', [CouponController::class, 'update']);
     Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
+    Route::patch('/coupons/{coupon}/toggle', [CouponController::class, 'toggleStatus']);
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
-import { Plus, Search, Edit, Trash2, Tag, Percent, Calendar, BarChart, CheckCircle, XCircle, Clock, Zap, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Tag, Percent, BarChart, CheckCircle, XCircle, Clock, Zap, ChevronLeft, ChevronRight, Power } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import AddCouponModal from "./cart/AddCouponModal.jsx";
 import EditCouponModal from "./cart/EditCouponModal.jsx";
@@ -189,6 +189,39 @@ export default function AdminCouponsPage() {
     }
   };
 
+  //bật/tắt trạng thái của coupon
+  const handleToggleStatus = async (coupon) => {
+    // 1. Hỏi xác nhận (nếu muốn)
+    const action = coupon.is_active ? "Vô hiệu hóa" : "Kích hoạt";
+    if (!confirm(`Bạn có chắc muốn ${action} mã [${coupon.code}]?`)) {
+      return;
+    }
+
+    try {
+      // 2. Gửi request PATCH (cập nhật một phần)
+      // Chúng ta sẽ tạo API này ở back-end
+      const response = await fetch(`${API_URL}/api/coupons/${coupon.coupon_id}/toggle`, {
+        method: 'PATCH', // PATCH là chuẩn nhất để cập nhật 1 trường
+        headers: {
+          'Accept': 'application/json',
+          // 'Authorization': 'Bearer ...' // Thêm nếu cần
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Cập nhật trạng thái thất bại!');
+      }
+
+      // 3. Thành công -> Tải lại bảng
+      alert(`Đã ${action} mã giảm giá!`);
+      setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
+
+    } catch (error) {
+      console.error("Lỗi khi đổi trạng thái:", error);
+      alert('Đã xảy ra lỗi.');
+    }
+  };
+
   return (
     // Fragment cho phép return nhiều element
     <Fragment>
@@ -319,6 +352,15 @@ export default function AdminCouponsPage() {
                           {/* Thao tác */}
                           <td className="px-5 py-4 align-top text-right">
                             <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleToggleStatus(coupon)}
+                                // Đổi màu dựa trên trạng thái
+                                className={`p-2 rounded-md hover:bg-slate-100 
+        ${coupon.is_active ? 'text-green-500 hover:text-green-600' : 'text-slate-400 hover:text-slate-600'}`}
+                                title={coupon.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}
+                              >
+                                <Power size={16} />
+                              </button>
                               <button onClick={() => handleOpenEditModal(coupon)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
                               <button onClick={() => handleDelete(coupon.coupon_id)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md"><Trash2 size={16} /></button>
                             </div>
