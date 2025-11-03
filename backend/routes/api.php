@@ -109,5 +109,6 @@ Route::controller(StockController::class)->group(function () {
 // coupon routes
 Route::controller(CouponController::class)->group(function () {
     Route::get('/coupons', 'index');
+    Route::get('/coupons/statistics', [CouponController::class, 'statistics']);
 });
 

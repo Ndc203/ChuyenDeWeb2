@@ -83,7 +83,9 @@ const Pagination = ({ pagination, onPageChange }) => {
 
 export default function AdminCouponsPage() {
   const [paginationData, setPaginationData] = useState(null);
+  const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingStats, setLoadingStats] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -101,7 +103,6 @@ export default function AdminCouponsPage() {
     fetch(`${API_URL}/api/coupons?${params.toString()}`)
       .then((res) => {
         if (!res.ok) {
-          // Nếu response có lỗi (vd: 404, 500), ném ra lỗi để .catch() xử lý
           throw new Error(`Lỗi HTTP! Trạng thái: ${res.status}`);
         }
         return res.json();
@@ -109,10 +110,19 @@ export default function AdminCouponsPage() {
       .then((data) => setPaginationData(data))
       .catch((error) => {
         console.error("Không thể tải dữ liệu mã giảm giá:", error);
-        setPaginationData(null); // Đặt lại dữ liệu khi có lỗi
+        setPaginationData(null);
       })
       .finally(() => setLoading(false));
   }, [currentPage, searchQuery, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    setLoadingStats(true);
+    fetch(`${API_URL}/api/coupons/statistics`)
+      .then(res => res.json())
+      .then(data => setStats(data))
+      .catch(error => console.error("Không thể tải thống kê:", error))
+      .finally(() => setLoadingStats(false));
+  }, []);
 
   const getCouponStatus = useCallback((coupon) => {
     const now = new Date();
@@ -131,11 +141,7 @@ export default function AdminCouponsPage() {
     return paginationData.data.map(c => ({ ...c, derived_status: getCouponStatus(c) }));
   }, [paginationData, getCouponStatus]);
 
-  const stats = useMemo(() => {
-    // Note: Stats are now based on paginated data. For global stats, a separate API endpoint would be better.
-    const total = paginationData?.total || 0;
-    return { total, active: '...', expired: '...', usedUp: '...' }; // Placeholder for stats
-  }, [paginationData]);
+
 
   const handleDelete = async (id) => {
     if (!confirm("Bạn có chắc muốn xoá mã giảm giá này?")) return;
@@ -161,10 +167,10 @@ export default function AdminCouponsPage() {
 
           {/* 2. Dashboard */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-            <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats.total} color="bg-slate-100" loading={loading} />
-            <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats.active} color="bg-green-100" loading={loading} />
-            <StatCard icon={<XCircle size={24} className="text-red-600" />} title="Đã hết hạn" value={stats.expired} color="bg-red-100" loading={loading} />
-            <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats.usedUp} color="bg-orange-100" loading={loading} />
+            <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats?.total ?? '...'} color="bg-slate-100" loading={loadingStats} />
+            <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats?.active ?? '...'} color="bg-green-100" loading={loadingStats} />
+            <StatCard icon={<XCircle size={24} className="text-red-600" />} title="Đã hết hạn" value={stats?.expired ?? '...'} color="bg-red-100" loading={loadingStats} />
+            <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '...'} color="bg-orange-100" loading={loadingStats} />
           </div>
 
           {/* 3. Toolbar */}

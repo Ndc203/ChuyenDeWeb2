@@ -2,9 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Coupon;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use Illuminate\Http\JsonResponse;
+use App\Models\Coupon;
 use Carbon\Carbon;
 
 class CouponController extends Controller
@@ -18,7 +19,7 @@ class CouponController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('code', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -93,5 +94,55 @@ class CouponController extends Controller
     {
         $coupon->delete();
         return response()->json(['message' => 'Xoá mã giảm giá thành công!']);
+    }
+
+    /**
+     * Lấy số liệu thống kê cho dashboard mã giảm giá.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function statistics(Request $request): JsonResponse
+    {
+        $now = Carbon::now();
+
+        // 1. Tổng số mã giảm giá
+        $total = Coupon::count();
+
+        // 2. Đang hoạt động
+        // Phải thỏa mãn TẤT CẢ các điều kiện:
+        // - Đang được bật (is_active)
+        // - Đang trong thời gian hiệu lực
+        // - Vẫn còn lượt sử dụng
+        $active = Coupon::where('is_active', true)
+            ->where('start_date', '<=', $now)
+            ->where('end_date', '>=', $now)
+            ->whereColumn('usage_count', '<', 'max_usage')
+            ->count();
+
+        // 3. Đã hết hạn (do THỜI GIAN)
+        // Những mã đã qua ngày end_date
+        $expired = Coupon::where('end_date', '<', $now)
+            // Chúng ta cũng có thể kiểm tra is_active = true
+            // nếu bạn muốn tách bạch với "Vô hiệu hóa"
+            // ->where('is_active', true) 
+            ->count();
+
+        // 4. Đã hết lượt (do SỐ LƯỢNG)
+        // Phải thỏa mãn 2 điều kiện:
+        // - Đã hết lượt dùng
+        // - VÀ *chưa* hết hạn (để không bị đếm trùng)
+        $usedUp = Coupon::where('is_active', true)
+            ->where('end_date', '>=', $now) // <-- Quan trọng: Vẫn còn hạn
+            ->whereColumn('usage_count', '>=', 'max_usage')
+            ->count();
+
+        // Trả về dữ liệu JSON
+        return response()->json([
+            'total'   => $total,
+            'active'  => $active,
+            'expired' => $expired,
+            'usedUp'  => $usedUp,
+        ]);
     }
 }
