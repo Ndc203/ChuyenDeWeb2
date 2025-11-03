@@ -10,6 +10,8 @@ use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PostExportController;
 use App\Http\Controllers\ActivityLogController;
+use App\Http\Controllers\CouponController;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -80,3 +82,9 @@ Route::controller(BrandController::class)->group(function () {
     Route::delete('/brands/{id}', 'destroy');
     Route::get('/brands/slugify', 'slugify');
 });
+
+// coupon routes
+Route::controller(CouponController::class)->group(function () {
+    Route::get('/coupons', 'index');
+});
+
