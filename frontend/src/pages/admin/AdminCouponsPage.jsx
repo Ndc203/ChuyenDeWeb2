@@ -157,9 +157,36 @@ export default function AdminCouponsPage() {
 
   //xóa coupon
   const handleDelete = async (id) => {
-    if (!confirm("Bạn có chắc muốn xoá mã giảm giá này?")) return;
-    // ... Delete logic (can be implemented later)
-    alert(`Đã yêu cầu xoá mã giảm giá ID: ${id}`);
+    // 1. Xác nhận trước khi xóa
+    if (!confirm("Bạn có chắc muốn xoá mã giảm giá này? Thao tác này không thể hoàn tác.")) {
+      return; // Người dùng hủy
+    }
+
+    try {
+      // 2. Gọi API với method DELETE
+      const response = await fetch(`${API_URL}/api/coupons/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          // 'Authorization': 'Bearer ...' // Thêm nếu cần
+        },
+      });
+
+      // 3. Xử lý kết quả
+      if (!response.ok) {
+        // Nếu server trả về lỗi (vd: 404, 500)
+        throw new Error('Xoá thất bại!');
+      }
+
+      // 4. Thành công -> Tải lại bảng
+      alert('Đã xoá mã giảm giá thành công!');
+      setCurrentPage(1); // Đưa về trang 1
+      setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
+
+    } catch (error) {
+      console.error("Lỗi khi xoá mã giảm giá:", error);
+      alert('Đã xảy ra lỗi khi xoá mã giảm giá.');
+    }
   };
 
   return (
