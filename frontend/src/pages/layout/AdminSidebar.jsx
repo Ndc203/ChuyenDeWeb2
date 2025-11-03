@@ -11,6 +11,9 @@ import {
   LogOut,
   History,
   BarChart,
+  FileText,
+  FolderTree, 
+  MessageSquare,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -60,7 +63,7 @@ export default function AdminSidebar() {
 
       {/* Navigation */}
       <nav className="px-2">
-        <SideItem icon={<LayoutGrid size={18} />} label="Tổng quan" to="/" />
+        <SideItem icon={<LayoutGrid size={18} />} label="Tổng quan" to="/admin/dashboard" />
 
         <SectionLabel>QUẢN LÝ SẢN PHẨM</SectionLabel>
         <SideItem icon={<Package size={18} />} label="Danh sách Sản phẩm" to="/admin/products" />
@@ -84,18 +87,10 @@ export default function AdminSidebar() {
         <SideItem icon={<Users size={18} />} label="Trang cá nhân" to="/admin/profile" />
 
         <SectionLabel>BÀI VIẾT</SectionLabel>
-        <SideItem
-          label="Danh sách Bài viết"
-          to="/admin/posts"
-        />
-        <SideItem
-          label="Danh sách Chuyên mục Bài Viết"
-          to="/admin/postcategories"
-        />
-        <SideItem
-          label="Danh sách Bình luận"
-          to="/admin/comment"
-        />
+        <SideItem icon={<FileText size={18} />} label="Danh sách Bài viết" to="/admin/posts"/>
+        <SideItem icon={<BarChart size={18} />} label="Thống kê Bài viết" to="/admin/post-statistics" />
+        <SideItem icon={<FolderTree size={18} />} label="Danh sách Chuyên mục Bài Viết" to="/admin/postcategories"/>
+        <SideItem icon={<MessageSquare size={18} />} label="Danh sách Bình luận" to="/admin/comments"/>
       </nav>
 
       {/* Logout */}
