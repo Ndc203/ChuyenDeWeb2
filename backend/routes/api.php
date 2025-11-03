@@ -124,5 +124,6 @@ Route::controller(StockController::class)->group(function () {
 Route::controller(CouponController::class)->group(function () {
     Route::get('/coupons', 'index');
     Route::get('/coupons/statistics', [CouponController::class, 'statistics']);
+    Route::post('/coupons', 'store');
 });
 
