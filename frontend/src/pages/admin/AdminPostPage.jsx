@@ -16,6 +16,7 @@ import {
   X,
   CheckCircle2,
   Circle,
+  Clock,
   Image as ImageIcon,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
@@ -30,7 +31,6 @@ const emptyPostForm = () => ({
   image: null,
   status: "draft",
   is_trending: false,
-  category_id: "",
 });
 
 export default function AdminPostPage() {
@@ -46,6 +46,9 @@ export default function AdminPostPage() {
   const [detailPost, setDetailPost] = useState(null);
   const [openEdit, setOpenEdit] = useState(false);
   const [editPost, setEditPost] = useState(null);
+  const [openHistory, setOpenHistory] = useState(false);
+  const [historyData, setHistoryData] = useState([]);
+  const [selectedPostId, setSelectedPostId] = useState(null);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
@@ -59,6 +62,18 @@ export default function AdminPostPage() {
       const data = await res.json();
       setDetailPost(data);
       setOpenDetail(true);
+    } catch (err) {
+      alert(err.message || "Không thể kết nối tới máy chủ.");
+    }
+  }
+  async function handleViewHistory(id) {
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
+      if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
+      const data = await res.json();
+      setHistoryData(data);
+      setSelectedPostId(id);
+      setOpenHistory(true);
     } catch (err) {
       alert(err.message || "Không thể kết nối tới máy chủ.");
     }
@@ -383,6 +398,15 @@ export default function AdminPostPage() {
                           >
                             <Eye size={16} />
                           </IconBtn>
+
+                          <IconBtn
+                            title="Lịch sử chỉnh sửa"
+                            intent="info"
+                            onClick={() => handleViewHistory(r.id)}
+                          >
+                            <Clock size={16} />
+                          </IconBtn>
+
                           <IconBtn
                             title="Sửa"
                             intent="warning"
@@ -417,6 +441,13 @@ export default function AdminPostPage() {
         loading={createLoading}
         error={formError}
       />
+      <HistoryModal
+        open={openHistory}
+        onClose={() => setOpenHistory(false)}
+        history={historyData}
+        postId={selectedPostId}
+      />
+
       <PostDetailModal
         open={openDetail}
         onClose={handleCloseDetail}
@@ -991,6 +1022,97 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+/* === Modal Lịch sử chỉnh sửa === */
+function HistoryModal({ open, onClose, history, postId }) {
+  if (!open) return null;
+
+  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
+
+  async function handleRestore(versionId) {
+    if (!confirm("Bạn có chắc chắn muốn khôi phục phiên bản này?")) return;
+
+    try {
+      const res = await fetch(
+        `${API_URL}/api/posts/${postId}/restore/${versionId}`,
+        {
+          method: "POST",
+          headers: { Accept: "application/json" },
+        }
+      );
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(data.message || "Không thể khôi phục bài viết.");
+        return;
+      }
+
+      alert("✅ Đã khôi phục phiên bản bài viết thành công!");
+      onClose();
+    } catch (err) {
+      alert("Không thể kết nối tới máy chủ.");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
+      <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+            🕒 Lịch sử chỉnh sửa
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Nội dung */}
+        {!history || history.length === 0 ? (
+          <div className="text-center text-slate-500 py-10">
+            <Clock size={40} className="mx-auto mb-3 text-slate-400" />
+            <p>Không có lịch sử chỉnh sửa nào.</p>
+          </div>
+        ) : (
+          <table className="w-full text-sm border rounded-xl overflow-hidden">
+            <thead className="bg-slate-50">
+              <tr className="text-left text-slate-600">
+                <th className="px-4 py-2">#</th>
+                <th className="px-4 py-2">Tiêu đề</th>
+                <th className="px-4 py-2">Người sửa</th>
+                <th className="px-4 py-2">Ngày sửa</th>
+                <th className="px-4 py-2 text-right">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((h, i) => (
+                <tr
+                  key={h.id}
+                  className={i % 2 ? "bg-white" : "bg-slate-50/50"}
+                >
+                  <td className="px-4 py-2">{i + 1}</td>
+                  <td className="px-4 py-2 font-medium">{h.title}</td>
+                  <td className="px-4 py-2">{h.user_name || "—"}</td>
+                  <td className="px-4 py-2">{formatDate(h.updated_at)}</td>
+                  <td className="px-4 py-2 text-right">
+                    <button
+                      onClick={() => handleRestore(h.id)}
+                      className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
+                    >
+                      🔄 Khôi phục
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );

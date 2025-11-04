@@ -2,14 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Models\Post;
+use App\Models\PostVersion;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
 {
+    // 🧩 Lấy danh sách tất cả bài viết
     public function index()
     {
         return Post::with(['category', 'user'])
@@ -17,7 +18,8 @@ class PostController extends Controller
             ->get();
     }
 
- public function store(Request $request)
+    // 🧩 Tạo bài viết mới
+    public function store(Request $request)
     {
         $validated = $request->validate([
             'category_id' => 'nullable|exists:postcategories,id',
@@ -32,12 +34,13 @@ class PostController extends Controller
         // Xử lý upload ảnh
         $imageName = null;
         if ($request->hasFile('image')) {
-            $imageName = time() . '_' . Str::random(8) . '.' . $request->file('image')->getClientOriginalExtension();
+            $imageName = time() . '_' . Str::random(8) . '.' .
+                $request->file('image')->getClientOriginalExtension();
             $request->file('image')->move(public_path('images/posts'), $imageName);
         }
 
         $post = Post::create([
-            'user_id' => 1, 
+            'user_id' => auth()->id() ?? 1, // tạm fix: nếu chưa login thì user_id=1
             'category_id' => $validated['category_id'] ?? null,
             'title' => $validated['title'],
             'excerpt' => $validated['excerpt'] ?? '',
@@ -53,70 +56,131 @@ class PostController extends Controller
         ]);
     }
 
+    // 🧩 Xem chi tiết bài viết
     public function show($id)
-{
-    $post = Post::findOrFail($id);
-    return response()->json($post);
-}
-
-
-   public function update(Request $request, $id)
-{
-    $post = Post::findOrFail($id);
-    $post->title = $request->title;
-    $post->excerpt = $request->excerpt;
-    $post->content = $request->content;
-    $post->status = $request->status;
-    $post->category_id = $request->category_id;
-
-    if ($request->hasFile('image')) {
-        $image = $request->file('image');
-        $filename = time().'_'.$image->getClientOriginalName();
-        $image->move(public_path('images/posts'), $filename);
-        $post->image = $filename;
+    {
+        $post = Post::with(['category', 'user'])->findOrFail($id);
+        return response()->json($post);
     }
 
-    $post->save();
+    // 🧩 Cập nhật bài viết + lưu phiên bản cũ
+    public function update(Request $request, $id)
+    {
+        $post = Post::findOrFail($id);
 
-    return response()->json(['message' => 'Cập nhật bài viết thành công', 'post' => $post]);
-}
+        // 1️⃣ Lưu phiên bản cũ
+        PostVersion::create([
+            'post_id' => $post->id,
+            'user_id' => auth()->id(),
+            'category_id' => $post->category_id,
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'content' => $post->content,
+            'image' => $post->image,
+            'status' => $post->status,
+            'is_trending' => $post->is_trending,
+        ]);
 
+        // 2️⃣ Cập nhật bài viết mới
+        $post->fill($request->only([
+            'title', 'excerpt', 'content', 'status', 'category_id', 'is_trending'
+        ]));
 
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $filename = time() . '_' . $image->getClientOriginalName();
+            $image->move(public_path('images/posts'), $filename);
+            $post->image = $filename;
+        }
 
+        $post->save();
+
+        return response()->json([
+            'message' => 'Cập nhật bài viết thành công',
+            'post' => $post,
+        ]);
+    }
+
+    // 🧩 Xóa bài viết
     public function destroy($id)
     {
-        Post::findOrFail($id)->delete();
+        $post = Post::findOrFail($id);
+        if ($post->image && file_exists(public_path('images/posts/' . $post->image))) {
+            unlink(public_path('images/posts/' . $post->image));
+        }
+        $post->delete();
+
         return response()->json(['message' => 'Đã xóa bài viết']);
     }
 
-public function statistics()
-{
-    $postsByStatus = [
-        ['name' => 'Nháp', 'value' => Post::where('status', 'draft')->count()],
-        ['name' => 'Đã xuất bản', 'value' => Post::where('status', 'published')->count()],
-    ];
+    // 🧩 Thống kê bài viết
+    public function statistics()
+    {
+        $postsByStatus = [
+            ['name' => 'Nháp', 'value' => Post::where('status', 'draft')->count()],
+            ['name' => 'Đã xuất bản', 'value' => Post::where('status', 'published')->count()],
+        ];
 
-    $postsByCategory = \DB::table('posts')
-        ->join('postcategories', 'posts.category_id', '=', 'postcategories.id')
-        ->select('postcategories.name as category', \DB::raw('count(posts.id) as count'))
-        ->groupBy('postcategories.name')
-        ->get();
+        $postsByCategory = DB::table('posts')
+            ->join('postcategories', 'posts.category_id', '=', 'postcategories.id')
+            ->select('postcategories.name as category', DB::raw('count(posts.id) as count'))
+            ->groupBy('postcategories.name')
+            ->get();
 
-    // Lấy số liệu tổng hợp thêm
-    $totalPosts = Post::count();
-    $trendingPosts = Post::where('is_trending', true)->count();
-    $newPostsThisMonth = Post::whereMonth('created_at', now()->month)->count();
+        $totalPosts = Post::count();
+        $trendingPosts = Post::where('is_trending', true)->count();
+        $newPostsThisMonth = Post::whereMonth('created_at', now()->month)->count();
 
-    return response()->json([
-        'total_posts' => $totalPosts,
-        'trending_posts' => $trendingPosts,
-        'new_posts_this_month' => $newPostsThisMonth,
-        'posts_by_status' => $postsByStatus,
-        'posts_by_category' => $postsByCategory,
-    ]);
-}
+        return response()->json([
+            'total_posts' => $totalPosts,
+            'trending_posts' => $trendingPosts,
+            'new_posts_this_month' => $newPostsThisMonth,
+            'posts_by_status' => $postsByStatus,
+            'posts_by_category' => $postsByCategory,
+        ]);
+    }
 
+    // 🧩 Danh sách phiên bản
+    public function versions($postId)
+    {
+        $versions = PostVersion::where('post_id', $postId)
+            ->with('user:user_id,name')
+            ->orderByDesc('created_at')
+            ->get();
 
+        return response()->json($versions);
+    }
 
+    // 🧩 Xem chi tiết một phiên bản
+    public function showVersion($postId, $versionId)
+    {
+        $version = PostVersion::where('post_id', $postId)
+            ->where('id', $versionId)
+            ->with('user:user_id,name')
+            ->firstOrFail();
 
+        return response()->json($version);
+    }
+
+    // 🧩 Khôi phục về phiên bản cũ
+    public function restoreVersion($postId, $versionId)
+    {
+        $version = PostVersion::where('post_id', $postId)->findOrFail($versionId);
+        $post = Post::findOrFail($postId);
+
+        $post->update([
+            'title' => $version->title,
+            'excerpt' => $version->excerpt,
+            'content' => $version->content,
+            'image' => $version->image,
+            'status' => $version->status,
+            'is_trending' => $version->is_trending,
+            'category_id' => $version->category_id,
+        ]);
+
+        return response()->json([
+            'message' => 'Đã khôi phục bài viết về phiên bản trước đó',
+            'post' => $post
+        ]);
+    }
 }
