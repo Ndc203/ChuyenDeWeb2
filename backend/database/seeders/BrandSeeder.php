@@ -17,43 +17,51 @@ class BrandSeeder extends Seeder
         $brands = [
             [
                 'name' => 'Apple',
-                'description' => 'Thiet bi cong nghe cao cap cho nguoi dung cao cap.',
+                'description' => 'Thiết bị cao cấp, hệ sinh thái khép kín dành cho người dùng sáng tạo.',
             ],
             [
                 'name' => 'Samsung',
-                'description' => 'Nha san xuat dien tu va thiet bi gia dung lon nhat Han Quoc.',
+                'description' => 'Thương hiệu Hàn Quốc dẫn đầu về điện thoại, TV và đồ gia dụng thông minh.',
             ],
             [
                 'name' => 'Sony',
-                'description' => 'Thuong hieu Nhat Ban voi cac san pham nghe nhin chat luong cao.',
+                'description' => 'Thiết bị nghe nhìn, máy ảnh và giải trí đẳng cấp từ Nhật Bản.',
             ],
             [
                 'name' => 'Xiaomi',
-                'description' => 'Thuong hieu cong nghe voi gia thanh canh tranh va da dang san pham.',
+                'description' => 'Công nghệ giá tốt với hệ sinh thái IoT phong phú cho gia đình.',
             ],
             [
-                'name' => 'LG',
-                'description' => 'Do gia dung va dien tu tich hop nhieu cong nghe hien dai.',
-            ],
-            [
-                'name' => 'Dell',
-                'description' => 'Thuong hieu may tinh pho bien cho ca doanh nghiep va ca nhan.',
-            ],
-            [
-                'name' => 'HP',
-                'description' => 'San pham may tinh, thiet bi van phong dang tin cay.',
-            ],
-            [
-                'name' => 'Lenovo',
-                'description' => 'Do ben va hieu nang tot cho laptop va thiet bi doanh nghiep.',
+                'name' => 'Huawei',
+                'description' => 'Thiết bị di động, mạng viễn thông và giải pháp doanh nghiệp toàn cầu.',
             ],
             [
                 'name' => 'Asus',
-                'description' => 'Laptop, gaming gear va phu kien cong nghe thiet ke dep.',
+                'description' => 'Laptop, gaming gear và thiết bị sáng tạo dành cho game thủ, designer.',
             ],
             [
-                'name' => 'Microsoft',
-                'description' => 'Thiet bi Surface va phu kien diem nhan trong he sinh thai Windows.',
+                'name' => 'Lenovo',
+                'description' => 'Laptop ThinkPad, IdeaPad và giải pháp máy trạm bền bỉ.',
+            ],
+            [
+                'name' => 'Dell',
+                'description' => 'Máy tính doanh nghiệp, máy trạm Precision và màn hình chuyên nghiệp.',
+            ],
+            [
+                'name' => 'LG',
+                'description' => 'Thiết bị gia dụng, TV OLED và các sản phẩm điện tử tiên tiến.',
+            ],
+            [
+                'name' => 'Philips',
+                'description' => 'Thương hiệu Hà Lan với đồ gia dụng, chăm sóc sức khỏe và chiếu sáng.',
+            ],
+            [
+                'name' => 'Nike',
+                'description' => 'Thời trang thể thao, giày dép và phụ kiện luyện tập hàng đầu thế giới.',
+            ],
+            [
+                'name' => 'L\'Oréal',
+                'description' => 'Mỹ phẩm, chăm sóc da và tóc với công nghệ làm đẹp tiên phong.',
             ],
         ];
 

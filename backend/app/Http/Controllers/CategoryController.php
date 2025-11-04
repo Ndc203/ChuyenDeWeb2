@@ -48,7 +48,7 @@ class CategoryController extends Controller
         $category = Category::create($data);
 
         return response()->json([
-            'message' => 'Category created successfully.',
+            'message' => 'Tạo danh mục thành công.',
             'data' => $category->fresh('parent'),
         ], 201, [], JSON_UNESCAPED_UNICODE);
     }
@@ -67,7 +67,7 @@ class CategoryController extends Controller
         $category->update($data);
 
         return response()->json([
-            'message' => 'Category updated successfully.',
+            'message' => 'Cập nhật danh mục thành công.',
             'data' => $category->fresh('parent'),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
@@ -95,12 +95,14 @@ class CategoryController extends Controller
             'ok' => true,
             'id' => $category->category_id,
             'status' => $category->status,
-            'message' => 'Status updated successfully.',
+            'message' => 'Cập nhật trạng thái thành công.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
     public function trashed()
     {
+        $this->purgeExpiredTrashed();
+
         $rows = Category::onlyTrashed()
             ->with('parent:category_id,name')
             ->orderBy('category_id')
@@ -114,6 +116,9 @@ class CategoryController extends Controller
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
                 'deleted_at' => optional($category->deleted_at)?->format('Y-m-d H:i'),
+                'auto_delete_at' => $category->deleted_at
+                    ? $category->deleted_at->copy()->addDays(30)->format('Y-m-d H:i')
+                    : null,
                 'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
             ]);
 
@@ -126,7 +131,7 @@ class CategoryController extends Controller
 
         if ($category->children_count > 0) {
             return response()->json([
-                'message' => 'Cannot delete category while it still has child categories.',
+                'message' => 'Không thể xóa danh mục khi vẫn còn danh mục con.',
             ], 422, [], JSON_UNESCAPED_UNICODE);
         }
 
@@ -135,7 +140,7 @@ class CategoryController extends Controller
         return response()->json([
             'ok' => true,
             'id' => $category->category_id,
-            'message' => 'Category deleted successfully.',
+            'message' => 'Xóa danh mục thành công.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -147,7 +152,7 @@ class CategoryController extends Controller
             $parent = Category::withTrashed()->find($category->parent_id);
             if ($parent && $parent->trashed()) {
                 return response()->json([
-                    'message' => 'Cannot restore category while parent remains deleted.',
+                    'message' => 'Không thể khôi phục vì danh mục cha vẫn đang bị xóa.',
                 ], 422, [], JSON_UNESCAPED_UNICODE);
             }
         }
@@ -157,7 +162,7 @@ class CategoryController extends Controller
         return response()->json([
             'ok' => true,
             'id' => $category->category_id,
-            'message' => 'Category restored successfully.',
+            'message' => 'Khôi phục danh mục thành công.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -171,11 +176,11 @@ class CategoryController extends Controller
             ->get()
             ->map(fn (Category $category) => [
                 'ID' => $category->category_id,
-                'Name' => $category->name,
+                'Tên danh mục' => $category->name,
                 'Slug' => $category->slug,
-                'Parent' => optional($category->parent)->name ?? 'Root',
-                'Status' => $category->status,
-                'Created At' => optional($category->created_at)?->format('Y-m-d H:i'),
+                'Danh mục cha' => optional($category->parent)->name ?? 'Gốc',
+                'Trạng thái' => $category->status,
+                'Ngày tạo' => optional($category->created_at)?->format('Y-m-d H:i'),
             ])
             ->values()
             ->toArray();
@@ -188,7 +193,7 @@ class CategoryController extends Controller
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
-        $headers = ['A' => 'ID', 'B' => 'Name', 'C' => 'Slug', 'D' => 'Parent', 'E' => 'Status', 'F' => 'Created At'];
+        $headers = ['A' => 'ID', 'B' => 'Tên danh mục', 'C' => 'Slug', 'D' => 'Danh mục cha', 'E' => 'Trạng thái', 'F' => 'Ngày tạo'];
         foreach ($headers as $column => $title) {
             $sheet->setCellValue($column . '1', $title);
         }
@@ -196,11 +201,11 @@ class CategoryController extends Controller
         $rowIndex = 2;
         foreach ($rows as $row) {
             $sheet->setCellValue("A{$rowIndex}", $row['ID']);
-            $sheet->setCellValue("B{$rowIndex}", $row['Name']);
+            $sheet->setCellValue("B{$rowIndex}", $row['Tên danh mục']);
             $sheet->setCellValue("C{$rowIndex}", $row['Slug']);
-            $sheet->setCellValue("D{$rowIndex}", $row['Parent']);
-            $sheet->setCellValue("E{$rowIndex}", $row['Status']);
-            $sheet->setCellValue("F{$rowIndex}", $row['Created At']);
+            $sheet->setCellValue("D{$rowIndex}", $row['Danh mục cha']);
+            $sheet->setCellValue("E{$rowIndex}", $row['Trạng thái']);
+            $sheet->setCellValue("F{$rowIndex}", $row['Ngày tạo']);
             $rowIndex++;
         }
 
@@ -272,5 +277,10 @@ class CategoryController extends Controller
             'errors' => $result['errors'],
             'summary' => $result['summary'],
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function purgeExpiredTrashed(): void
+    {
+        Category::pruneTrashedOlderThanDays();
     }
 }
