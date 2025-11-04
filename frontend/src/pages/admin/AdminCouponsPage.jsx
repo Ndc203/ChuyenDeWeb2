@@ -259,4 +259,11 @@ export default function AdminCouponsPage() {
               <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '...'} color="bg-orange-100" loading={loadingStats} />
             </div>
 
+            </div> {/* Closing div for "w-full px-6 md:px-10 py-6" */}
+
             {/* Toolbar */}
+        </main>
+      </div>
+    </Fragment>
+  );
+}
