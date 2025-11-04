@@ -11,16 +11,11 @@ use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\PostExportController;
 use App\Http\Controllers\ActivityLogController;
- HEAD
 use App\Http\Controllers\ProfileController;
-
 use App\Http\Controllers\CommentController;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\CouponController;
-
-
-origin/branch_merge
 
 /*
 |--------------------------------------------------------------------------
