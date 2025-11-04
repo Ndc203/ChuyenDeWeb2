@@ -806,11 +806,19 @@ export default function AdminCategoriesPage() {
                         {/* === Trạng thái nằm giữa các cột === */}
                         <td className="px-4 py-3">
                           {isDeletedView ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
-                                Da xoa
-                              </span>
-                              <StatusBadge status={r.status} />
+                            <div className="flex flex-col gap-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
+                                  Da xoa
+                                </span>
+                                <StatusBadge status={r.status} />
+                              </div>
+                              {r.auto_delete_at && (
+                                <p className="text-xs text-slate-500">
+                                  Tu dong xoa vinh vien vao{" "}
+                                  {formatDate(r.auto_delete_at)}
+                                </p>
+                              )}
                             </div>
                           ) : (
                             <StatusBadge status={r.status} />
@@ -1482,7 +1490,16 @@ function IconBtn({ children, title, intent = "primary", onClick, disabled }) {
 
 function ViewCategoryModal({ category, onClose }) {
   if (!category) return null;
-  const { name, slug, status, parent, created_at, description } = category;
+  const {
+    name,
+    slug,
+    status,
+    parent,
+    created_at,
+    deleted_at,
+    auto_delete_at,
+    description,
+  } = category;
 
   return (
     <div
@@ -1551,6 +1568,26 @@ function ViewCategoryModal({ category, onClose }) {
                 {formatDate(created_at)}
               </p>
             </div>
+            {deleted_at && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Ngay xoa
+                </p>
+                <p className="font-medium text-slate-700">
+                  {formatDate(deleted_at)}
+                </p>
+              </div>
+            )}
+            {auto_delete_at && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Tu dong xoa vinh vien
+                </p>
+                <p className="font-medium text-slate-700">
+                  {formatDate(auto_delete_at)}
+                </p>
+              </div>
+            )}
           </div>
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-400">

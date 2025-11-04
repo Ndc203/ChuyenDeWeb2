@@ -140,6 +140,9 @@ class BrandController extends Controller
                 'description' => $brand->description,
                 'status' => $brand->status,
                 'deleted_at' => optional($brand->deleted_at)?->format('Y-m-d H:i'),
+                'auto_delete_at' => $brand->deleted_at
+                    ? $brand->deleted_at->copy()->addDays(30)->format('Y-m-d H:i')
+                    : null,
                 'created_at' => optional($brand->created_at)?->format('Y-m-d H:i'),
             ]);
 
@@ -300,9 +303,6 @@ class BrandController extends Controller
 
     private function purgeExpiredTrashed(): void
     {
-        Brand::onlyTrashed()
-            ->where('deleted_at', '<', now()->subDays(30))
-            ->get()
-            ->each->forceDelete();
+        Brand::pruneTrashedOlderThanDays();
     }
 }

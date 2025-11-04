@@ -101,6 +101,8 @@ class CategoryController extends Controller
 
     public function trashed()
     {
+        $this->purgeExpiredTrashed();
+
         $rows = Category::onlyTrashed()
             ->with('parent:category_id,name')
             ->orderBy('category_id')
@@ -114,6 +116,9 @@ class CategoryController extends Controller
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
                 'deleted_at' => optional($category->deleted_at)?->format('Y-m-d H:i'),
+                'auto_delete_at' => $category->deleted_at
+                    ? $category->deleted_at->copy()->addDays(30)->format('Y-m-d H:i')
+                    : null,
                 'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
             ]);
 
@@ -272,5 +277,10 @@ class CategoryController extends Controller
             'errors' => $result['errors'],
             'summary' => $result['summary'],
         ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    private function purgeExpiredTrashed(): void
+    {
+        Category::pruneTrashedOlderThanDays();
     }
 }

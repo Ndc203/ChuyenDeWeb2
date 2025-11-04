@@ -285,6 +285,7 @@ export default function AdminBrandsPage() {
             brand.slug || "",
             brand.description || "",
             brand.deleted_at || "",
+            brand.auto_delete_at || "",
           ]
             .join(" ")
             .toLowerCase();
@@ -753,11 +754,19 @@ export default function AdminBrandsPage() {
                         </td>
                         <td className="px-4 py-3">
                           {isDeletedView ? (
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
-                                Da xoa
-                              </span>
-                              <StatusBadge status={brand.status} />
+                            <div className="flex flex-col gap-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
+                                  Da xoa
+                                </span>
+                                <StatusBadge status={brand.status} />
+                              </div>
+                              {brand.auto_delete_at && (
+                                <p className="text-xs text-slate-500">
+                                  Tu dong xoa vinh vien vao{" "}
+                                  {formatDate(brand.auto_delete_at)}
+                                </p>
+                              )}
                             </div>
                           ) : (
                             <StatusBadge status={brand.status} />
@@ -1258,7 +1267,15 @@ function IconBtn({ children, title, intent = "primary", onClick, disabled }) {
 
 function BrandViewModal({ brand, onClose }) {
   if (!brand) return null;
-  const { name, slug, description, status, created_at, deleted_at } = brand;
+  const {
+    name,
+    slug,
+    description,
+    status,
+    created_at,
+    deleted_at,
+    auto_delete_at,
+  } = brand;
 
   return (
     <div
@@ -1311,6 +1328,14 @@ function BrandViewModal({ brand, onClose }) {
             <div>
               <p className="text-xs uppercase text-slate-500">Ngay xoa</p>
               <p>{formatDate(deleted_at)}</p>
+            </div>
+          )}
+          {auto_delete_at && (
+            <div>
+              <p className="text-xs uppercase text-slate-500">
+                Tu dong xoa vinh vien
+              </p>
+              <p>{formatDate(auto_delete_at)}</p>
             </div>
           )}
         </div>
