@@ -30,6 +30,11 @@ export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [productToDelete, setProductToDelete] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
@@ -53,6 +58,48 @@ export default function AdminProductsPage() {
       })
       .finally(() => setLoading(false));
   }, [API_URL]);
+
+  // Xem chi tiết sản phẩm
+  const handleViewDetail = (product) => {
+    setSelectedProduct(product);
+    setShowDetailModal(true);
+  };
+
+  // Xóa sản phẩm
+  const handleDeleteClick = (product) => {
+    setProductToDelete(product);
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!productToDelete) return;
+
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/api/products/${productToDelete.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+      });
+
+      if (response.ok) {
+        // Reload danh sách sau khi xóa thành công
+        loadProducts();
+        setShowDeleteConfirm(false);
+        setProductToDelete(null);
+      } else {
+        const data = await response.json();
+        alert(data?.message || "Không thể xóa sản phẩm");
+      }
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      alert("Không thể kết nối tới máy chủ");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     loadProducts();
@@ -284,6 +331,7 @@ export default function AdminProductsPage() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             title="Xem chi tiết"
+                            onClick={() => handleViewDetail(product)}
                             className="inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
                           >
                             <Eye size={16} />
@@ -297,6 +345,7 @@ export default function AdminProductsPage() {
                           </button>
                           <button
                             title="Xóa"
+                            onClick={() => handleDeleteClick(product)}
                             className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-rose-600 hover:bg-rose-100"
                           >
                             <Trash2 size={16} />
@@ -310,6 +359,268 @@ export default function AdminProductsPage() {
           </div>
         </div>
       </main>
+
+      {/* Modal xem chi tiết sản phẩm */}
+      {showDetailModal && selectedProduct && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <h2 className="text-xl font-semibold text-slate-800">
+                Chi tiết Sản phẩm
+              </h2>
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <svg
+                  className="w-5 h-5 text-slate-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 space-y-6">
+              {/* Ảnh sản phẩm */}
+              {selectedProduct.image && (
+                <div className="flex justify-center">
+                  <img
+                    src={selectedProduct.image}
+                    alt={selectedProduct.name}
+                    className="max-w-full h-auto max-h-64 rounded-lg object-contain"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Thông tin cơ bản */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Tên sản phẩm
+                  </label>
+                  <p className="text-slate-800 font-medium">
+                    {selectedProduct.name}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Thương hiệu
+                  </label>
+                  <p className="text-slate-800">{selectedProduct.brand || "—"}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Danh mục
+                  </label>
+                  <p className="text-slate-800">{selectedProduct.category || "—"}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Giá bán
+                  </label>
+                  <p className="text-slate-800 font-semibold">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(selectedProduct.price)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Giảm giá
+                  </label>
+                  <p className="text-slate-800">
+                    {selectedProduct.discount > 0
+                      ? `${selectedProduct.discount}%`
+                      : "Không"}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Giá sau giảm
+                  </label>
+                  <p className="text-green-600 font-semibold">
+                    {new Intl.NumberFormat("vi-VN", {
+                      style: "currency",
+                      currency: "VND",
+                    }).format(selectedProduct.final_price)}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Tồn kho
+                  </label>
+                  <p className="text-slate-800">{selectedProduct.stock}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Trạng thái
+                  </label>
+                  <p className="text-slate-800">{selectedProduct.stock_status}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Đánh giá
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                    <span className="text-slate-800">
+                      {selectedProduct.rating} ({selectedProduct.reviews} đánh giá)
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Badges
+                  </label>
+                  <div className="flex gap-1">
+                    {selectedProduct.badges && selectedProduct.badges.length > 0 ? (
+                      selectedProduct.badges.map((badge, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-medium rounded"
+                        >
+                          {badge}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Mô tả */}
+              {selectedProduct.description && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Mô tả
+                  </label>
+                  <p className="text-slate-700 text-sm leading-relaxed">
+                    {selectedProduct.description}
+                  </p>
+                </div>
+              )}
+
+              {/* Thời gian */}
+              <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Ngày tạo
+                  </label>
+                  <p className="text-slate-600 text-sm">
+                    {selectedProduct.created_at}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">
+                    Cập nhật lần cuối
+                  </label>
+                  <p className="text-slate-600 text-sm">
+                    {selectedProduct.updated_at}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+              <button
+                onClick={() => setShowDetailModal(false)}
+                className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-white transition-colors"
+              >
+                Đóng
+              </button>
+              <button
+                onClick={() => {
+                  setShowDetailModal(false);
+                  navigate(`/admin/products/edit/${selectedProduct.id}`);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Chỉnh sửa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialog xác nhận xóa */}
+      {showDeleteConfirm && productToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <Trash2 className="w-6 h-6 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">
+                    Xác nhận xóa sản phẩm
+                  </h3>
+                  <p className="text-sm text-slate-600 mt-1">
+                    Bạn có chắc chắn muốn xóa sản phẩm này?
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-4 mb-4">
+                <p className="font-medium text-slate-800">{productToDelete.name}</p>
+                <p className="text-sm text-slate-600 mt-1">
+                  Thương hiệu: {productToDelete.brand || "—"}
+                </p>
+              </div>
+
+              <p className="text-sm text-red-600 mb-4">
+                ⚠️ Hành động này không thể hoàn tác!
+              </p>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setProductToDelete(null);
+                  }}
+                  disabled={deleting}
+                  className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {deleting ? "Đang xóa..." : "Xóa sản phẩm"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

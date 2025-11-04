@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-
+use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
 {
@@ -88,4 +88,35 @@ class PostController extends Controller
         Post::findOrFail($id)->delete();
         return response()->json(['message' => 'Đã xóa bài viết']);
     }
+
+public function statistics()
+{
+    $postsByStatus = [
+        ['name' => 'Nháp', 'value' => Post::where('status', 'draft')->count()],
+        ['name' => 'Đã xuất bản', 'value' => Post::where('status', 'published')->count()],
+    ];
+
+    $postsByCategory = \DB::table('posts')
+        ->join('postcategories', 'posts.category_id', '=', 'postcategories.id')
+        ->select('postcategories.name as category', \DB::raw('count(posts.id) as count'))
+        ->groupBy('postcategories.name')
+        ->get();
+
+    // Lấy số liệu tổng hợp thêm
+    $totalPosts = Post::count();
+    $trendingPosts = Post::where('is_trending', true)->count();
+    $newPostsThisMonth = Post::whereMonth('created_at', now()->month)->count();
+
+    return response()->json([
+        'total_posts' => $totalPosts,
+        'trending_posts' => $trendingPosts,
+        'new_posts_this_month' => $newPostsThisMonth,
+        'posts_by_status' => $postsByStatus,
+        'posts_by_category' => $postsByCategory,
+    ]);
+}
+
+
+
+
 }
