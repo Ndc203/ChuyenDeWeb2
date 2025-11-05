@@ -91,18 +91,20 @@ class PostController extends Controller
 
 public function statistics()
 {
+    // Thống kê bài viết theo trạng thái
     $postsByStatus = [
         ['name' => 'Nháp', 'value' => Post::where('status', 'draft')->count()],
         ['name' => 'Đã xuất bản', 'value' => Post::where('status', 'published')->count()],
     ];
 
-    $postsByCategory = \DB::table('posts')
+    // Thống kê bài viết theo danh mục
+    $postsByCategory = DB::table('posts')
         ->join('postcategories', 'posts.category_id', '=', 'postcategories.id')
-        ->select('postcategories.name as category', \DB::raw('count(posts.id) as count'))
+        ->select('postcategories.name as category', DB::raw('COUNT(posts.id) as count'))
         ->groupBy('postcategories.name')
         ->get();
 
-    // Lấy số liệu tổng hợp thêm
+    // Tổng hợp số liệu chung
     $totalPosts = Post::count();
     $trendingPosts = Post::where('is_trending', true)->count();
     $newPostsThisMonth = Post::whereMonth('created_at', now()->month)->count();
