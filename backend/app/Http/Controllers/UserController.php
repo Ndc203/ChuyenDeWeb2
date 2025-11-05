@@ -65,4 +65,16 @@ class UserController extends Controller
             'customerUsers' => $customerUsers,
         ]);
     }
+
+    public function monthlyUserStatistics()
+    {
+        $monthlyStats = User::selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as newUsers')
+            ->where('created_at', '>=', now()->subMonths(12))
+            ->groupBy('year', 'month')
+            ->orderBy('year', 'asc')
+            ->orderBy('month', 'asc')
+            ->get();
+
+        return response()->json($monthlyStats);
+    }
 }

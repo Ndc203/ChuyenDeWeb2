@@ -50,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // User statistics route (public)
 Route::get('/user-statistics', [UserController::class, 'userStatistics']);
+Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStatistics']);
+
 
 // Comment routes
 Route::get('/comments/export', [CommentController::class, 'export']);
