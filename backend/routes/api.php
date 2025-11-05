@@ -56,7 +56,7 @@ Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
 // Post routes
-Route::get('/post-statistics', [PostController::class, 'statistics']);
+Route::get('/posts/statistics', [PostController::class, 'statistics']);
 Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::apiResource('posts', PostController::class);
 
