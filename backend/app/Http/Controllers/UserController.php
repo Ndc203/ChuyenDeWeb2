@@ -53,7 +53,7 @@ class UserController extends Controller
     {
         $totalUsers = User::count();
         $activeUsers = User::where('status', 'active')->count();
-        $inactiveUsers = User::where('status', 'inactive')->count();
+        $inactiveUsers = User::where('status', 'banned')->count();
         $adminUsers = User::where('role', 'admin')->count();
         $customerUsers = User::where('role', 'customer')->count();
 

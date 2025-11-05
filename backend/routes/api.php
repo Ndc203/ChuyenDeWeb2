@@ -46,16 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', fn(Request $request) => $request->user());
 
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy', 'store']);
-    Route::get('/users/statistics', [UserController::class, 'userStatistics']);
-    Route::get('/activity-history', [ActivityLogController::class, 'index']);
-
-    // Profile routes for authenticated user
-    Route::controller(ProfileController::class)->prefix('me')->group(function () {
-        Route::get('/', 'getProfile');
-        Route::put('/update', 'updateProfile');
-        Route::post('/change-password', 'changePassword');
-    });
 });
+
+// User statistics route (public)
+Route::get('/user-statistics', [UserController::class, 'userStatistics']);
 
 // Comment routes
 Route::get('/comments/export', [CommentController::class, 'export']);
