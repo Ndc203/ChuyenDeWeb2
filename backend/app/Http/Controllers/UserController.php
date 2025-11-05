@@ -29,7 +29,8 @@ class UserController extends Controller
      */
     public function show(string $id)
     {
-        //
+        $user = User::findOrFail($id);
+        return response()->json($user);
     }
 
     /**
@@ -52,7 +53,7 @@ class UserController extends Controller
     {
         $totalUsers = User::count();
         $activeUsers = User::where('status', 'active')->count();
-        $inactiveUsers = User::where('status', 'inactive')->count();
+        $inactiveUsers = User::where('status', 'banned')->count();
         $adminUsers = User::where('role', 'admin')->count();
         $customerUsers = User::where('role', 'customer')->count();
 

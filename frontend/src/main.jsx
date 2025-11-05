@@ -45,6 +45,7 @@ const router = createBrowserRouter([
   { path: "/admin/user-statistics", element: <AdminUserStatisticsPage /> },
   { path: "/admin/permissions", element: <AdminPermissionsPage /> },
   { path: "/admin/profile", element: <AdminProfilePage /> },
+  { path: "/admin/profile/:id", element: <AdminProfilePage /> },
   { path: "/login", element: <Login /> },
   { path: "/register", element: <Register /> },
   { path: "/forgot-password", element: <ForgotPassword /> },
