@@ -22,6 +22,7 @@ import AdminStockPage from "./pages/admin/AdminStockPage.jsx";
 import AdminPermissionsPage from "./pages/admin/AdminPermissionsPage.jsx";
 import AdminProfilePage from "./pages/admin/AdminProfilePage.jsx";
 import AdminCouponsPage from "./pages/admin/AdminCouponsPage.jsx";
+import AdminReviewsPage from "./pages/admin/AdminReviewsPage.jsx";
 import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
@@ -51,6 +52,7 @@ const router = createBrowserRouter([
   { path: "/forgot-password", element: <ForgotPassword /> },
   { path: "/reset-password", element: <ResetPassword /> },
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
+  { path: "/admin/reviews", element: <AdminReviewsPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 

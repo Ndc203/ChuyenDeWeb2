@@ -18,6 +18,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\CouponController;
+use App\Http\Controllers\ProductReviewController;
 
 /*
 |--------------------------------------------------------------------------
@@ -130,4 +131,14 @@ Route::controller(CouponController::class)->group(function () {
     Route::put('/coupons/{coupon}', [CouponController::class, 'update']);
     Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
     Route::patch('/coupons/{coupon}/toggle', [CouponController::class, 'toggleStatus']);
+});
+
+// Product Review routes
+Route::controller(ProductReviewController::class)->group(function () {
+    Route::get('/reviews', 'index');
+    Route::get('/reviews/statistics', 'statistics');
+    Route::get('/reviews/{id}', 'show');
+    Route::patch('/reviews/{id}/status', 'updateStatus');
+    Route::patch('/reviews/{id}/helpful', 'updateHelpful');
+    Route::delete('/reviews/{id}', 'destroy');
 });
