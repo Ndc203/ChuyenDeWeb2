@@ -10,6 +10,20 @@ use Illuminate\Support\Facades\DB;
 class ProductController extends Controller
 {
     /**
+     * Tìm sản phẩm bằng ID hoặc Hashed ID
+     */
+    private function findProduct($id)
+    {
+        // Thử decode hashed ID trước
+        $realId = Product::decodeHashedId($id);
+        
+        // Nếu decode thành công, dùng real ID, nếu không dùng ID gốc
+        $productId = $realId ?? $id;
+        
+        return Product::findOrFail($productId);
+    }
+
+    /**
      * Lấy danh sách sản phẩm
      */
     public function index(Request $request)
@@ -61,6 +75,7 @@ class ProductController extends Controller
 
             return [
                 'id' => $product->product_id,
+                'hashed_id' => $product->hashed_id,
                 'name' => $product->name,
                 'slug' => $product->slug,
                 'description' => $product->description,
@@ -127,14 +142,22 @@ class ProductController extends Controller
      */
     public function show($id)
     {
-        $product = Product::with(['category', 'brand', 'reviews'])
-            ->findOrFail($id);
+        // Hỗ trợ cả ID thật và Hashed ID
+        $product = Product::with(['category', 'brand', 'reviews']);
+        
+        $realId = Product::decodeHashedId($id);
+        if ($realId) {
+            $product = $product->findOrFail($realId);
+        } else {
+            $product = $product->findOrFail($id);
+        }
 
         $avgRating = $product->reviews()->avg('rating') ?? 0;
         $totalReviews = $product->reviews()->count();
 
         return response()->json([
             'id' => $product->product_id,
+            'hashed_id' => $product->hashed_id,
             'name' => $product->name,
             'slug' => $product->slug,
             'description' => $product->description,
@@ -165,7 +188,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $product = $this->findProduct($id);
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -195,7 +218,7 @@ class ProductController extends Controller
      */
     public function destroy($id)
     {
-        $product = Product::findOrFail($id);
+        $product = $this->findProduct($id);
         $product->delete();
 
         return response()->json([
@@ -215,6 +238,7 @@ class ProductController extends Controller
             ->map(function (Product $product) {
                 return [
                     'id' => $product->product_id,
+                    'hashed_id' => $product->hashed_id,
                     'name' => $product->name,
                     'slug' => $product->slug,
                     'brand' => optional($product->brand)->name,
@@ -234,7 +258,10 @@ class ProductController extends Controller
      */
     public function restore($id)
     {
-        $product = Product::onlyTrashed()->findOrFail($id);
+        $realId = Product::decodeHashedId($id);
+        $productId = $realId ?? $id;
+        
+        $product = Product::onlyTrashed()->findOrFail($productId);
         $product->restore();
 
         return response()->json([
@@ -248,7 +275,7 @@ class ProductController extends Controller
      */
     public function toggleStatus($id)
     {
-        $product = Product::findOrFail($id);
+        $product = $this->findProduct($id);
         $product->status = $product->status === 'active' ? 'inactive' : 'active';
         $product->save();
 
@@ -276,4 +303,3 @@ class ProductController extends Controller
         return response()->json(['slug' => $slug], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }
-

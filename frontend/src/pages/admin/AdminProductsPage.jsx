@@ -76,7 +76,8 @@ export default function AdminProductsPage() {
 
     setDeleting(true);
     try {
-      const response = await fetch(`${API_URL}/api/products/${productToDelete.id}`, {
+      // Sử dụng hashed_id thay vì id
+      const response = await fetch(`${API_URL}/api/products/${productToDelete.hashed_id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -338,7 +339,7 @@ export default function AdminProductsPage() {
                           </button>
                           <button
                             title="Sửa"
-                            onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                            onClick={() => navigate(`/admin/products/edit/${product.hashed_id}`)}
                             className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-100"
                           >
                             <Edit size={16} />
@@ -557,7 +558,7 @@ export default function AdminProductsPage() {
               <button
                 onClick={() => {
                   setShowDetailModal(false);
-                  navigate(`/admin/products/edit/${selectedProduct.id}`);
+                  navigate(`/admin/products/edit/${selectedProduct.hashed_id}`);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -624,4 +625,3 @@ export default function AdminProductsPage() {
     </div>
   );
 }
-

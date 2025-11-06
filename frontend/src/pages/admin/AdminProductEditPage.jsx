@@ -5,7 +5,7 @@ import AdminSidebar from "../layout/AdminSidebar.jsx";
 
 export default function AdminProductEditPage() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: hashedId } = useParams(); // Nhận hashed_id từ URL
   const [loading, setLoading] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [error, setError] = useState("");
@@ -33,7 +33,8 @@ export default function AdminProductEditPage() {
   // Load product data
   useEffect(() => {
     setLoadingProduct(true);
-    fetch(`${API_URL}/api/products/${id}`)
+    // Sử dụng hashed_id để load sản phẩm
+    fetch(`${API_URL}/api/products/${hashedId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data) {
@@ -57,7 +58,7 @@ export default function AdminProductEditPage() {
         setError("Không thể tải thông tin sản phẩm");
       })
       .finally(() => setLoadingProduct(false));
-  }, [API_URL, id]);
+  }, [API_URL, hashedId]);
 
   // Load categories và brands
   useEffect(() => {
@@ -134,7 +135,8 @@ export default function AdminProductEditPage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/products/${id}`, {
+      // Sử dụng hashed_id để update sản phẩm
+      const response = await fetch(`${API_URL}/api/products/${hashedId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

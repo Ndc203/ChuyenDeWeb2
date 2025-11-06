@@ -94,7 +94,7 @@ export default function AdminStockPage() {
           Accept: "application/json",
         },
         body: JSON.stringify({
-          product_id: selectedProduct.id,
+          product_id: selectedProduct.hashed_id || selectedProduct.id, // Use hashed_id for security
           type: updateType,
           quantity: parseInt(updateQuantity),
           note: updateNote,
@@ -486,4 +486,3 @@ export default function AdminStockPage() {
     </div>
   );
 }
-
