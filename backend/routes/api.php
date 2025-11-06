@@ -20,6 +20,7 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\ApiTokenController;
+use App\Http\Controllers\ProductHistoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -115,6 +116,16 @@ Route::controller(ProductController::class)->group(function () {
     Route::patch('/products/{id}/toggle', 'toggleStatus');
     Route::patch('/products/{id}/restore', 'restore');
     Route::delete('/products/{id}', 'destroy');
+});
+
+// Product History routes
+Route::controller(ProductHistoryController::class)->group(function () {
+    Route::get('/products/{productId}/history', 'index');              // Lịch sử của một sản phẩm
+    Route::get('/product-history', 'all');                             // Tất cả lịch sử (admin)
+    Route::get('/product-history/statistics', 'statistics');           // Thống kê
+    Route::get('/product-history/{id}', 'show');                       // Chi tiết bản ghi lịch sử
+    Route::post('/product-history/{id}/restore', 'restoreFromHistory'); // Khôi phục từ lịch sử
+    Route::get('/product-history/compare/{id1}/{id2}', 'compare');     // So sánh hai phiên bản
 });
 
 // Stock routes

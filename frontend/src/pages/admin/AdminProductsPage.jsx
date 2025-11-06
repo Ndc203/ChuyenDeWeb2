@@ -8,6 +8,7 @@ import {
   Trash2,
   Eye,
   Star,
+  History,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
@@ -336,6 +337,13 @@ export default function AdminProductsPage() {
                             className="inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
                           >
                             <Eye size={16} />
+                          </button>
+                          <button
+                            title="Lịch sử thay đổi"
+                            onClick={() => navigate(`/admin/products/${product.id}/history`)}
+                            className="inline-flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-purple-600 hover:bg-purple-100"
+                          >
+                            <History size={16} />
                           </button>
                           <button
                             title="Sửa"

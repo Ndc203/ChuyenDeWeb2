@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductHistory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
@@ -131,6 +132,9 @@ class ProductController extends Controller
 
         $product = Product::create($data);
 
+        // Ghi lại lịch sử tạo sản phẩm
+        ProductHistory::logChange($product, 'created', [], $data);
+
         return response()->json([
             'message' => 'Sản phẩm đã được tạo thành công.',
             'data' => $product->fresh(['category', 'brand']),
@@ -205,7 +209,13 @@ class ProductController extends Controller
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ]);
 
+        // Lưu giá trị cũ trước khi cập nhật
+        $oldValues = $product->only(array_keys($data));
+
         $product->update($data);
+
+        // Ghi lại lịch sử cập nhật
+        ProductHistory::logChange($product, 'updated', $oldValues, $data);
 
         return response()->json([
             'message' => 'Sản phẩm đã được cập nhật thành công.',
@@ -219,7 +229,16 @@ class ProductController extends Controller
     public function destroy($id)
     {
         $product = $this->findProduct($id);
+        
+        // Lưu thông tin sản phẩm trước khi xóa
+        $productData = $product->only([
+            'name', 'price', 'stock', 'category_id', 'brand_id', 'status'
+        ]);
+        
         $product->delete();
+
+        // Ghi lại lịch sử xóa
+        ProductHistory::logChange($product, 'deleted', $productData, []);
 
         return response()->json([
             'message' => 'Sản phẩm đã được xóa thành công.',
@@ -262,7 +281,16 @@ class ProductController extends Controller
         $productId = $realId ?? $id;
         
         $product = Product::onlyTrashed()->findOrFail($productId);
+        
+        // Lưu thông tin sản phẩm
+        $productData = $product->only([
+            'name', 'price', 'stock', 'category_id', 'brand_id', 'status'
+        ]);
+        
         $product->restore();
+
+        // Ghi lại lịch sử khôi phục
+        ProductHistory::logChange($product, 'restored', [], $productData);
 
         return response()->json([
             'message' => 'Sản phẩm đã được khôi phục thành công.',
@@ -276,8 +304,17 @@ class ProductController extends Controller
     public function toggleStatus($id)
     {
         $product = $this->findProduct($id);
+        $oldStatus = $product->status;
         $product->status = $product->status === 'active' ? 'inactive' : 'active';
         $product->save();
+
+        // Ghi lại lịch sử thay đổi trạng thái
+        ProductHistory::logChange(
+            $product, 
+            'updated', 
+            ['status' => $oldStatus], 
+            ['status' => $product->status]
+        );
 
         return response()->json([
             'ok' => true,
