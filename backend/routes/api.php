@@ -19,6 +19,7 @@ use App\Http\Controllers\CommentController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ProductReviewController;
+use App\Http\Controllers\ApiTokenController;
 
 /*
 |--------------------------------------------------------------------------
@@ -141,4 +142,61 @@ Route::controller(ProductReviewController::class)->group(function () {
     Route::patch('/reviews/{id}/status', 'updateStatus');
     Route::patch('/reviews/{id}/helpful', 'updateHelpful');
     Route::delete('/reviews/{id}', 'destroy');
+});
+
+// API Token Management Routes
+Route::prefix('api-tokens')->controller(ApiTokenController::class)->group(function () {
+    Route::get('/', 'index');                          // Lấy danh sách tokens
+    Route::post('/', 'store');                         // Tạo token mới
+    Route::get('/permissions', 'permissions');         // Lấy danh sách permissions
+    Route::get('/{id}', 'show');                       // Xem chi tiết token
+    Route::put('/{id}', 'update');                     // Cập nhật token
+    Route::delete('/{id}', 'destroy');                 // Xóa token
+    Route::patch('/{id}/deactivate', 'deactivate');    // Vô hiệu hóa token
+    Route::patch('/{id}/activate', 'activate');        // Kích hoạt token
+    Route::get('/{id}/statistics', 'statistics');      // Thống kê sử dụng
+});
+
+/*
+|--------------------------------------------------------------------------
+| Protected API Routes với API Token
+|--------------------------------------------------------------------------
+| Các routes này yêu cầu API Token để truy cập
+| Sử dụng middleware: api.token:permission
+| 
+| Cách sử dụng:
+| - Header: Authorization: Bearer YOUR_API_TOKEN
+| - Rate limit theo cấu hình của token
+*/
+
+// Example: Product API với token authentication
+Route::prefix('v1')->middleware('api.token')->group(function () {
+    // Read products (yêu cầu quyền products.read hoặc products.*)
+    Route::get('/products', [ProductController::class, 'index'])
+        ->middleware('api.token:products.read');
+    
+    Route::get('/products/{id}', [ProductController::class, 'show'])
+        ->middleware('api.token:products.read');
+    
+    // Create products (yêu cầu quyền products.create hoặc products.*)
+    Route::post('/products', [ProductController::class, 'store'])
+        ->middleware('api.token:products.create');
+    
+    // Update products (yêu cầu quyền products.update hoặc products.*)
+    Route::put('/products/{id}', [ProductController::class, 'update'])
+        ->middleware('api.token:products.update');
+    
+    // Delete products (yêu cầu quyền products.delete hoặc products.*)
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])
+        ->middleware('api.token:products.delete');
+    
+    // Reviews API với token
+    Route::get('/reviews', [ProductReviewController::class, 'index'])
+        ->middleware('api.token:reviews.read');
+    
+    Route::patch('/reviews/{id}/status', [ProductReviewController::class, 'updateStatus'])
+        ->middleware('api.token:reviews.update');
+    
+    Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy'])
+        ->middleware('api.token:reviews.delete');
 });

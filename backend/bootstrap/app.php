@@ -15,7 +15,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Register API Token Auth Middleware
+        $middleware->alias([
+            'api.token' => \App\Http\Middleware\ApiTokenAuth::class,
+        ]);
     })
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->call(function (): void {
