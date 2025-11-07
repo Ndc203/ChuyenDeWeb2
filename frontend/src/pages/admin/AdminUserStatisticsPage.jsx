@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -13,6 +12,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import AdminSidebar from '../layout/AdminSidebar';
 import { ArrowLeft } from 'lucide-react';
+import axios from 'axios';
 
 // Register Chart.js components
 ChartJS.register(
@@ -24,14 +24,7 @@ ChartJS.register(
   Legend
 );
 
-// --- DUMMY DATA ---
-const overviewMetrics = {
-  totalUsers: 769,
-  activeUsers: 512,
-  newUsersThisMonth: 203,
-  growth: 30.1,
-};
-
+// --- DUMMY DATA (for chart only) ---
 const monthlyData = [
   { month: 'Tháng 4', newUsers: 50, activeUsers: 300, totalUsers: 566, growth: 5.2 },
   { month: 'Tháng 5', newUsers: 75, activeUsers: 350, totalUsers: 641, growth: 13.3 },
@@ -60,6 +53,27 @@ const StatCard = ({ title, value, growth }) => (
 
 export default function AdminUserStatisticsPage() {
   const [timeRange, setTimeRange] = useState('7');
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    adminUsers: 0,
+    customerUsers: 0,
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await axios.get('/api/user-statistics');
+        console.log('API Response:', response.data);
+        setStats(response.data);
+      } catch (error) {
+        console.error('Error fetching user statistics:', error);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const filteredData = monthlyData.slice(-parseInt(timeRange));
 
@@ -133,11 +147,12 @@ export default function AdminUserStatisticsPage() {
           </div>
 
           {/* 2. Overview Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard title="Tổng người dùng" value={overviewMetrics.totalUsers} />
-            <StatCard title="Người dùng hoạt động" value={overviewMetrics.activeUsers} />
-            <StatCard title="Người dùng mới tháng này" value={overviewMetrics.newUsersThisMonth} />
-            <StatCard title="Tăng trưởng" value={overviewMetrics.growth} growth={overviewMetrics.growth} />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+            <StatCard title="Tổng người dùng" value={stats.totalUsers} />
+            <StatCard title="Người dùng hoạt động" value={stats.activeUsers} />
+            <StatCard title="Người dùng bị cấm" value={stats.inactiveUsers} />
+            <StatCard title="Quản trị viên" value={stats.adminUsers} />
+            <StatCard title="Khách hàng" value={stats.customerUsers} />
           </div>
 
           {/* 3. Chart */}

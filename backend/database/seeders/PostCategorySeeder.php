@@ -27,7 +27,7 @@ class PostCategorySeeder extends Seeder
             ],
             [
                 'name' => 'Thủ thuật máy tính',
-                'description' => 'Chia sẻ mẹo, hướng dẫn, tối ưu hệ thống cho người dùng.',
+                'description' => 'Chia sẻ mẹo, hướng dẫn, tối ưu hiệu năng cho người dùng.',
                 'created_at' => $now,
                 'updated_at' => $now,
             ],

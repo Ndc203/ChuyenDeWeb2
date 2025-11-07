@@ -21,7 +21,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'iPhone 15 Pro Max',
                 'slug' => Str::slug('iPhone 15 Pro Max'),
-                'description' => 'iPhone 15 Pro Max với chip A17 Pro, camera 48MP, màn hình Super Retina XDR 6.7 inch',
+                'description' => 'iPhone 15 Pro Max với chip A17 Pro, camera 48MP, màn hình Super Retina XDR 6.7 inch.',
                 'price' => 29990000,
                 'discount' => 5,
                 'stock' => 25,
@@ -37,7 +37,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Samsung Galaxy S24 Ultra',
                 'slug' => Str::slug('Samsung Galaxy S24 Ultra'),
-                'description' => 'Samsung Galaxy S24 Ultra với bút S Pen, camera 200MP, màn hình Dynamic AMOLED 2X',
+                'description' => 'Samsung Galaxy S24 Ultra với bút S Pen, camera 200MP, màn hình Dynamic AMOLED 2X.',
                 'price' => 26990000,
                 'discount' => 10,
                 'stock' => 18,
@@ -53,7 +53,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'MacBook Pro M3',
                 'slug' => Str::slug('MacBook Pro M3'),
-                'description' => 'MacBook Pro 14 inch với chip M3, RAM 16GB, SSD 512GB, màn hình Liquid Retina XDR',
+                'description' => 'MacBook Pro 14 inch với chip M3, RAM 16GB, SSD 512GB, màn hình Liquid Retina XDR.',
                 'price' => 43990000,
                 'discount' => 0,
                 'stock' => 12,
@@ -69,7 +69,7 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Dell XPS 13',
                 'slug' => Str::slug('Dell XPS 13'),
-                'description' => 'Dell XPS 13 với Intel Core i7 Gen 13, RAM 16GB, SSD 512GB, màn hình InfinityEdge',
+                'description' => 'Dell XPS 13 với Intel Core i7 Gen 13, RAM 16GB, SSD 512GB, màn hình InfinityEdge.',
                 'price' => 32990000,
                 'discount' => 15,
                 'stock' => 8,
@@ -85,11 +85,11 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'iPad Pro 12.9',
                 'slug' => Str::slug('iPad Pro 12.9'),
-                'description' => 'iPad Pro 12.9 inch với chip M2, màn hình Liquid Retina XDR, hỗ trợ Apple Pencil',
+                'description' => 'iPad Pro 12.9 inch với chip M2, màn hình Liquid Retina XDR, hỗ trợ Apple Pencil.',
                 'price' => 24990000,
                 'discount' => 8,
                 'stock' => 15,
-                'category_id' => $categories['Tablet'] ?? null,
+                'category_id' => $categories['Điện tử'] ?? null,
                 'brand_id' => $brands['Apple'] ?? null,
                 'is_flash_sale' => false,
                 'is_new' => true,
@@ -101,11 +101,11 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'AirPods Pro 2',
                 'slug' => Str::slug('AirPods Pro 2'),
-                'description' => 'AirPods Pro thế hệ 2 với chip H2, chống ồn chủ động, hộp sạc MagSafe',
+                'description' => 'AirPods Pro thế hệ 2 với chip H2, chống ồn chủ động, hộp sạc MagSafe.',
                 'price' => 6490000,
                 'discount' => 12,
                 'stock' => 45,
-                'category_id' => $categories['Phụ kiện'] ?? null,
+                'category_id' => $categories['Phụ kiện công nghệ'] ?? null,
                 'brand_id' => $brands['Apple'] ?? null,
                 'is_flash_sale' => true,
                 'is_new' => false,
@@ -117,11 +117,11 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Sony WH-1000XM5',
                 'slug' => Str::slug('Sony WH-1000XM5'),
-                'description' => 'Tai nghe Sony WH-1000XM5 chống ồn hàng đầu, thời lượng pin 30 giờ',
+                'description' => 'Tai nghe Sony WH-1000XM5 chống ồn hàng đầu, thời lượng pin 30 giờ.',
                 'price' => 8990000,
                 'discount' => 0,
                 'stock' => 20,
-                'category_id' => $categories['Phụ kiện'] ?? null,
+                'category_id' => $categories['Phụ kiện công nghệ'] ?? null,
                 'brand_id' => $brands['Sony'] ?? null,
                 'is_flash_sale' => false,
                 'is_new' => true,
@@ -133,11 +133,11 @@ class ProductSeeder extends Seeder
             [
                 'name' => 'Apple Watch Series 9',
                 'slug' => Str::slug('Apple Watch Series 9'),
-                'description' => 'Apple Watch Series 9 với chip S9, màn hình Always-On Retina, theo dõi sức khỏe',
+                'description' => 'Apple Watch Series 9 với chip S9, màn hình Always-On Retina, theo dõi sức khỏe.',
                 'price' => 10990000,
                 'discount' => 7,
                 'stock' => 30,
-                'category_id' => $categories['Phụ kiện'] ?? null,
+                'category_id' => $categories['Phụ kiện công nghệ'] ?? null,
                 'brand_id' => $brands['Apple'] ?? null,
                 'is_flash_sale' => false,
                 'is_new' => true,
@@ -174,4 +174,3 @@ class ProductSeeder extends Seeder
         }
     }
 }
-

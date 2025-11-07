@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 const Sidebar = () => {
   return (
@@ -18,19 +19,19 @@ const Sidebar = () => {
           <h3 style={{ margin: '0 0 5px 0' }}>Người dùng</h3>
           <ul style={{ listStyleType: 'none', paddingLeft: '15px' }}>
             <li style={{ marginBottom: '5px' }}>
-              <a href="/users/list" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Danh Sách người dùng</a>
+              <Link to="/admin/users" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Danh Sách người dùng</Link>
             </li>
             <li style={{ marginBottom: '5px' }}>
-              <a href="/users/activity-history" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Lịch sử hoạt động</a>
+              <Link to="/admin/activity-history" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Lịch sử hoạt động</Link>
             </li>
             <li style={{ marginBottom: '5px' }}>
-              <a href="/users/statistics" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Thống kê người dùng</a>
+              <Link to="/admin/user-statistics" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Thống kê người dùng</Link>
             </li>
             <li style={{ marginBottom: '5px' }}>
-              <a href="/users/permissions" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Phân Quyền</a>
+              <Link to="/admin/permissions" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Phân Quyền</Link>
             </li>
             <li style={{ marginBottom: '5px' }}>
-              <a href="/users/profile" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Trang cá nhân</a>
+              <Link to="/admin/profile" style={{ textDecoration: 'none', color: '#333', fontSize: '16px' }}>Trang cá nhân</Link>
             </li>
           </ul>
         </li>

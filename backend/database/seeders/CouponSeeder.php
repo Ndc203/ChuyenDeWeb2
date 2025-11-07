@@ -10,7 +10,7 @@ class CouponSeeder extends Seeder
 {
     public function run(): void
     {
-        // Xóa dữ liệu cũ để tránh trùng lặp
+        // Xóa dữ liệu cũ tránh trùng lặp
         DB::table('coupons')->delete();
 
         DB::table('coupons')->insert([
@@ -70,7 +70,7 @@ class CouponSeeder extends Seeder
                 'usage_count' => 0,
                 'start_date' => Carbon::now(),
                 'end_date' => Carbon::now()->addYear(1),
-                'is_active' => false, // Bị vô hiệu hóa
+                'is_active' => false, // Bật lại khi cần kích hoạt
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
