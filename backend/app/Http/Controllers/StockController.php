@@ -43,7 +43,8 @@ class StockController extends Controller
                 }
 
                 return [
-                    'id' => $product->product_id, // Change to product_id
+                    'id' => $product->product_id,
+                    'hashed_id' => $product->hashed_id, // Add hashed_id support
                     'name' => $product->name,
                     'image' => $product->image,
                     'brand' => optional($product->brand)->name,
@@ -103,17 +104,32 @@ class StockController extends Controller
 
     /**
      * Cập nhật tồn kho (nhập/xuất)
+     * Hỗ trợ cả product_id (ID thật) và hashed_id
      */
     public function updateStock(Request $request)
     {
         $request->validate([
-            'product_id' => 'required|exists:products,product_id',
+            'product_id' => 'required',
             'type' => 'required|in:import,export',
             'quantity' => 'required|integer|min:1',
             'note' => 'nullable|string|max:500',
         ]);
 
-        $product = Product::findOrFail($request->product_id);
+        // Tìm product bằng ID hoặc hashed_id
+        $productId = $request->product_id;
+        
+        // Nếu là số, tìm bằng product_id
+        if (is_numeric($productId)) {
+            $product = Product::where('product_id', $productId)->firstOrFail();
+        } else {
+            // Nếu không phải số, decode hashed_id
+            $product = Product::findByHashedId($productId);
+            if (!$product) {
+                return response()->json([
+                    'message' => 'Không tìm thấy sản phẩm'
+                ], 404);
+            }
+        }
 
         DB::beginTransaction();
         try {
@@ -149,4 +165,3 @@ class StockController extends Controller
         }
     }
 }
-

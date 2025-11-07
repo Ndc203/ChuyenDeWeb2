@@ -18,6 +18,8 @@ class ProductReview extends Model
         'user_id',
         'rating',
         'comment',
+        'status',
+        'helpful_count',
     ];
 
     protected $casts = [
@@ -34,4 +36,3 @@ class ProductReview extends Model
         return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
 }
-

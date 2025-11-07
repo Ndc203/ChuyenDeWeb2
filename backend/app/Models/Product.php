@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\HashesId;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -9,7 +10,7 @@ use Illuminate\Support\Str;
 
 class Product extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HashesId;
 
     protected $table = 'products';
     protected $primaryKey = 'product_id';
@@ -38,6 +39,11 @@ class Product extends Model
         'is_flash_sale' => 'boolean',
         'is_new' => 'boolean',
     ];
+
+    /**
+     * Thêm hashed_id vào JSON response
+     */
+    protected $appends = ['hashed_id'];
 
     protected static function booted()
     {
@@ -124,4 +130,3 @@ class Product extends Model
         return $badges;
     }
 }
-

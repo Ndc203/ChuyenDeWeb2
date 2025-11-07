@@ -23,13 +23,21 @@ y
      * Các cột được phép mass assignment
      */
     protected $fillable = [
-        'username',     // ← DÙNG username
+        'username',
+        'full_name',
+        'avatar',
         'email',
         'password',
         'phone',
         'address',
+        'date_of_birth',
+        'gender',
+        'department',
+        'about_me',
+        'social_links',
         'status',
         'role',
+        'last_login_at',
     ];
 
     /**
@@ -50,6 +58,9 @@ y
             'password' => 'hashed',
             'status' => 'string',
             'role' => 'string',
+            'social_links' => 'array',
+            'date_of_birth' => 'date',
+            'last_login_at' => 'datetime',
         ];
     }
 }
