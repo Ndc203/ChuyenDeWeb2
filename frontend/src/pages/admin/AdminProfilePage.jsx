@@ -25,6 +25,15 @@ const AdminProfilePage = () => {
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
 
+  const translateGender = (gender) => {
+    const genderMap = {
+      male: 'Nam',
+      female: 'Nữ',
+      other: 'Khác',
+    };
+    return genderMap[gender] || 'Chưa cập nhật';
+  };
+
   useEffect(() => {
     const fetchUser = async () => {
       setLoading(true);
@@ -164,7 +173,7 @@ const AdminProfilePage = () => {
                                     <InfoRow icon={<User size={14}/>} label="Họ và tên" value={user.full_name || 'Chưa cập nhật'} />
                                     <InfoRow icon={<MapPin size={14}/>} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} />
                                     <InfoRow icon={<Calendar size={14}/>} label="Ngày sinh" value={user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} />
-                                    <InfoRow icon={<Users size={14}/>} label="Giới tính" value={user.gender || 'Chưa cập nhật'} />
+                                    <InfoRow icon={<Users size={14}/>} label="Giới tính" value={translateGender(user.gender)} />
                                 </div>
                                 <div className="mt-6 pt-6 border-t border-slate-200">
                                     <h3 className="text-xl font-bold text-slate-800 mb-2">Giới thiệu bản thân</h3>
