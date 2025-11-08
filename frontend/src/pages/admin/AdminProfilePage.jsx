@@ -6,7 +6,7 @@ import AdminSidebar from '../layout/AdminSidebar';
 
 // API service definition
 const api = {
-  getOwnProfile: () => axios.get('http://localhost:8000/api/me'),
+  getOwnProfile: () => axios.get('http://localhost:8000/api/user'),
   getUserById: (id) => axios.get(`http://localhost:8000/api/users/${id}`),
   updateProfile: (data) => axios.put('http://localhost:8000/api/me/update', data),
   changePassword: (data) => axios.post('http://localhost:8000/api/me/change-password', data),
