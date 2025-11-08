@@ -20,6 +20,7 @@ use App\Http\Controllers\StockController;
 use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\ApiTokenController;
+use App\Http\Controllers\ProductHistoryController;
 
 /*
 |--------------------------------------------------------------------------
@@ -47,18 +48,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Profile routes
+    Route::put('/me/update', [ProfileController::class, 'updateProfile']);
+    Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
+
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy', 'store']);
 });
 
 // User statistics route (public)
 Route::get('/user-statistics', [UserController::class, 'userStatistics']);
+Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStatistics']);
+
 
 // Comment routes
 Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
-// Post routes
-Route::get('/posts/statistics', [PostController::class, 'statistics']);
+// ✅ Post routes
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
+Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
+Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::apiResource('posts', PostController::class);
 
@@ -115,6 +125,16 @@ Route::controller(ProductController::class)->group(function () {
     Route::patch('/products/{id}/toggle', 'toggleStatus');
     Route::patch('/products/{id}/restore', 'restore');
     Route::delete('/products/{id}', 'destroy');
+});
+
+// Product History routes
+Route::controller(ProductHistoryController::class)->group(function () {
+    Route::get('/products/{productId}/history', 'index');              // Lịch sử của một sản phẩm
+    Route::get('/product-history', 'all');                             // Tất cả lịch sử (admin)
+    Route::get('/product-history/statistics', 'statistics');           // Thống kê
+    Route::get('/product-history/{id}', 'show');                       // Chi tiết bản ghi lịch sử
+    Route::post('/product-history/{id}/restore', 'restoreFromHistory'); // Khôi phục từ lịch sử
+    Route::get('/product-history/compare/{id1}/{id2}', 'compare');     // So sánh hai phiên bản
 });
 
 // Stock routes
