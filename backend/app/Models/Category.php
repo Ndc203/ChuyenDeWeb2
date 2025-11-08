@@ -52,6 +52,14 @@ class Category extends Model
         return $slug;
     }
 
+    public static function pruneTrashedOlderThanDays(int $days = 30): void
+    {
+        static::onlyTrashed()
+            ->where('deleted_at', '<', now()->subDays($days))
+            ->cursor()
+            ->each->forceDelete();
+    }
+
     public function parent()
     {
         return $this->belongsTo(self::class, 'parent_id', 'category_id')->withTrashed();

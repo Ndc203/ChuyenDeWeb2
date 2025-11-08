@@ -281,7 +281,7 @@ export default function AdminUsersPage() {
                       <td className="px-4 py-3 text-slate-500">{formatDate(user.created_at)}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2 text-slate-500">
-                            <Link to={`/admin/user/${user.user_id}`} className="hover:text-indigo-600"><Eye size={16} /></Link>
+                            <Link to={`/admin/profile/${user.user_id}`} className="hover:text-indigo-600"><Eye size={16} /></Link>
                             <button onClick={() => handleOpenEditModal(user)} className="hover:text-indigo-600"><Pencil size={16} /></button>
                             <button onClick={() => handleDelete(user.user_id)} className="hover:text-red-600"><Trash2 size={16} /></button>
                         </div>

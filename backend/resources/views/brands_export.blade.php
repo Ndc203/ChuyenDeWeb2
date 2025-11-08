@@ -26,11 +26,11 @@
       @foreach ($rows as $r)
         <tr>
           <td>{{ $r['ID'] }}</td>
-          <td>{{ $r['Name'] }}</td>
+          <td>{{ $r['Tên thương hiệu'] }}</td>
           <td>{{ $r['Slug'] }}</td>
-          <td>{{ $r['Status'] }}</td>
-          <td>{{ $r['Description'] }}</td>
-          <td>{{ $r['Created At'] }}</td>
+          <td>{{ $r['Trạng thái'] }}</td>
+          <td>{{ $r['Mô tả'] }}</td>
+          <td>{{ $r['Ngày tạo'] }}</td>
         </tr>
       @endforeach
     </tbody>
