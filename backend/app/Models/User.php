@@ -17,9 +17,7 @@ class User extends Authenticatable
     protected $keyType = 'int';
 
     /**
-y
 
-    /**
      * Các cột được phép mass assignment
      */
     protected $fillable = [
@@ -63,4 +61,9 @@ y
             'last_login_at' => 'datetime',
         ];
     }
+
+    public function orders() {
+        return $this->hasMany(Order::class);
+    }
+
 }

@@ -21,6 +21,7 @@ use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\ProductHistoryController;
+use App\Http\Controllers\OrderController;
 
 /*
 |--------------------------------------------------------------------------
@@ -153,6 +154,12 @@ Route::controller(CouponController::class)->group(function () {
     Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
     Route::patch('/coupons/{coupon}/toggle', [CouponController::class, 'toggleStatus']);
 });
+
+// Order routes
+Route::get('/orders', [OrderController::class, 'index']);
+Route::get('/orders/statistics', [OrderController::class, 'statistics']);
+Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+Route::get('/orders/{order}', [OrderController::class, 'show']);
 
 // Product Review routes
 Route::controller(ProductReviewController::class)->group(function () {
