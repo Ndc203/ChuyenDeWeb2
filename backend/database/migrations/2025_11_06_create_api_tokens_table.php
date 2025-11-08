@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('api_tokens', function (Blueprint $table) {
             $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->unsignedInteger('user_id'); // match users.user_id (increments)
             $table->string('name'); // Tên token để dễ quản lý
             $table->string('token', 64)->unique(); // API token
             $table->json('permissions')->nullable(); // Quyền: products.read, products.write, products.delete
