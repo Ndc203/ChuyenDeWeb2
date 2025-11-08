@@ -9,7 +9,7 @@ class CreateCategorybannersTable extends Migration
     public function up()
     {
         Schema::create('categorybanners', function (Blueprint $table) {
-            $table->id('banner_id');
+            $table->id('category_banner_id');
             $table->foreignId('category_id')
                 ->nullable()
                 ->constrained('categories', 'category_id')

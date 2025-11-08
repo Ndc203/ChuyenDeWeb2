@@ -9,7 +9,7 @@ class CreateColorsTable extends Migration
     public function up()
     {
         Schema::create('colors', function (Blueprint $table) {
-            $table->increments('color_id');
+            $table->id('color_id');
             $table->string('name')->nullable();
             $table->string('hex_code')->nullable();
         });
