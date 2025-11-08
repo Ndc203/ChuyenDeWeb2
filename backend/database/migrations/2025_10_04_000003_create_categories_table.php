@@ -19,6 +19,7 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->string('status')->default('active');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

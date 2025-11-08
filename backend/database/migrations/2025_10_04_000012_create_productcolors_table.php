@@ -10,10 +10,15 @@ class CreateProductcolorsTable extends Migration
     {
         Schema::create('productcolors', function (Blueprint $table) {
             // Khóa chính kiểu INT (khớp phong cách với products dùng increments)
-            $table->increments('color_id');
+            $table->id('color_id');
 
             // KHỚP HOÀN TOÀN với products.product_id (UNSIGNED INT)
-            $table->unsignedInteger('product_id');
+            $table->foreignId('product_id')
+          ->constrained(
+              table: 'products',    // Tên bảng tham chiếu
+              column: 'product_id' // Tên cột tham chiếu
+          )
+          ->cascadeOnDelete(); // Tương đương 'on delete cascade'
 
             $table->string('color_name', 50)->nullable();
             $table->string('hex_code', 10)->nullable();
@@ -22,9 +27,9 @@ class CreateProductcolorsTable extends Migration
             // $table->timestamps();
 
             // Ràng buộc FK đúng cột và kiểu
-            $table->foreign('product_id')
-                  ->references('product_id')->on('products')
-                  ->cascadeOnDelete();
+            // $table->foreignId('product_id')
+            //       ->references('product_id')->on('products')
+            //       ->cascadeOnDelete();
 
             $table->index('product_id');
         });

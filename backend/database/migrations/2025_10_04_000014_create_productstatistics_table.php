@@ -13,19 +13,25 @@ class CreateProductstatisticsTable extends Migration
     {
         Schema::create('productstatistics', function (Blueprint $table) {
             // Khóa chính
-            $table->increments('stat_id');
+            $table->id('stat_id');
 
             // Khóa ngoại: KHỚP với products.product_id (UNSIGNED INT)
-            $table->unsignedInteger('product_id')->nullable();
+            // $table->unsignedInteger('product_id')->nullable();
+            $table->foreignId('product_id')
+          ->constrained(
+              table: 'products',    // Tên bảng tham chiếu
+              column: 'product_id' // Tên cột tham chiếu
+          )
+          ->cascadeOnDelete(); // Tương đương 'on delete cascade'
 
             $table->integer('sold_count')->default(0);
             $table->unsignedTinyInteger('month')->nullable();
             $table->unsignedSmallInteger('year')->nullable();
 
             // Foreign key đúng tên cột và kiểu
-            $table->foreign('product_id')
-                  ->references('product_id')->on('products')
-                  ->cascadeOnDelete();
+            // $table->foreign('product_id')
+            //       ->references('product_id')->on('products')
+            //       ->cascadeOnDelete();
 
             $table->index('product_id');
         });
