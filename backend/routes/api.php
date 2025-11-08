@@ -48,18 +48,27 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Profile routes
+    Route::put('/me/update', [ProfileController::class, 'updateProfile']);
+    Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
+
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy', 'store']);
 });
 
 // User statistics route (public)
 Route::get('/user-statistics', [UserController::class, 'userStatistics']);
+Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStatistics']);
+
 
 // Comment routes
 Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
-// Post routes
-Route::get('/posts/statistics', [PostController::class, 'statistics']);
+// ✅ Post routes
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
+Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
+Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::apiResource('posts', PostController::class);
 
