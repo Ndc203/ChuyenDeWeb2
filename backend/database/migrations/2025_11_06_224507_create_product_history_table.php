@@ -17,9 +17,23 @@ return new class extends Migration
         }
 
         Schema::create('product_history', function (Blueprint $table) {
-            $table->id('history_id');
-            $table->unsignedInteger('product_id'); // match products.product_id (increments)
-            $table->unsignedInteger('user_id')->nullable(); // match users.user_id (increments)
+            $table->id('product_history_id');
+            // SỬA: Đổi 'product_id' từ INT (unsignedInteger) sang BIGINT (foreignId)
+            $table->foreignId('product_id')
+                  ->constrained(
+                      table: 'products',
+                      column: 'product_id'
+                  )
+                  ->onDelete('cascade');
+
+            // SỬA: Đổi 'user_id' từ INT (unsignedInteger) sang BIGINT (foreignId)
+            $table->foreignId('user_id')
+                  ->nullable()
+                  ->constrained(
+                      table: 'users',
+                      column: 'user_id'
+                  )
+                  ->onDelete('set null');
             $table->string('action', 50); // 'created', 'updated', 'deleted', 'restored'
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
@@ -29,9 +43,7 @@ return new class extends Migration
             $table->string('user_agent')->nullable();
             $table->timestamp('created_at')->useCurrent();
 
-            // Foreign keys
-            $table->foreign('product_id')->references('product_id')->on('products')->onDelete('cascade');
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            // XÓA: Các $table->foreign() thủ công vì foreignId() đã xử lý rồi
 
             // Indexes
             $table->index('product_id');
