@@ -30,6 +30,8 @@ import Register from "./pages/auth/Register.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
 import ResetPassword from "./pages/auth/ResetPassword.jsx";
 
+import { AuthProvider } from "./contexts/AuthContext.jsx"; // AuthProvider added to wrap the application
+
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
@@ -62,6 +64,8 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <AuthProvider>
+      <RouterProvider router={router} />
+    </AuthProvider>
   </React.StrictMode>
 );

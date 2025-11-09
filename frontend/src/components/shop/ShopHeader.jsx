@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
+import AuthPopup from '../AuthPopup'; // Import AuthPopup
 
-const ShopHeader = ({ onSearch }) => {
+const ShopHeader = ({ onSearch, onSwitchToLogin, onSwitchToRegister }) => {
+  const { user, logout } = useAuth() || {};
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAuthPopup, setShowAuthPopup] = useState(false); // Add state for AuthPopup
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -87,19 +91,56 @@ const ShopHeader = ({ onSearch }) => {
             </button>
 
             {/* User Account */}
-            <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+            <div className="relative">
+              {user ? (
+                <div className="flex items-center space-x-2">
+                  <span className="hidden lg:inline text-sm font-medium">
+                    Chào, {user.name}
+                  </span>
+                  <button
+                    onClick={logout}
+                    className="p-2 text-gray-700 hover:text-blue-600"
+                  >
+                    <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                      />
+                    </svg>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setShowAuthPopup(true)}
+                  className="flex items-center space-x-1 p-2 text-gray-700 hover:text-blue-600"
+                >
+                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                    />
+                  </svg>
+                  <span className="hidden lg:inline font-medium">Tài khoản</span>
+                </button>
+              )}
+
+              {showAuthPopup && (
+                <AuthPopup
+                  onClose={() => setShowAuthPopup(false)}
+                  onLoginClick={() => {
+                    setShowAuthPopup(false);
+                  }}
+                  onRegisterClick={() => {
+                    onSwitchToRegister();
+                    setShowAuthPopup(false);
+                  }}
                 />
-              </svg>
-              <span className="hidden lg:inline text-sm font-medium">
-                Tài khoản
-              </span>
-            </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
