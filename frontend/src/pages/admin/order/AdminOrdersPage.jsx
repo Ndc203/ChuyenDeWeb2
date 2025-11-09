@@ -284,7 +284,7 @@ export default function AdminOrdersPage() {
 
                                                     {/* Tổng tiền */}
                                                     <td className="px-5 py-4 align-top">
-                                                        <p className="font-semibold text-slate-700">{formatCurrency(order.total)}</p>
+                                                        <p className="font-semibold text-slate-700">{formatCurrency(order.final_amount)}</p>
                                                     </td>
 
                                                     {/* Trạng thái */}
