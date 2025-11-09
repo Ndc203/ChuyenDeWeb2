@@ -14,11 +14,11 @@ class CommentsExport implements FromCollection, WithHeadings
             ->get()
             ->map(function ($c) {
                 return [
-                    'ID' => $c->id,
-                    'Người dùng' => $c->user->name ?? 'Ẩn danh',
+                    'ID' => $c->comment_id,
+                    'Người dùng' => $c->user->username ?? 'Ẩn danh',
                     'Bài viết' => $c->post->title ?? 'Không xác định',
                     'Nội dung' => $c->content,
-                    'Ngày tạo' => $c->created_at->format('d/m/Y H:i'),
+                    'Ngày tạo' => $c->created_at ? $c->created_at->format('d/m/Y H:i') : '',
                 ];
             });
     }

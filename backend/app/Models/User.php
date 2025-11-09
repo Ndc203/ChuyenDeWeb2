@@ -13,32 +13,25 @@ class User extends Authenticatable
 
     // KHÓA CHÍNH LÀ user_id
     protected $primaryKey = 'user_id';
-    public $incrementing = true;
-    protected $keyType = 'int';
-
-    /**
-y
-
-    /**
-     * Các cột được phép mass assignment
-     */
+    
+    // SỬA: Xóa các trường profile khỏi $fillable
     protected $fillable = [
         'username',
-        'full_name',
-        'avatar',
         'email',
         'password',
-        'phone',
-        'address',
-        'date_of_birth',
-        'gender',
-        'department',
-        'about_me',
-        'social_links',
         'status',
         'role',
-        'last_login_at',
+        'last_login_at', // Giữ lại cột này như đã thống nhất
     ];
+
+    /**
+     * THÊM QUAN HỆ: Liên kết 1-1 tới UserProfile
+     */
+    public function profile()
+    {
+        // 'user_id' (của userprofile) và 'user_id' (của users)
+        return $this->hasOne(UserProfile::class, 'user_id', 'user_id');
+    }
 
     /**
      * Ẩn khi trả về JSON
@@ -58,8 +51,7 @@ y
             'password' => 'hashed',
             'status' => 'string',
             'role' => 'string',
-            'social_links' => 'array',
-            'date_of_birth' => 'date',
+            // Xóa: social_links, date_of_birth (đã chuyển sang profile)
             'last_login_at' => 'datetime',
         ];
     }

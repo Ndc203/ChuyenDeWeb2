@@ -9,16 +9,24 @@ class PostCategory extends Model
 {
     use HasFactory;
 
-    protected $table = 'postcategories'; // vì không theo chuẩn số nhiều
+    protected $table = 'postcategories';
+    protected $primaryKey = 'post_category_id';
+    public $timestamps = true;
 
     protected $fillable = [
         'name',
         'description',
     ];
 
-    // Quan hệ: Một danh mục có nhiều bài viết
+    // ✅ 1 danh mục có nhiều bài viết
     public function posts()
     {
-        return $this->hasMany(Post::class, 'category_id');
+        return $this->hasMany(Post::class, 'post_category_id', 'post_category_id');
+    }
+
+    // ✅ 1 danh mục có thể có nhiều phiên bản bài viết
+    public function postVersions()
+    {
+        return $this->hasMany(PostVersion::class, 'post_category_id', 'post_category_id');
     }
 }
