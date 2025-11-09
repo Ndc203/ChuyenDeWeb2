@@ -17,37 +17,40 @@ class OrderController extends Controller
     {
         $query = Order::query();
 
-        // 1. Eager Loading (Rất quan trọng để tối ưu)
-        // Lấy kèm thông tin 'customer' (từ bảng users)
-        // và đếm số lượng 'items' (từ bảng order_items)
-        // Giao diện sẽ nhận được 'item_count' (vd: 3)
-        $query->with('customer')->withCount('items as item_count');
+        // 1. Eager Loading (Tải kèm profile của customer)
+        // Chúng ta cần 'customer.profile' để tìm kiếm 'full_name'
+        $query->with('customer.profile')->withCount('items as item_count');
 
         // 2. Lọc theo trạng thái
         if ($request->filled('status') && $request->status != 'all') {
             $query->where('status', $request->status);
         }
 
-        // 3. Lọc theo tìm kiếm
+        // 3. Lọc theo tìm kiếm (ĐÃ SỬA LỖI)
         if ($request->filled('search')) {
             $search = $request->search;
             
-            // Tìm kiếm ở nhiều cột: ID, Tên, Email
             $query->where(function ($q) use ($search) {
+                // Tìm trên bảng 'orders'
                 $q->where('order_id', 'like', "%{$search}%")
-                  ->orWhere('customer_name', 'like', "%{$search}%") // Tên khách vãng lai
-                  ->orWhere('customer_email', 'like', "%{$search}%") // Email khách vãng lai
+                  ->orWhere('customer_name', 'like', "%{$search}%")
+                  ->orWhere('customer_email', 'like', "%{$search}%")
                   
-                  // Tìm cả trong bảng 'users' (nếu là user đã đăng nhập)
+                  // Tìm trên bảng 'users' (quan hệ 'customer')
                   ->orWhereHas('customer', function ($subQ) use ($search) {
-                      $subQ->where('name', 'like', "%{$search}%")
+                      $subQ->where('username', 'like', "%{$search}%") // Sửa: 'name' -> 'username'
                            ->orWhere('email', 'like', "%{$search}%");
+                  })
+                  
+                  // MỚI: Tìm trên bảng 'userprofile' (quan hệ 'customer.profile')
+                  ->orWhereHas('customer.profile', function ($subQ) use ($search) {
+                      $subQ->where('full_name', 'like', "%{$search}%"); // Tìm 'full_name'
                   });
             });
         }
 
-        // 4. Sắp xếp (mới nhất lên đầu) và Phân trang
-        $orders = $query->latest()->paginate(10); // 10 đơn hàng/trang
+        // 4. Sắp xếp và Phân trang
+        $orders = $query->latest()->paginate(10);
 
         return response()->json($orders);
     }
