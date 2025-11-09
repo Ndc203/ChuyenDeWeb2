@@ -29,6 +29,7 @@ import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
 import ResetPassword from "./pages/auth/ResetPassword.jsx";
+import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
   { path: "/admin/reviews", element: <AdminReviewsPage /> },
   { path: "/shop", element: <ShopPage /> },
+  { path: "/admin/orders", element: <AdminOrdersPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
