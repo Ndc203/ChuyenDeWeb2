@@ -16,12 +16,14 @@ class PostExportController extends Controller
         $posts = Post::with('category')->get();
 
         if ($format === 'pdf') {
+            // Lưu ý: Blade view 'posts_pdf' phải dùng $post->post_id, $post->post_category_id
             $pdf = PDF::loadView('posts_pdf', compact('posts'))
                       ->setPaper('a4', 'portrait');
             return $pdf->download('posts.pdf');
         }
 
         if ($format === 'excel') {
+            // PostsExport phải lấy đúng post_id, post_category_id
             return Excel::download(new PostsExport, 'posts.xlsx');
         }
 
