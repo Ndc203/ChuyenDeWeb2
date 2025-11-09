@@ -295,10 +295,7 @@ export default function AdminOrdersPage() {
                                                     {/* Thao tác */}
                                                     <td className="px-5 py-4 align-top text-right">
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <button onClick={() => handleOpenViewModal(order)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-blue-600 rounded-md" title="Xem chi tiết">
-                                                                <Eye size={16} />
-                                                            </button>
-                                                            <button onClick={() => alert('Chức năng sửa đang phát triển')} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md" title="Sửa đơn">
+                                                            <button onClick={() => handleOpenViewModal(order)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md" title="Xem chi tiết/ Sửa trạng thái">
                                                                 <Edit size={16} />
                                                             </button>
                                                             <button onClick={() => handlePrint(order.order_id)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md" title="In đơn hàng">
