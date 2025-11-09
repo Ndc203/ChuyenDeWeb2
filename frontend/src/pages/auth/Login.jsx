@@ -35,9 +35,16 @@ export default function Login() {
         password: form.password,
       });
       if (res.data.token) {
-        localStorage.setItem("authToken", res.data.token);
-        alert("Đăng nhập thành công!");
-        navigate("/admin/categories");
+      // Lưu token
+      localStorage.setItem("authToken", res.data.token);
+
+      // Lưu thông tin user nếu API trả về
+      if (res.data.data) {
+        localStorage.setItem("userData", JSON.stringify(res.data.data));
+      }
+
+      alert("Đăng nhập thành công!");
+      navigate("/admin/categories");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Đăng nhập thất bại!");
