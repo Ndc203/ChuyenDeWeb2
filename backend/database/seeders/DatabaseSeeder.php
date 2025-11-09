@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             PostCommentSeeder::class,
             ProductSeeder::class,
             CouponSeeder::class,
+            OrderSeeder::class,
         ]);
     }
 }
