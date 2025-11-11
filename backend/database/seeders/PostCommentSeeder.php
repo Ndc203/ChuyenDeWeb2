@@ -4,18 +4,22 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class PostCommentSeeder extends Seeder
 {
     public function run(): void
     {
-        $posts = DB::table('posts')->pluck('id'); // Lấy danh sách post_id
-        $users = DB::table('users')->pluck('user_id'); // Lấy danh sách user_id
+        // ✅ Lấy danh sách ID đúng cột
+        $posts = DB::table('posts')->pluck('post_id');
+        $users = DB::table('users')->pluck('user_id');
 
         $allComments = [];
+        $now = Carbon::now();
 
         foreach ($posts as $postId) {
             $commentCount = rand(2, 4); // Mỗi bài 2-4 bình luận
+
             for ($i = 0; $i < $commentCount; $i++) {
                 $userId = $users->random();
 
@@ -34,12 +38,13 @@ class PostCommentSeeder extends Seeder
                     'post_id' => $postId,
                     'user_id' => $userId,
                     'content' => $comments[array_rand($comments)],
-                    'created_at' => now()->subDays(rand(1, 10))->addMinutes(rand(5, 500)),
-                    'updated_at' => now(),
+                    'created_at' => $now->copy()->subDays(rand(1, 10))->addMinutes(rand(5, 500)),
+                    'updated_at' => $now,
                 ];
             }
         }
 
+        // ✅ Chèn dữ liệu vào bảng comments
         DB::table('comments')->insert($allComments);
     }
 }

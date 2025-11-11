@@ -14,7 +14,7 @@ class PostController extends Controller
     public function index()
     {
         return Post::with(['category', 'user'])
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
             ->get();
     }
 
@@ -22,7 +22,7 @@ class PostController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'category_id' => 'nullable|exists:postcategories,id',
+            'category_id' => 'nullable|exists:postcategories,post_category_id',
             'title' => 'required|string|max:255',
             'excerpt' => 'nullable|string',
             'content' => 'nullable|string',
@@ -31,7 +31,6 @@ class PostController extends Controller
             'image' => 'nullable|image|max:2048',
         ]);
 
-        // Xử lý upload ảnh
         $imageName = null;
         if ($request->hasFile('image')) {
             $imageName = time() . '_' . Str::random(8) . '.' .
@@ -40,8 +39,8 @@ class PostController extends Controller
         }
 
         $post = Post::create([
-            'user_id' => auth()->id() ?? 1, // tạm fix: nếu chưa login thì user_id=1
-            'category_id' => $validated['category_id'] ?? null,
+            'user_id' => auth()->id() ?? 1,
+            'post_category_id' => $validated['category_id'] ?? null,
             'title' => $validated['title'],
             'excerpt' => $validated['excerpt'] ?? '',
             'content' => $validated['content'] ?? '',
@@ -57,22 +56,21 @@ class PostController extends Controller
     }
 
     // 🧩 Xem chi tiết bài viết
-    public function show($id)
+    public function show($post_id)
     {
-        $post = Post::with(['category', 'user'])->findOrFail($id);
+        $post = Post::with(['category', 'user'])->findOrFail($post_id);
         return response()->json($post);
     }
 
     // 🧩 Cập nhật bài viết + lưu phiên bản cũ
-    public function update(Request $request, $id)
+    public function update(Request $request, $post_id)
     {
-        $post = Post::findOrFail($id);
+        $post = Post::findOrFail($post_id);
 
-        // 1️⃣ Lưu phiên bản cũ
         PostVersion::create([
-            'post_id' => $post->id,
+            'post_id' => $post->post_id,
             'user_id' => auth()->id(),
-            'category_id' => $post->category_id,
+            'post_category_id' => $post->post_category_id,
             'title' => $post->title,
             'excerpt' => $post->excerpt,
             'content' => $post->content,
@@ -81,7 +79,6 @@ class PostController extends Controller
             'is_trending' => $post->is_trending,
         ]);
 
-        // 2️⃣ Cập nhật bài viết mới
         $post->fill($request->only([
             'title', 'excerpt', 'content', 'status', 'category_id', 'is_trending'
         ]));
@@ -102,9 +99,9 @@ class PostController extends Controller
     }
 
     // 🧩 Xóa bài viết
-    public function destroy($id)
+    public function destroy($post_id)
     {
-        $post = Post::findOrFail($id);
+        $post = Post::findOrFail($post_id);
         if ($post->image && file_exists(public_path('images/posts/' . $post->image))) {
             unlink(public_path('images/posts/' . $post->image));
         }
@@ -122,8 +119,8 @@ class PostController extends Controller
         ];
 
         $postsByCategory = DB::table('posts')
-            ->join('postcategories', 'posts.category_id', '=', 'postcategories.id')
-            ->select('postcategories.name as category', DB::raw('count(posts.id) as count'))
+            ->join('postcategories', 'posts.post_category_id', '=', 'postcategories.post_category_id')
+            ->select('postcategories.name as category', DB::raw('count(posts.post_id) as count'))
             ->groupBy('postcategories.name')
             ->get();
 
@@ -141,9 +138,9 @@ class PostController extends Controller
     }
 
     // 🧩 Danh sách phiên bản
-    public function versions($postId)
+    public function versions($post_id)
     {
-        $versions = PostVersion::where('post_id', $postId)
+        $versions = PostVersion::where('post_id', $post_id)
             ->with('user:user_id,name')
             ->orderByDesc('created_at')
             ->get();
@@ -152,10 +149,10 @@ class PostController extends Controller
     }
 
     // 🧩 Xem chi tiết một phiên bản
-    public function showVersion($postId, $versionId)
+    public function showVersion($post_id, $version_id)
     {
-        $version = PostVersion::where('post_id', $postId)
-            ->where('id', $versionId)
+        $version = PostVersion::where('post_id', $post_id)
+            ->where('post_version_id', $version_id)
             ->with('user:user_id,name')
             ->firstOrFail();
 
@@ -163,10 +160,10 @@ class PostController extends Controller
     }
 
     // 🧩 Khôi phục về phiên bản cũ
-    public function restoreVersion($postId, $versionId)
+    public function restoreVersion($post_id, $version_id)
     {
-        $version = PostVersion::where('post_id', $postId)->findOrFail($versionId);
-        $post = Post::findOrFail($postId);
+        $version = PostVersion::where('post_id', $post_id)->findOrFail($version_id);
+        $post = Post::findOrFail($post_id);
 
         $post->update([
             'title' => $version->title,
@@ -175,7 +172,7 @@ class PostController extends Controller
             'image' => $version->image,
             'status' => $version->status,
             'is_trending' => $version->is_trending,
-            'category_id' => $version->category_id,
+            'post_category_id' => $version->post_category_id,
         ]);
 
         return response()->json([

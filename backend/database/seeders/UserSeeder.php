@@ -18,8 +18,7 @@ class UserSeeder extends Seeder
         DB::table('userprofile')->truncate(); // <-- THÊM: Truncate bảng profile
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
 
-        // --- User 1: Admin ---
-        // 2. Tạo user trong bảng 'users'
+        // 2. Admin
         $admin = User::create([
             'username' => 'admin',
             'password' => Hash::make('admin123'),
@@ -27,15 +26,14 @@ class UserSeeder extends Seeder
             'status' => 'active',
             'role' => 'admin',
         ]);
-        
-        // 3. Dùng quan hệ 'profile()' để tạo profile trong 'userprofile'
+
         $admin->profile()->create([
-            'full_name' => 'Admin User', // (Chúng ta thêm full_name)
+            'full_name' => 'Admin User',
             'phone' => '0987654321',
             'address' => 'Hà Nội, Việt Nam',
         ]);
 
-        // --- User 2: Ngoc Anh ---
+        // 3. Ngọc Ánh
         $ngocanh = User::create([
             'username' => 'ngocanh',
             'password' => Hash::make('password'),
@@ -43,14 +41,14 @@ class UserSeeder extends Seeder
             'status' => 'active',
             'role' => 'customer',
         ]);
-        
+
         $ngocanh->profile()->create([
             'full_name' => 'Ngọc Ánh',
             'phone' => '0912345678',
             'address' => 'TP.HCM',
         ]);
 
-        // --- User 3: Thanh Dat ---
+        // 4. Thành Đạt
         $thanhdat = User::create([
             'username' => 'thanhdat',
             'password' => Hash::make('123456'),
@@ -58,7 +56,7 @@ class UserSeeder extends Seeder
             'status' => 'active',
             'role' => 'customer',
         ]);
-        
+
         $thanhdat->profile()->create([
             'full_name' => 'Thành Đạt',
             'phone' => '0901111222',
