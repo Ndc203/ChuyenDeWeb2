@@ -22,6 +22,7 @@ use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\ProductHistoryController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -145,6 +146,8 @@ Route::controller(StockController::class)->group(function () {
     Route::post('/stock/update', 'updateStock');
 });
 
+
+//==========================================================================
 // Coupon routes (giữ đầy đủ từ branch_merge)
 Route::controller(CouponController::class)->group(function () {
     Route::get('/coupons', 'index');
@@ -160,6 +163,9 @@ Route::get('/orders', [OrderController::class, 'index']);
 Route::get('/orders/statistics', [OrderController::class, 'statistics']);
 Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 Route::get('/orders/{order}', [OrderController::class, 'show']);
+
+//Report routes
+Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
 
 // Product Review routes
 Route::controller(ProductReviewController::class)->group(function () {

@@ -36,6 +36,8 @@ class CreateOrdersTable extends Migration
 
             $table->index('status');
             $table->index('customer_email');
+             // Giúp ReportController chạy nhanh hơn khi lọc theo status và ngày
+            $table->index(['status', 'updated_at']);
         });
     }
 
