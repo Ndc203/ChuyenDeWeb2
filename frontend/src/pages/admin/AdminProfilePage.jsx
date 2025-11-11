@@ -134,7 +134,7 @@ const AdminProfilePage = () => {
                     <div className="h-32 bg-gradient-to-r from-slate-200 to-slate-300"></div>
                     <div className="p-6 -mt-16 flex flex-col items-center">
                         <img
-                            src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random&color=fff`}
+                            src={user.avatar || `https://i.pravatar.cc/40?u=${user.email}`}
                             alt="Avatar"
                             className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-md"
                         />
