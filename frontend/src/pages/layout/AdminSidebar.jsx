@@ -19,9 +19,42 @@ import {
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
+import { useEffect, useState } from "react";
 
 export default function AdminSidebar() {
   const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        navigate("/login");
+        return;
+      }
+
+      try {
+        const response = await axios.get("http://127.0.0.1:8000/api/user", {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        setUser(response.data);
+      } catch (error) {
+        console.error("Failed to fetch user:", error);
+        // If token is invalid, server might return 401
+        if (error.response && error.response.status === 401) {
+          localStorage.removeItem("authToken");
+          navigate("/login");
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [navigate]);
 
   const handleLogout = async () => {
     const token = localStorage.getItem("authToken");
@@ -54,12 +87,18 @@ export default function AdminSidebar() {
     <aside className="w-64 hidden md:flex flex-col gap-4 border-r bg-white/90 backdrop-blur-sm">
       {/* Header admin info */}
       <div className="px-4 pt-4 pb-2 flex items-center gap-3">
-        <div className="h-9 w-9 rounded-xl bg-indigo-600 text-white grid place-items-center font-bold">
-          A
-        </div>
+        {loading ? (
+          <div className="h-9 w-9 rounded-full bg-slate-200 animate-pulse"></div>
+        ) : (
+          <img 
+            src={`https://i.pravatar.cc/40?u=${user?.email}`} 
+            alt="User Avatar" 
+            className="h-9 w-9 rounded-full object-cover"
+          />
+        )}
         <div>
-          <div className="font-semibold leading-5">Admin Panel</div>
-          <div className="text-xs text-slate-500">admin@example.com</div>
+          <div className="font-semibold leading-5">{loading ? 'Đang tải...' : user?.username || 'Admin Panel'}</div>
+          <div className="text-xs text-slate-500">{loading ? '...' : user?.email || 'admin@example.com'}</div>
         </div>
       </div>
 
