@@ -18,6 +18,12 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register API Token Auth Middleware
         $middleware->alias([
             'api.token' => \App\Http\Middleware\ApiTokenAuth::class,
+            'xss.protection' => \App\Http\Middleware\XssProtection::class,
+        ]);
+
+        // Apply XSS Protection to all API routes
+        $middleware->appendToGroup('api', [
+            \App\Http\Middleware\XssProtection::class,
         ]);
     })
     ->withSchedule(function (Schedule $schedule): void {
