@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { Plus, Search, Edit, Trash2, Tag, Percent, BarChart, CheckCircle, XCircle, Clock, Zap, ChevronLeft, ChevronRight, Power } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
-import AddCouponModal from "./cart/AddCouponModal.jsx";
-import EditCouponModal from "./cart/EditCouponModal.jsx";
+import AddCouponModal from "./coupon/AddCouponModal.jsx";
+import EditCouponModal from "./coupon/EditCouponModal.jsx";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
@@ -266,10 +266,10 @@ export default function AdminCouponsPage() {
 
             {/* 2. Dashboard */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
-              <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats?.total ?? '...'} color="bg-slate-100" loading={loadingStats} />
-              <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats?.active ?? '...'} color="bg-green-100" loading={loadingStats} />
-              <StatCard icon={<XCircle size={24} className="text-red-600" />} title="Đã hết hạn" value={stats?.expired ?? '...'} color="bg-red-100" loading={loadingStats} />
-              <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '...'} color="bg-orange-100" loading={loadingStats} />
+              <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats?.total ?? '0'} color="bg-slate-100" loading={loadingStats} />
+              <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats?.active ?? '0'} color="bg-green-100" loading={loadingStats} />
+              <StatCard icon={<XCircle size={24} className="text-red-600" />} title="Đã hết hạn" value={stats?.expired ?? '0'} color="bg-red-100" loading={loadingStats} />
+              <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '0'} color="bg-orange-100" loading={loadingStats} />
             </div>
 
             {/* 3. Toolbar */}
