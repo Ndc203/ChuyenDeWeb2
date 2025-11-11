@@ -15,6 +15,7 @@ import {
   FolderTree, 
   MessageSquare,
   Star,
+  DollarSign,
 } from "lucide-react";
 import { NavLink, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -79,6 +80,7 @@ export default function AdminSidebar() {
         <SectionLabel>QUẢN LÝ GIAO DỊCH</SectionLabel>
         <SideItem icon={<Home size={18} />} label="Đơn hàng" to="/admin/orders" />
         <SideItem icon={<Tag size={18} />} label="Mã giảm giá" to="/admin/coupons" />
+        <SideItem icon={<DollarSign size={18} />} label="Báo cáo doanh thu" to="/admin/revenue-report" />
 
         <SectionLabel>NGƯỜI DÙNG</SectionLabel>
         <SideItem icon={<Users size={18} />} label="Danh sách Người dùng" to="/admin/users" />
