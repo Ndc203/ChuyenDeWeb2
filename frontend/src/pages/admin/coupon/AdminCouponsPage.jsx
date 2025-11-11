@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { Plus, Search, Edit, Trash2, Tag, Percent, BarChart, CheckCircle, XCircle, Clock, Zap, ChevronLeft, ChevronRight, Power } from "lucide-react";
-import AdminSidebar from "../layout/AdminSidebar.jsx";
-import AddCouponModal from "./coupon/AddCouponModal.jsx";
-import EditCouponModal from "./coupon/EditCouponModal.jsx";
+import AdminSidebar from "../../layout/AdminSidebar.jsx";
+import AddCouponModal from "./AddCouponModal.jsx";
+import EditCouponModal from "./EditCouponModal.jsx";
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 

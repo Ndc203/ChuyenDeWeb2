@@ -22,7 +22,7 @@ import AdminUserStatisticsPage from "./pages/admin/AdminUserStatisticsPage.jsx";
 import AdminStockPage from "./pages/admin/AdminStockPage.jsx";
 import AdminPermissionsPage from "./pages/admin/AdminPermissionsPage.jsx";
 import AdminProfilePage from "./pages/admin/AdminProfilePage.jsx";
-import AdminCouponsPage from "./pages/admin/AdminCouponsPage.jsx";
+import AdminCouponsPage from "./pages/admin/coupon/AdminCouponsPage.jsx";
 import AdminReviewsPage from "./pages/admin/AdminReviewsPage.jsx";
 import ShopPage from "./pages/shop/ShopPage.jsx";
 import Login from "./pages/auth/Login.jsx";
