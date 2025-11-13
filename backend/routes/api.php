@@ -163,6 +163,7 @@ Route::get('/orders', [OrderController::class, 'index']);
 Route::get('/orders/statistics', [OrderController::class, 'statistics']);
 Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 Route::get('/orders/{order}', [OrderController::class, 'show']);
+Route::get('/orders/{order}/print', [OrderController::class, 'print']);
 
 //Report routes
 Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
