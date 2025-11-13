@@ -8,16 +8,32 @@ class CreateOrderitemsTable extends Migration
 {
     public function up()
     {
-        Schema::create('orderitems', function (Blueprint $table) {
-            $table->increments('order_item_id');
-            $table->unsignedInteger('order_id')->nullable();
-            $table->unsignedInteger('product_id')->nullable();
-            $table->integer('quantity')->default(1);
-            $table->decimal('price', 10, 2)->nullable();
+        Schema::create('order_items', function (Blueprint $table) {
+    $table->id('order_item_id');
+    
+    // Kết nối tới bảng 'orders'
+    // 'cascadeOnDelete' nghĩa là nếu xóa đơn hàng -> xóa tất cả item của nó
+    $table->foreignId('order_id')
+          ->constrained(
+              table: 'orders', // Tên bảng
+              column: 'order_id' // Tên cột khóa chính của bảng 'orders'
+          )
+          ->cascadeOnDelete();
+    
+    // Kết nối tới bảng 'products'
+    // 'nullOnDelete' nghĩa là nếu xóa sản phẩm -> cột này thành NULL
+    // nhưng item vẫn còn trong lịch sử đơn hàng
+    $table->foreignId('product_id')->nullable()->constrained(table: 'products', column: 'product_id')->nullOnDelete();
+    
+    // --- "Snapshot" thông tin sản phẩm tại thời điểm mua ---
+    // Rất quan trọng! Kể cả khi sản phẩm gốc thay đổi giá/tên,
+    // thông tin trong đơn hàng không được thay đổi.
+    $table->string('product_name');
+    $table->integer('quantity');
+    $table->decimal('unit_price', 15, 2); // Giá của 1 sản phẩm tại lúc mua
 
-            $table->foreign('order_id')->references('order_id')->on('orders')->onDelete('cascade');
-            $table->foreign('product_id')->references('product_id')->on('products')->onDelete('cascade');
-        });
+    $table->timestamps();
+});
     }
 
     public function down()

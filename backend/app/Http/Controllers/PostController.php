@@ -237,7 +237,7 @@ class PostController extends Controller
             'image' => $version->image,
             'status' => $version->status,
             'is_trending' => $version->is_trending,
-            'category_id' => $version->category_id,
+            'post_category_id' => $version->post_category_id,
         ]);
 
         return response()->json([

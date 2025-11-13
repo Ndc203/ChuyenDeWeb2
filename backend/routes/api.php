@@ -21,6 +21,8 @@ use App\Http\Controllers\CouponController;
 use App\Http\Controllers\ProductReviewController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\ProductHistoryController;
+use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ReportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -48,11 +50,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Profile routes
+    Route::put('/me/update', [ProfileController::class, 'updateProfile']);
+    Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
+
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy', 'store']);
 });
 
 // User statistics route (public)
 Route::get('/user-statistics', [UserController::class, 'userStatistics']);
+Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStatistics']);
+
 
 // Comment routes
 Route::get('/comments/export', [CommentController::class, 'export']);
@@ -146,6 +154,8 @@ Route::controller(StockController::class)->group(function () {
     Route::post('/stock/update', 'updateStock');
 });
 
+
+//==========================================================================
 // Coupon routes (giữ đầy đủ từ branch_merge)
 Route::controller(CouponController::class)->group(function () {
     Route::get('/coupons', 'index');
@@ -155,6 +165,16 @@ Route::controller(CouponController::class)->group(function () {
     Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
     Route::patch('/coupons/{coupon}/toggle', [CouponController::class, 'toggleStatus']);
 });
+
+// Order routes
+Route::get('/orders', [OrderController::class, 'index']);
+Route::get('/orders/statistics', [OrderController::class, 'statistics']);
+Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+Route::get('/orders/{order}', [OrderController::class, 'show']);
+Route::get('/orders/{order}/print', [OrderController::class, 'print']);
+
+//Report routes
+Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
 
 // Product Review routes
 Route::controller(ProductReviewController::class)->group(function () {

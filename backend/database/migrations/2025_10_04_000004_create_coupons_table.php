@@ -9,7 +9,7 @@ class CreateCouponsTable extends Migration
     public function up()
     {
         Schema::create('coupons', function (Blueprint $table) {
-            $table->id();
+            $table->id('coupon_id');
             $table->string('code', 50)->unique();
             $table->text('description')->nullable();
             $table->string('type');
