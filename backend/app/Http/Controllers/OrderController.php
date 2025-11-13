@@ -144,4 +144,21 @@ class OrderController extends Controller
 
         return response()->json($order);
     }
+
+    public function print(Order $order)
+    {
+        // 1. Tải tất cả dữ liệu cần thiết cho hóa đơn
+        $order->load('items', 'customer.profile');
+        
+        // 2. Tính toán tổng phụ (giá trị thực của sản phẩm)
+        $subtotal = $order->items->sum(function ($item) {
+            return $item->unit_price * $item->quantity;
+        });
+
+        // 3. Trả về file view 'print.order' và truyền dữ liệu
+        return view('print.order', [
+            'order' => $order,
+            'subtotal' => $subtotal,
+        ]);
+    }
 }

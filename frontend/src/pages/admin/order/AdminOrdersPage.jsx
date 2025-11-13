@@ -193,9 +193,6 @@ export default function AdminOrdersPage() {
                                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý Đơn hàng</h1>
                                 <p className="text-sm text-slate-500 mt-1">Theo dõi và xử lý các đơn hàng của khách.</p>
                             </div>
-                            <button onClick={handleExport} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 shadow-sm">
-                                <Download size={18} /> Xuất Dữ liệu
-                            </button>
                         </div>
 
                         {/* 2. Dashboard (Dựa trên hình ảnh) */}
