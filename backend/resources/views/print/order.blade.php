@@ -83,8 +83,8 @@
         /* CSS cho bản in */
         @media print {
             body {
+                print-color-adjust: exact; /* Chuẩn (browsers hỗ trợ thuộc tính chuẩn) */
                 -webkit-print-color-adjust: exact; /* Đảm bảo màu nền được in (Chrome) */
-                color-adjust: exact; /* Đảm bảo màu nền được in (Firefox) */
             }
             .invoice-container {
                 width: 100%;
