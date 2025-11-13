@@ -47,5 +47,10 @@ public function versions()
 {
     return $this->hasMany(PostVersion::class, 'post_id', 'post_id');
 }
+// Mỗi bài viết thuộc về 1 người dùng
+public function user()
+{
+    return $this->belongsTo(User::class, 'user_id', 'user_id');
+}
 
 }

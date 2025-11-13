@@ -69,7 +69,7 @@ Route::apiResource('comments', CommentController::class);
 // Public routes
 Route::get('/posts', [PostController::class, 'index']);       // public
 Route::get('/posts/{id}', [PostController::class, 'show']);  // public
-Route::get('/post-statistics', [PostController::class, 'statistics']); // public
+Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/posts/{id}/versions', [PostController::class, 'versions']); 
 Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
 

@@ -28,7 +28,7 @@ const emptyPostForm = () => ({
   title: "",
   excerpt: "",
   content: "",
-  category_id: "",
+  post_category_id: "",
   image: null,
   status: "draft",
   is_trending: false,
@@ -129,14 +129,18 @@ export default function AdminPostPage() {
       setFormError("Vui lòng nhập tiêu đề bài viết.");
       return;
     }
-
+     if (!form.post_category_id) { // ✅ thêm check danh mục
+    setFormError("Vui lòng chọn danh mục bài viết.");
+    return;
+  }
     const formData = new FormData();
     formData.append("title", form.title.trim());
     formData.append("excerpt", form.excerpt.trim());
     formData.append("content", form.content.trim());
     formData.append("status", form.status);
     formData.append("is_trending", form.is_trending ? 1 : 0);
-    if (form.category_id) formData.append("category_id", form.category_id);
+    if (form.post_category_id) 
+  formData.append("post_category_id", Number(form.post_category_id));
     if (form.image) formData.append("image", form.image);
 
     const user = JSON.parse(localStorage.getItem("userData") || "{}");
@@ -628,14 +632,14 @@ function CreatePostModal({
               Danh mục bài viết
             </label>
             <select
-              value={form.category_id}
-              onChange={(e) => onChange("category_id", e.target.value)}
+              value={form.post_category_id}
+              onChange={(e) => onChange("post_category_id", e.target.value)}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               required
             >
               <option value="">-- Chọn danh mục --</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
+                <option key={cat.post_category_id} value={cat.post_category_id}>
                   {cat.name}
                 </option>
               ))}
@@ -841,7 +845,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
     excerpt: "",
     content: "",
     status: "draft",
-    category_id: "",
+    post_category_id: "",
     image: null,
     is_trending: false,
   });
@@ -864,7 +868,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
         excerpt: post.excerpt || "",
         content: post.content || "",
         status: post.status || "draft",
-        category_id: post.category_id || "",
+        post_category_id: post.post_category_id || "",
         is_trending: !!post.is_trending,
         image: null,
       });
@@ -876,7 +880,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!form.category_id) {
+    if (!form.post_category_id) {
       alert("Vui lòng chọn danh mục bài viết.");
       return;
     }
@@ -887,7 +891,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
       formData.append("excerpt", form.excerpt);
       formData.append("content", form.content);
       formData.append("status", form.status);
-      formData.append("category_id", Number(form.category_id)); // ✅ ép kiểu thành số
+      formData.append("post_category_id", Number(form.post_category_id)); // ✅ ép kiểu thành số
       formData.append("is_trending", form.is_trending ? 1 : 0);
       if (form.image) formData.append("image", form.image);
       const token = localStorage.getItem("authToken");
@@ -969,9 +973,9 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               Danh mục bài viết
             </label>
             <select
-              value={form.category_id || ""}
+              value={form.post_category_id || ""}
               onChange={(e) =>
-                setForm({ ...form, category_id: Number(e.target.value) })
+                setForm({ ...form, post_category_id: Number(e.target.value) })
               } // ✅ ép kiểu
               className="w-full border rounded-lg px-3 py-2"
               required

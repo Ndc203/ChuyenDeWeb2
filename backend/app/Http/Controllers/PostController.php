@@ -5,15 +5,13 @@ namespace App\Http\Controllers;
 use App\Models\Post;
 use App\Models\PostVersion;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class PostController extends Controller
 {
     public function __construct()
     {
-        // Chỉ các route này không cần auth
+        // Các route không yêu cầu đăng nhập
         $this->middleware('auth:sanctum')->except(['index', 'show', 'statistics']);
     }
 
@@ -26,45 +24,45 @@ class PostController extends Controller
     }
 
     // 🧩 Tạo bài viết mới
-   public function store(Request $request)
-{
-    $user = auth()->user();
+    public function store(Request $request)
+    {
+        $user = auth()->user();
 
-    $validated = $request->validate([
-        'category_id' => 'nullable|exists:postcategories,id',
-        'title' => 'required|string|max:255',
-        'excerpt' => 'nullable|string',
-        'content' => 'nullable|string',
-        'status' => 'in:draft,published',
-        'is_trending' => 'boolean',
-        'image' => 'nullable|image|max:2048',
-    ]);
+        $validated = $request->validate([
+            'post_category_id' => 'nullable|exists:postcategories,post_category_id',
+            'title' => 'required|string|max:255',
+            'excerpt' => 'nullable|string',
+            'content' => 'nullable|string',
+            'status' => 'in:draft,published',
+            'is_trending' => 'boolean',
+            'image' => 'nullable|image|max:2048',
+        ]);
 
-    $imagePath = null;
-    if ($request->hasFile('image')) {
-        $file = $request->file('image');
-        $filename = time() . '_' . $file->getClientOriginalName();
-        $file->move(public_path('images/posts'), $filename);
-        $imagePath =  $filename;
+        $imagePath = null;
+        if ($request->hasFile('image')) {
+            $file = $request->file('image');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('images/posts'), $filename);
+            $imagePath = $filename;
+        }
+
+        $post = Post::create([
+            'user_id' => $user->user_id,
+            'post_category_id' => $validated['post_category_id'] ?? null,
+            'title' => $validated['title'],
+            'excerpt' => $validated['excerpt'] ?? '',
+            'content' => $validated['content'] ?? '',
+            'status' => $validated['status'] ?? 'draft',
+            'is_trending' => $request->boolean('is_trending', false),
+            'image' => $imagePath,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Bài viết đã được tạo thành công!',
+            'data' => $post,
+        ], 201);
     }
-
-    $post = Post::create([
-        'user_id' => $user->user_id,
-        'category_id' => $validated['category_id'] ?? null,
-        'title' => $validated['title'],
-        'excerpt' => $validated['excerpt'] ?? '',
-        'content' => $validated['content'] ?? '',
-        'status' => $validated['status'] ?? 'draft',
-        'is_trending' => $request->boolean('is_trending', false),
-        'image' => $imagePath,
-    ]);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Bài viết đã được tạo thành công!',
-        'data' => $post,
-    ], 201);
-}
 
     // 🧩 Xem chi tiết bài viết
     public function show($id)
@@ -75,88 +73,87 @@ class PostController extends Controller
 
     // 🧩 Cập nhật bài viết
     public function update(Request $request, $id)
-{
-    $post = Post::findOrFail($id);
-    $user = auth()->user();
+    {
+        $post = Post::findOrFail($id);
+        $user = auth()->user();
 
-    // Kiểm tra quyền
-    if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Bạn không có quyền chỉnh sửa bài viết này!',
-        ], 403);
-    }
-
-    $validated = $request->validate([
-        'category_id' => 'nullable|exists:postcategories,id',
-        'title' => 'nullable|string|max:255',
-        'excerpt' => 'nullable|string',
-        'content' => 'nullable|string',
-        'status' => 'nullable|in:draft,published',
-        'is_trending' => 'nullable|boolean',
-        'image' => 'nullable|image|max:2048',
-    ]);
-
-    // Lưu phiên bản cũ
-    PostVersion::create([
-        'post_id' => $post->id,
-        'user_id' => $user->user_id,
-        'category_id' => $post->category_id,
-        'title' => $post->title,
-        'excerpt' => $post->excerpt,
-        'content' => $post->content,
-        'image' => $post->image,
-        'status' => $post->status,
-        'is_trending' => $post->is_trending,
-    ]);
-
-    $post->fill($validated);
-
-    if ($request->hasFile('image')) {
-        // Xóa ảnh cũ nếu có
-        if ($post->image && file_exists(public_path($post->image))) {
-            unlink(public_path($post->image));
+        // Kiểm tra quyền
+        if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền chỉnh sửa bài viết này!',
+            ], 403);
         }
-        $file = $request->file('image');
-        $filename = time() . '_' . $file->getClientOriginalName();
-        $file->move(public_path('images/posts'), $filename);
-        $post->image = $filename;
+
+        $validated = $request->validate([
+            'post_category_id' => 'nullable|exists:postcategories,post_category_id',
+            'title' => 'nullable|string|max:255',
+            'excerpt' => 'nullable|string',
+            'content' => 'nullable|string',
+            'status' => 'nullable|in:draft,published',
+            'is_trending' => 'nullable|boolean',
+            'image' => 'nullable|image|max:2048',
+        ]);
+
+        // Lưu phiên bản cũ
+        PostVersion::create([
+            'post_id' => $post->id,
+            'user_id' => $user->user_id,
+            'post_category_id' => $post->post_category_id,
+            'title' => $post->title,
+            'excerpt' => $post->excerpt,
+            'content' => $post->content,
+            'image' => $post->image,
+            'status' => $post->status,
+            'is_trending' => $post->is_trending,
+        ]);
+
+        $post->fill($validated);
+
+        if ($request->hasFile('image')) {
+            // Xóa ảnh cũ nếu có
+            if ($post->image && file_exists(public_path($post->image))) {
+                unlink(public_path($post->image));
+            }
+            $file = $request->file('image');
+            $filename = time() . '_' . $file->getClientOriginalName();
+            $file->move(public_path('images/posts'), $filename);
+            $post->image = $filename;
+        }
+
+        $post->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Cập nhật bài viết thành công',
+            'data' => $post,
+        ]);
     }
-
-    $post->save();
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Cập nhật bài viết thành công',
-        'data' => $post,
-    ]);
-}
-
 
     // 🧩 Xóa bài viết
     public function destroy($id)
-{
-    $post = Post::findOrFail($id);
-    $user = auth()->user();
+    {
+        $post = Post::findOrFail($id);
+        $user = auth()->user();
 
-    if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+        if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bạn không có quyền xóa bài viết này!',
+            ], 403);
+        }
+
+        if ($post->image && file_exists(public_path($post->image))) {
+            unlink(public_path($post->image));
+        }
+
+        $post->delete();
+
         return response()->json([
-            'success' => false,
-            'message' => 'Bạn không có quyền xóa bài viết này!',
-        ], 403);
+            'success' => true,
+            'message' => 'Đã xóa bài viết thành công',
+        ]);
     }
-
-    if ($post->image && file_exists(public_path($post->image))) {
-        unlink(public_path($post->image));
-    }
-
-    $post->delete();
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Đã xóa bài viết thành công',
-    ]);
-}
 
     // 🧩 Thống kê bài viết
     public function statistics()
@@ -167,10 +164,11 @@ class PostController extends Controller
         ];
 
         $postsByCategory = DB::table('postcategories')
-            ->leftJoin('posts', 'posts.category_id', '=', 'postcategories.id')
-            ->select('postcategories.name as category', DB::raw('count(posts.id) as count'))
-            ->groupBy('postcategories.name')
-            ->get();
+    ->leftJoin('posts', 'posts.post_category_id', '=', 'postcategories.post_category_id')
+    ->select('postcategories.name as category', DB::raw('count(posts.post_id) as count')) // sửa posts.id -> posts.post_id
+    ->groupBy('postcategories.name')
+    ->get();
+
 
         return response()->json([
             'total_posts' => Post::count(),
@@ -220,7 +218,7 @@ class PostController extends Controller
         PostVersion::create([
             'post_id' => $post->id,
             'user_id' => $user->user_id,
-            'category_id' => $post->category_id,
+            'post_category_id' => $post->post_category_id,
             'title' => $post->title,
             'excerpt' => $post->excerpt,
             'content' => $post->content,
