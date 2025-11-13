@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
-import { X, User, MapPin, Mail, Phone, Calendar, Printer, Package, AlertCircle } from "lucide-react";
+import { X, User, MapPin, Mail, Phone, Calendar, Printer, CheckCircle, AlertCircle } from "lucide-react";
 
 // Lấy API URL từ biến môi trường
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
@@ -153,6 +153,7 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                         {/* Cột Trạng thái & Ngày */}
                         <div className="space-y-4 p-4 bg-slate-50 rounded-lg border">
                           <h4 className="font-semibold text-slate-700">Trạng thái & Thao tác</h4>
+                          {/* A. Ngày Đặt Hàng (Luôn hiển thị) */}
                            <div className="flex items-start gap-3">
                             <Calendar size={16} className="text-slate-500 flex-shrink-0 mt-1" />
                             <div>
@@ -160,6 +161,20 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                               {formatSimpleDate(fullOrder.created_at)}
                             </div>
                           </div>
+
+                          {/* B. Ngày Hoàn Thành (Chỉ hiển thị khi đã hoàn thành) */}
+                           {fullOrder.status === 'Hoàn thành' && (
+                             <div className="flex items-start gap-3">
+                              <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-1" />
+                              <div>
+                                <p className="font-medium text-sm text-green-700">Ngày hoàn thành</p>
+                                {/* Dùng 'updated_at' vì đây là ngày đơn hàng được cập nhật status lần cuối */}
+                                {formatSimpleDate(fullOrder.updated_at)}
+                              </div>
+                            </div>
+                           )}
+
+                          {/* C. Cập nhật trạng thái */}
                           <div>
                             <label htmlFor="orderStatus" className="block text-sm font-medium text-slate-700 mb-1">Cập nhật trạng thái</label>
                             <select
@@ -167,8 +182,7 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                               value={currentStatus}
                               onChange={(e) => setCurrentStatus(e.target.value)}
                               className="w-full border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                              disabled={fullOrder.status === 'Hoàn thành' || fullOrder.status === 'Đã hủy'}
-                            >
+                              disabled={fullOrder.status === 'Hoàn thành' || fullOrder.status === 'Đã hủy'} >
                               <option value="Chờ thanh toán">Chờ thanh toán</option>
                               <option value="Đang xử lý">Đang xử lý</option>
                               <option value="Đang giao">Đang giao</option>
