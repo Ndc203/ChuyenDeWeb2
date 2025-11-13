@@ -66,13 +66,21 @@ Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStati
 Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
-// ✅ Post routes
-Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
-Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
-Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+// Public routes
+Route::get('/posts', [PostController::class, 'index']);       // public
+Route::get('/posts/{id}', [PostController::class, 'show']);  // public
 Route::get('/post-statistics', [PostController::class, 'statistics']);
-Route::get('/posts/export', [PostExportController::class, 'export']);
-Route::apiResource('posts', PostController::class);
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']); 
+Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
+
+// Protected routes (auth required)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/posts', [PostController::class, 'store']);
+    Route::put('/posts/{id}', [PostController::class, 'update']);
+    Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+    Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+});
+
 
 // Post Category routes
 Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
