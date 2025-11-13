@@ -100,17 +100,55 @@ export default function AdminRevenueReportPage() {
                 </select>
               </div>
               
-              {/* Lọc theo Ngày */}
+              {/* Lọc theo Ngày/Tháng/Năm (RENDER CÓ ĐIỀU KIỆN) */}
               <div>
-                <label htmlFor="selectedDate" className="block text-xs font-medium text-slate-600 mb-1">Chọn ngày</label>
+                <label htmlFor="selectedDate" className="block text-xs font-medium text-slate-600 mb-1">
+                  Chọn {reportType === 'monthly' ? 'tháng' : reportType === 'yearly' ? 'năm' : 'ngày'}
+                </label>
                 <div className="relative">
-                  <input
-                    type="date"
-                    id="selectedDate"
-                    value={selectedDate}
-                    onChange={e => setSelectedDate(e.target.value)}
-                    className="border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                  />
+                  
+                  {/* 1. Khi chọn THEO NGÀY */}
+                  {reportType === 'daily' && (
+                    <input
+                      type="date"
+                      id="selectedDate"
+                      value={selectedDate} // Giá trị là YYYY-MM-DD
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    />
+                  )}
+                  
+                  {/* 2. Khi chọn THEO THÁNG */}
+                  {reportType === 'monthly' && (
+                    <input
+                      type="month"
+                      id="selectedMonth"
+                      // Giá trị phải là YYYY-MM
+                      value={selectedDate.substring(0, 7)} 
+                      // Khi thay đổi, nó trả về 'YYYY-MM',
+                      // ta thêm '-01' để state luôn là một ngày hợp lệ
+                      onChange={(e) => setSelectedDate(e.target.value + '-01')}
+                      className="border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    />
+                  )}
+                  
+                  {/* 3. Khi chọn THEO NĂM */}
+                  {reportType === 'yearly' && (
+                    <input
+                      type="number"
+                      id="selectedYear"
+                      min="2020"
+                      max="2099"
+                      step="1"
+                      // Giá trị là YYYY
+                      value={selectedDate.substring(0, 4)}
+                      // Khi thay đổi, nó trả về 'YYYY',
+                      // ta thêm '-01-01'
+                      onChange={(e) => setSelectedDate(e.target.value + '-01-01')}
+                      className="border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                    />
+                  )}
+
                 </div>
               </div>
             </div>
