@@ -11,23 +11,40 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop leftover table from previous failed migrations to ensure schema is recreated
+        if (Schema::hasTable('product_history')) {
+            Schema::drop('product_history');
+        }
+
         Schema::create('product_history', function (Blueprint $table) {
-            $table->id('history_id');
-            $table->unsignedBigInteger('product_id');
-            $table->unsignedBigInteger('user_id')->nullable(); // Người thực hiện thay đổi
+            $table->id('product_history_id');
+            // SỬA: Đổi 'product_id' từ INT (unsignedInteger) sang BIGINT (foreignId)
+            $table->foreignId('product_id')
+                  ->constrained(
+                      table: 'products',
+                      column: 'product_id'
+                  )
+                  ->onDelete('cascade');
+
+            // SỬA: Đổi 'user_id' từ INT (unsignedInteger) sang BIGINT (foreignId)
+            $table->foreignId('user_id')
+                  ->nullable()
+                  ->constrained(
+                      table: 'users',
+                      column: 'user_id'
+                  )
+                  ->onDelete('set null');
             $table->string('action', 50); // 'created', 'updated', 'deleted', 'restored'
-            $table->json('old_values')->nullable(); // Giá trị cũ (trước khi thay đổi)
-            $table->json('new_values')->nullable(); // Giá trị mới (sau khi thay đổi)
-            $table->json('changed_fields')->nullable(); // Danh sách các trường đã thay đổi
-            $table->text('description')->nullable(); // Mô tả chi tiết về thay đổi
-            $table->string('ip_address', 45)->nullable(); // IP của người thực hiện
-            $table->string('user_agent')->nullable(); // Thông tin trình duyệt/thiết bị
+            $table->json('old_values')->nullable();
+            $table->json('new_values')->nullable();
+            $table->json('changed_fields')->nullable();
+            $table->text('description')->nullable();
+            $table->string('ip_address', 45)->nullable();
+            $table->string('user_agent')->nullable();
             $table->timestamp('created_at')->useCurrent();
-            
-            // Foreign keys
-            $table->foreign('product_id')->references('product_id')->on('products')->onDelete('cascade');
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
-            
+
+            // XÓA: Các $table->foreign() thủ công vì foreignId() đã xử lý rồi
+
             // Indexes
             $table->index('product_id');
             $table->index('user_id');

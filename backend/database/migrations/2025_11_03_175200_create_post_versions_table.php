@@ -8,17 +8,31 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('post_versions', function (Blueprint $table) {
-            $table->id();
+            $table->id('post_version_id');
 
             // Liên kết tới bài viết gốc
-            $table->foreignId('post_id')->constrained('posts')->onDelete('cascade');
+            $table->foreignId('post_id')->constrained(
+            table: 'posts',
+            column: 'post_id'
+        )->onDelete('cascade');
 
             // Người thực hiện (tham chiếu tới users.user_id)
-            $table->unsignedInteger('user_id')->nullable();
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('set null');
+            $table->foreignId('user_id')
+              ->nullable()
+              ->constrained(
+                  table: 'users',
+                  column: 'user_id'
+              )
+              ->onDelete('set null');
 
             // Dữ liệu snapshot (phiên bản cũ)
-            $table->foreignId('category_id')->nullable()->constrained('postcategories')->onDelete('set null');
+            $table->foreignId('post_category_id')
+              ->nullable()
+              ->constrained(
+                  table: 'postcategories',
+                  column: 'post_category_id'
+              )
+              ->onDelete('set null');
             $table->string('title', 255);
             $table->text('excerpt')->nullable();
             $table->longText('content')->nullable();

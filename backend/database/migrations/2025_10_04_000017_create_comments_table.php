@@ -8,15 +8,23 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('comments', function (Blueprint $table) {
-            $table->id(); // tự động tạo 'id' BIGINT UNSIGNED
-            $table->unsignedBigInteger('post_id')->nullable(); // khớp với posts.id (BIGINT)
-            $table->unsignedInteger('user_id')->nullable();    // khớp với users.user_id (INT)
+            $table->id('comment_id'); // tự động tạo 'id' BIGINT UNSIGNED
+            $table->foreignId('post_id')
+                ->nullable()
+                ->constrained(
+                    table: 'posts',
+                    column: 'post_id' // PK của bảng posts
+                )
+                ->onDelete('cascade');
+            $table->foreignId('user_id')
+                ->constrained(
+                    table: 'users',    // Tên bảng tham chiếu
+                    column: 'user_id' // Tên cột tham chiếu
+                )
+                ->cascadeOnDelete();
             $table->text('content')->nullable();
             $table->timestamps();
 
-            
-            $table->foreign('post_id')->references('id')->on('posts')->onDelete('cascade');
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
         });
     }
 

@@ -12,8 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('api_tokens', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('user_id');
+            $table->id('api_token_id');
+            // SỬA: Đổi 'user_id' từ INT (unsignedInteger) sang BIGINT (foreignId)
+            $table->foreignId('user_id')
+                ->constrained(
+                    table: 'users',
+                    column: 'user_id'
+                )
+                ->onDelete('cascade');
             $table->string('name'); // Tên token để dễ quản lý
             $table->string('token', 64)->unique(); // API token
             $table->json('permissions')->nullable(); // Quyền: products.read, products.write, products.delete
@@ -22,8 +28,7 @@ return new class extends Migration
             $table->timestamp('expires_at')->nullable(); // Ngày hết hạn
             $table->boolean('is_active')->default(true); // Trạng thái active
             $table->timestamps();
-            
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
+
             $table->index('token');
             $table->index('user_id');
         });
