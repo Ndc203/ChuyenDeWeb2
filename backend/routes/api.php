@@ -63,6 +63,7 @@ Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStati
 
 
 // Comment routes
+Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
 Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
