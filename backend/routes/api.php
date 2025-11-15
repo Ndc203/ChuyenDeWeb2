@@ -90,6 +90,7 @@ Route::apiResource('postcategories', PostCategoryController::class);
 Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories', 'index');
     Route::post('/categories', 'store');
+    Route::put('/categories/reorder', 'reorder');
     Route::post('/categories/import/preview', 'importPreview');
     Route::post('/categories/import', 'import');
     Route::put('/categories/{id}', 'update');
