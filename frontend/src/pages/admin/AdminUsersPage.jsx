@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AdminSidebar from "../layout/AdminSidebar";
+import { useThemeLang } from "../../code/ThemeLangContext";
 import { Plus, BarChart2, Search, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 // Map backend status values to localized labels for UI
@@ -310,13 +311,13 @@ export default function AdminUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
-                  <tr className="text-left text-slate-600">
-                    <th className="p-4 w-12"><input type="checkbox" onChange={handleSelectAll} checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0} /></th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Người dùng</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Vai trò</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Đăng nhập cuối</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Ngày tạo</th>
+                  <tr className="text-left text-slate-600 border-b border-slate-300">
+                    <th className="p-4 w-12 border-r border-slate-300"><input type="checkbox" onChange={handleSelectAll} checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0} /></th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Người dùng</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Vai trò</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Trạng thái</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Đăng nhập cuối</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Ngày tạo</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-center">Thao tác</th>
                   </tr>
                 </thead>
@@ -324,20 +325,20 @@ export default function AdminUsersPage() {
                   {loading ? (
                     <tr><td colSpan={7} className="p-6 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
                   ) : error ? (
-                    <tr><td colSpan={7} className="p-6 text-center text-red-500">{error}</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-red-500">{{ error }}</td></tr>
                   ) : currentUsers.map(user => (
-                    <tr key={user.user_id} className="hover:bg-slate-50">
-                      <td className="p-4"><input type="checkbox" checked={selectedUsers.includes(user.user_id)} onChange={e => handleSelectUser(e, user.user_id)} /></td>
-                      <td className="px-4 py-3">
+                    <tr key={user.user_id} className="hover:bg-slate-50 border-b border-slate-200">
+                      <td className="p-4 border-r border-slate-200"><input type="checkbox" checked={selectedUsers.includes(user.user_id)} onChange={e => handleSelectUser(e, user.user_id)} /></td>
+                      <td className="px-4 py-3 border-r border-slate-200">
                         <div className="flex items-center gap-3">
                           <img src={user.avatar} alt={user.username} className="h-10 w-10 rounded-full object-cover" />
                           <div><p className="font-semibold text-slate-800">{user.username}</p><p className="text-slate-500">{user.email}</p></div>
                         </div>
                       </td>
-                      <td className="px-4 py-3"><RoleBadge role={user.role} /></td>
-                      <td className="px-4 py-3"><StatusBadge status={user.status} /></td>
-                      <td className="px-4 py-3 text-slate-500">{formatDate(user.last_login)}</td>
-                      <td className="px-4 py-3 text-slate-500">{formatDate(user.created_at)}</td>
+                      <td className="px-4 py-3 border-r border-slate-200"><RoleBadge role={user.role} /></td>
+                      <td className="px-4 py-3 border-r border-slate-200"><StatusBadge status={user.status} /></td>
+                      <td className="px-4 py-3 text-slate-500 border-r border-slate-200">{formatDate(user.last_login)}</td>
+                      <td className="px-4 py-3 text-slate-500 border-r border-slate-200">{formatDate(user.created_at)}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2 text-slate-500">
                             <Link to={`/admin/profile/${user.user_id}`} className="hover:text-indigo-600"><Eye size={16} /></Link>

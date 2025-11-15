@@ -3,6 +3,9 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { ThemeLangProvider } from "./code/ThemeLangContext";
+import LayoutWrapper from "./code/LayoutWrapper";
+import GlobalDarkModeApplier from "./code/GlobalDarkModeApplier";
 
 // Import các trang
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage.jsx";
@@ -66,6 +69,11 @@ const router = createBrowserRouter([
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
-    <RouterProvider router={router} />
+    <ThemeLangProvider>
+      <GlobalDarkModeApplier />
+      <LayoutWrapper>
+        <RouterProvider router={router} />
+      </LayoutWrapper>
+    </ThemeLangProvider>
   </React.StrictMode>
 );
