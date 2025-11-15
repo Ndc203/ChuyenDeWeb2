@@ -28,13 +28,28 @@ const mapRoleToServer = (role) => {
   return role; // pass through (admin, customer, editor)
 };
 
-const enhanceUserData = (user) => ({
-  ...user,
-  avatar: `https://i.pravatar.cc/40?u=${user.email}`,
-  last_login: user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString(),
-  // Localize status for display
-  status: mapServerStatusToLocal(user.status),
-});
+// enhanceUserData: accept currentUserId to mark only the logged-in account as 'Hoạt động'.
+const enhanceUserData = (user, currentUserId = null) => {
+  const avatar = `https://i.pravatar.cc/40?u=${user.email}`;
+  const last_login = user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString();
+
+  // If this is the logged-in user, show 'Hoạt động'.
+  let localizedStatus;
+  if (currentUserId && user.user_id === currentUserId) {
+    localizedStatus = 'Hoạt động';
+  } else {
+    // If user is banned on server, show 'Bị cấm', otherwise treat as 'Không hoạt động'
+    if (user.status === 'banned') localizedStatus = 'Bị cấm';
+    else localizedStatus = 'Không hoạt động';
+  }
+
+  return {
+    ...user,
+    avatar,
+    last_login,
+    status: localizedStatus,
+  };
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
@@ -148,6 +163,7 @@ const EditUserModal = ({ user, onClose, onSave }) => {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -172,9 +188,13 @@ export default function AdminUsersPage() {
     if (!token) { setError("Authentication token not found."); setLoading(false); return; }
     try {
       setLoading(true);
+      // Fetch current user to know which account is the logged-in one
+      const meResp = await axios.get(`${API_URL}/api/user`, { headers: { Authorization: `Bearer ${token}` } });
+      setCurrentUserId(meResp.data.user_id);
+
       const response = await axios.get(`${API_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
-      // Removed mock status and role data. Now it relies on API data.
-      setUsers(response.data.map(enhanceUserData));
+      // Adjust status display so only the logged-in account shows 'Hoạt động'
+      setUsers(response.data.map(u => enhanceUserData(u, meResp.data.user_id)));
     } catch (err) {
       setError(err.response?.data?.message || "Failed to fetch users.");
     } finally {
@@ -207,9 +227,9 @@ export default function AdminUsersPage() {
             status: mapLocalStatusToServer(updatedData.status),
             role: mapRoleToServer(updatedData.role),
         };
-        await axios.put(`${API_URL}/api/users/${userId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
-        // Update UI with localized values (updatedData.status is localized)
-        setUsers(users.map(user => user.user_id === userId ? { ...user, ...updatedData } : user));
+  await axios.put(`${API_URL}/api/users/${userId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+  // Re-fetch list so status mapping (only current user active) is applied consistently
+  await fetchUsers();
         alert("Cập nhật người dùng thành công!");
         handleCloseEditModal();
     } catch (err) { alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message)); }
