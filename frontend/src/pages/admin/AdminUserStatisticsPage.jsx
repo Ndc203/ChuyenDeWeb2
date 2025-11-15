@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Chart as ChartJS,
@@ -12,7 +11,8 @@ import {
 } from 'chart.js';
 import { Bar } from 'react-chartjs-2';
 import AdminSidebar from '../layout/AdminSidebar';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Loader, AlertTriangle } from 'lucide-react';
+import axios from 'axios';
 
 // Register Chart.js components
 ChartJS.register(
@@ -23,25 +23,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-// --- DUMMY DATA ---
-const overviewMetrics = {
-  totalUsers: 769,
-  activeUsers: 512,
-  newUsersThisMonth: 203,
-  growth: 30.1,
-};
-
-const monthlyData = [
-  { month: 'Tháng 4', newUsers: 50, activeUsers: 300, totalUsers: 566, growth: 5.2 },
-  { month: 'Tháng 5', newUsers: 75, activeUsers: 350, totalUsers: 641, growth: 13.3 },
-  { month: 'Tháng 6', newUsers: 60, activeUsers: 400, totalUsers: 701, growth: 9.4 },
-  { month: 'Tháng 7', newUsers: 80, activeUsers: 420, totalUsers: 781, growth: 11.4 },
-  { month: 'Tháng 8', newUsers: 95, activeUsers: 450, totalUsers: 876, growth: 12.2 },
-  { month: 'Tháng 9', newUsers: 110, activeUsers: 480, totalUsers: 986, growth: 12.6 },
-  { month: 'Tháng 10', newUsers: 203, activeUsers: 512, totalUsers: 1189, growth: 20.6 },
-];
-// --- END DUMMY DATA ---
 
 const StatCard = ({ title, value, growth }) => (
   <div className="bg-white p-6 rounded-lg shadow">
@@ -58,10 +39,81 @@ const StatCard = ({ title, value, growth }) => (
   </div>
 );
 
-export default function AdminUserStatisticsPage() {
-  const [timeRange, setTimeRange] = useState('7');
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center h-32">
+    <Loader className="animate-spin text-slate-500" size={40} />
+  </div>
+);
 
-  const filteredData = monthlyData.slice(-parseInt(timeRange));
+const ErrorDisplay = ({ message }) => (
+  <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md shadow" role="alert">
+    <div className="flex">
+      <div className="py-1"><AlertTriangle className="mr-3" /></div>
+      <div>
+        <p className="font-bold">Đã xảy ra lỗi</p>
+        <p className="text-sm">{message}</p>
+      </div>
+    </div>
+  </div>
+);
+
+export default function AdminUserStatisticsPage() {
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    inactiveUsers: 0,
+    adminUsers: 0,
+    customerUsers: 0,
+  });
+
+  const [monthlyChartData, setMonthlyChartData] = useState({
+    labels: [],
+    datasets: [],
+  });
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchAllData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const statsPromise = axios.get('/api/user-statistics');
+        const monthlyPromise = axios.get('/api/monthly-user-statistics');
+
+        const [statsResponse, monthlyResponse] = await Promise.all([statsPromise, monthlyPromise]);
+
+        // Process general stats
+        setStats(statsResponse.data);
+
+        // Process monthly stats for chart
+        const monthlyData = monthlyResponse.data;
+        const labels = monthlyData.map(item => `Tháng ${item.month}/${item.year}`);
+        const newUsersData = monthlyData.map(item => item.newUsers);
+
+        setMonthlyChartData({
+          labels: labels,
+          datasets: [
+            {
+              label: 'Người dùng mới',
+              data: newUsersData,
+              backgroundColor: '#82ca9d',
+              borderColor: '#82ca9d',
+              borderWidth: 1,
+            },
+          ],
+        });
+
+      } catch (err) {
+        console.error('Error fetching statistics data:', err);
+        setError('Không thể tải dữ liệu từ máy chủ. Vui lòng đảm bảo backend đang chạy và API đang hoạt động. Lỗi: ' + (err.response?.data?.message || err.message));
+      }
+      setLoading(false);
+    };
+
+    fetchAllData();
+  }, []);
 
   const chartOptions = {
     indexAxis: 'y',
@@ -97,26 +149,6 @@ export default function AdminUserStatisticsPage() {
     },
   };
 
-  const chartData = {
-    labels: filteredData.map(d => d.month),
-    datasets: [
-      {
-        label: 'Tổng người dùng',
-        data: filteredData.map(d => d.totalUsers),
-        backgroundColor: '#8884d8',
-        borderColor: '#8884d8',
-        borderWidth: 1,
-      },
-      {
-        label: 'Người dùng mới',
-        data: filteredData.map(d => d.newUsers),
-        backgroundColor: '#82ca9d',
-        borderColor: '#82ca9d',
-        borderWidth: 1,
-      },
-    ],
-  };
-
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
       <AdminSidebar />
@@ -132,65 +164,31 @@ export default function AdminUserStatisticsPage() {
             <p className="text-sm text-slate-500 mt-1">Theo dõi số lượng và hoạt động người dùng theo thời gian.</p>
           </div>
 
+          {error && <div className="mb-8"><ErrorDisplay message={error} /></div>}
+
           {/* 2. Overview Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <StatCard title="Tổng người dùng" value={overviewMetrics.totalUsers} />
-            <StatCard title="Người dùng hoạt động" value={overviewMetrics.activeUsers} />
-            <StatCard title="Người dùng mới tháng này" value={overviewMetrics.newUsersThisMonth} />
-            <StatCard title="Tăng trưởng" value={overviewMetrics.growth} growth={overviewMetrics.growth} />
+          <div className="mb-8">
+            {loading ? <LoadingSpinner /> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+                <StatCard title="Tổng người dùng" value={stats.totalUsers} />
+                <StatCard title="Người dùng hoạt động" value={stats.activeUsers} />
+                <StatCard title="Người dùng bị cấm" value={stats.inactiveUsers} />
+                <StatCard title="Quản trị viên" value={stats.adminUsers} />
+                <StatCard title="Khách hàng" value={stats.customerUsers} />
+              </div>
+            )}
           </div>
 
           {/* 3. Chart */}
           <div className="bg-white p-6 rounded-lg shadow mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-slate-900">Biểu đồ người dùng theo tháng</h2>
-              <select
-                value={timeRange}
-                onChange={(e) => setTimeRange(e.target.value)}
-                className="border border-slate-300 rounded-md px-3 py-1 text-sm"
-              >
-                <option value="3">3 tháng gần nhất</option>
-                <option value="7">7 tháng gần nhất</option>
-                <option value="12">1 năm</option>
-              </select>
-            </div>
-            <div className="relative h-[300px]">
-              <Bar options={chartOptions} data={chartData} />
-            </div>
+            <h2 className="text-lg font-semibold text-slate-900 mb-4">Biểu đồ người dùng mới theo tháng (12 tháng gần nhất)</h2>
+            {loading ? <LoadingSpinner /> : (
+              <div className="relative h-[300px]">
+                <Bar options={chartOptions} data={monthlyChartData} />
+              </div>
+            )}
           </div>
 
-          {/* 4. Data Table */}
-          <div className="bg-white p-6 rounded-lg shadow">
-            <h2 className="text-lg font-semibold text-slate-900 mb-4">Chi tiết theo tháng</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tháng</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Người dùng mới</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Người dùng hoạt động</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tổng người dùng</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Tăng trưởng</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-slate-200">
-                  {filteredData.map((item) => (
-                    <tr key={item.month}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-900">{item.month}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.newUsers}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.activeUsers}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">{item.totalUsers}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`font-semibold ${item.growth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {item.growth >= 0 ? '+' : ''}{item.growth}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
         </div>
       </main>
     </div>

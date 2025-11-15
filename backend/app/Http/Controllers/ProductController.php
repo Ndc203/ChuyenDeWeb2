@@ -3,12 +3,27 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductHistory;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
 
 class ProductController extends Controller
 {
+    /**
+     * Tìm sản phẩm bằng ID hoặc Hashed ID
+     */
+    private function findProduct($id)
+    {
+        // Thử decode hashed ID trước
+        $realId = Product::decodeHashedId($id);
+        
+        // Nếu decode thành công, dùng real ID, nếu không dùng ID gốc
+        $productId = $realId ?? $id;
+        
+        return Product::findOrFail($productId);
+    }
+
     /**
      * Lấy danh sách sản phẩm
      */
@@ -61,6 +76,7 @@ class ProductController extends Controller
 
             return [
                 'id' => $product->product_id,
+                'hashed_id' => $product->hashed_id,
                 'name' => $product->name,
                 'slug' => $product->slug,
                 'description' => $product->description,
@@ -116,6 +132,9 @@ class ProductController extends Controller
 
         $product = Product::create($data);
 
+        // Ghi lại lịch sử tạo sản phẩm
+        ProductHistory::logChange($product, 'created', [], $data);
+
         return response()->json([
             'message' => 'Sản phẩm đã được tạo thành công.',
             'data' => $product->fresh(['category', 'brand']),
@@ -127,14 +146,22 @@ class ProductController extends Controller
      */
     public function show($id)
     {
-        $product = Product::with(['category', 'brand', 'reviews'])
-            ->findOrFail($id);
+        // Hỗ trợ cả ID thật và Hashed ID
+        $product = Product::with(['category', 'brand', 'reviews']);
+        
+        $realId = Product::decodeHashedId($id);
+        if ($realId) {
+            $product = $product->findOrFail($realId);
+        } else {
+            $product = $product->findOrFail($id);
+        }
 
         $avgRating = $product->reviews()->avg('rating') ?? 0;
         $totalReviews = $product->reviews()->count();
 
         return response()->json([
             'id' => $product->product_id,
+            'hashed_id' => $product->hashed_id,
             'name' => $product->name,
             'slug' => $product->slug,
             'description' => $product->description,
@@ -165,7 +192,7 @@ class ProductController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $product = $this->findProduct($id);
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
@@ -182,7 +209,13 @@ class ProductController extends Controller
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ]);
 
+        // Lưu giá trị cũ trước khi cập nhật
+        $oldValues = $product->only(array_keys($data));
+
         $product->update($data);
+
+        // Ghi lại lịch sử cập nhật
+        ProductHistory::logChange($product, 'updated', $oldValues, $data);
 
         return response()->json([
             'message' => 'Sản phẩm đã được cập nhật thành công.',
@@ -195,8 +228,17 @@ class ProductController extends Controller
      */
     public function destroy($id)
     {
-        $product = Product::findOrFail($id);
+        $product = $this->findProduct($id);
+        
+        // Lưu thông tin sản phẩm trước khi xóa
+        $productData = $product->only([
+            'name', 'price', 'stock', 'category_id', 'brand_id', 'status'
+        ]);
+        
         $product->delete();
+
+        // Ghi lại lịch sử xóa
+        ProductHistory::logChange($product, 'deleted', $productData, []);
 
         return response()->json([
             'message' => 'Sản phẩm đã được xóa thành công.',
@@ -215,6 +257,7 @@ class ProductController extends Controller
             ->map(function (Product $product) {
                 return [
                     'id' => $product->product_id,
+                    'hashed_id' => $product->hashed_id,
                     'name' => $product->name,
                     'slug' => $product->slug,
                     'brand' => optional($product->brand)->name,
@@ -234,8 +277,20 @@ class ProductController extends Controller
      */
     public function restore($id)
     {
-        $product = Product::onlyTrashed()->findOrFail($id);
+        $realId = Product::decodeHashedId($id);
+        $productId = $realId ?? $id;
+        
+        $product = Product::onlyTrashed()->findOrFail($productId);
+        
+        // Lưu thông tin sản phẩm
+        $productData = $product->only([
+            'name', 'price', 'stock', 'category_id', 'brand_id', 'status'
+        ]);
+        
         $product->restore();
+
+        // Ghi lại lịch sử khôi phục
+        ProductHistory::logChange($product, 'restored', [], $productData);
 
         return response()->json([
             'message' => 'Sản phẩm đã được khôi phục thành công.',
@@ -248,9 +303,18 @@ class ProductController extends Controller
      */
     public function toggleStatus($id)
     {
-        $product = Product::findOrFail($id);
+        $product = $this->findProduct($id);
+        $oldStatus = $product->status;
         $product->status = $product->status === 'active' ? 'inactive' : 'active';
         $product->save();
+
+        // Ghi lại lịch sử thay đổi trạng thái
+        ProductHistory::logChange(
+            $product, 
+            'updated', 
+            ['status' => $oldStatus], 
+            ['status' => $product->status]
+        );
 
         return response()->json([
             'ok' => true,
@@ -276,4 +340,3 @@ class ProductController extends Controller
         return response()->json(['slug' => $slug], 200, [], JSON_UNESCAPED_UNICODE);
     }
 }
-

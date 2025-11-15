@@ -3,9 +3,32 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Upload } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
+const getEntityValue = (entity, keys = []) => {
+  if (!entity) return "";
+  for (const key of keys) {
+    if (entity[key] !== undefined && entity[key] !== null) {
+      return entity[key];
+    }
+  }
+  return "";
+};
+
+const getEntityLabel = (entity, fallbackPrefix, preferredKeys = []) => {
+  if (!entity) return `${fallbackPrefix} #?`;
+  return (
+    entity?.name ??
+    entity?.label ??
+    entity?.title ??
+    entity?.slug ??
+    `${fallbackPrefix} #${
+      getEntityValue(entity, [...preferredKeys, "id", "value"]) || "?"
+    }`
+  );
+};
+
 export default function AdminProductEditPage() {
   const navigate = useNavigate();
-  const { id } = useParams();
+  const { id: hashedId } = useParams(); // Nhận hashed_id từ URL
   const [loading, setLoading] = useState(false);
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [error, setError] = useState("");
@@ -33,7 +56,8 @@ export default function AdminProductEditPage() {
   // Load product data
   useEffect(() => {
     setLoadingProduct(true);
-    fetch(`${API_URL}/api/products/${id}`)
+    // Sử dụng hashed_id để load sản phẩm
+    fetch(`${API_URL}/api/products/${hashedId}`)
       .then((res) => res.json())
       .then((data) => {
         if (data) {
@@ -57,7 +81,7 @@ export default function AdminProductEditPage() {
         setError("Không thể tải thông tin sản phẩm");
       })
       .finally(() => setLoadingProduct(false));
-  }, [API_URL, id]);
+  }, [API_URL, hashedId]);
 
   // Load categories và brands
   useEffect(() => {
@@ -134,7 +158,8 @@ export default function AdminProductEditPage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/products/${id}`, {
+      // Sử dụng hashed_id để update sản phẩm
+      const response = await fetch(`${API_URL}/api/products/${hashedId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -285,11 +310,22 @@ export default function AdminProductEditPage() {
                       required
                     >
                       <option value="">Chọn danh mục</option>
-                      {categories.map((cat) => (
-                        <option key={cat.category_id} value={cat.category_id}>
-                          {cat.name}
-                        </option>
-                      ))}
+                      {categories.map((cat, index) => {
+                        const rawValue = getEntityValue(cat, [
+                          "category_id",
+                          "id",
+                          "value",
+                        ]);
+                        if (rawValue === "" || rawValue === null) {
+                          return null;
+                        }
+                        const value = rawValue.toString();
+                        return (
+                          <option key={value || index} value={value}>
+                            {getEntityLabel(cat, "Danh muc", ["category_id"])}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -306,11 +342,22 @@ export default function AdminProductEditPage() {
                       required
                     >
                       <option value="">Chọn thương hiệu</option>
-                      {brands.map((brand) => (
-                        <option key={brand.brand_id} value={brand.brand_id}>
-                          {brand.name}
-                        </option>
-                      ))}
+                      {brands.map((brand, index) => {
+                        const rawValue = getEntityValue(brand, [
+                          "brand_id",
+                          "id",
+                          "value",
+                        ]);
+                        if (rawValue === "" || rawValue === null) {
+                          return null;
+                        }
+                        const value = rawValue.toString();
+                        return (
+                          <option key={value || index} value={value}>
+                            {getEntityLabel(brand, "Thuong hieu", ["brand_id"])}
+                          </option>
+                        );
+                      })}
                     </select>
                   </div>
 
@@ -476,4 +523,3 @@ export default function AdminProductEditPage() {
     </div>
   );
 }
-

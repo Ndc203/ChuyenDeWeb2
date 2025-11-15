@@ -8,7 +8,6 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PostCategoryExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 
-
 class PostCategoryController extends Controller
 {
     /**
@@ -16,7 +15,7 @@ class PostCategoryController extends Controller
      */
     public function index()
     {
-        $categories = PostCategory::orderBy('id', 'desc')->get();
+        $categories = PostCategory::orderByDesc('post_category_id')->get();
         return response()->json($categories);
     }
 
@@ -64,7 +63,7 @@ class PostCategoryController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:postcategories,name,' . $id,
+            'name' => 'required|string|max:255|unique:postcategories,name,' . $id . ',post_category_id',
             'description' => 'nullable|string|max:500',
         ]);
 
@@ -92,19 +91,21 @@ class PostCategoryController extends Controller
         return response()->json(['message' => 'Đã xoá danh mục.']);
     }
 
+    /**
+     * Xuất dữ liệu
+     */
     public function export(Request $request)
-{
-    $format = $request->query('format', 'excel');
-    $categories = PostCategory::all(['id', 'name', 'description', 'created_at']);
+    {
+        $format = $request->query('format', 'excel');
+        $categories = PostCategory::all(['post_category_id', 'name', 'description', 'created_at']);
 
-    if ($format === 'pdf') {
-        $pdf = Pdf::loadView('postcategories_pdf', [
-            'categories' => $categories
-        ]);
-        return $pdf->download('postcategories.pdf');
+        if ($format === 'pdf') {
+            $pdf = Pdf::loadView('postcategories_pdf', [
+                'categories' => $categories
+            ]);
+            return $pdf->download('postcategories.pdf');
+        }
+
+        return Excel::download(new PostCategoryExport, 'postcategories.xlsx');
     }
-
-    // Xuất Excel
-    return Excel::download(new \App\Exports\PostCategoriesExport, 'postcategories.xlsx');
-}
 }

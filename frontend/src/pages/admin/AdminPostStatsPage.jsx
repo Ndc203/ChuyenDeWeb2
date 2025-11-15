@@ -12,55 +12,32 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
-import {
-  LayoutGrid,
-  FileBarChart,
-  TrendingUp,
-  PlusCircle,
-} from "lucide-react";
-import AdminSidebar from "../layout/AdminSidebar.jsx";
+import { BarChart2, PieChart as PieChartIcon } from "lucide-react";
+import AdminSidebar from "../layout/AdminSidebar";
 
-// 🎨 Màu biểu đồ
-const COLORS = ["#4F46E5", "#10B981", "#F59E0B", "#EF4444", "#3B82F6"];
+const COLORS = ["#8884d8", "#82ca9d", "#ffc658", "#ff7f50"];
 
-export default function AdminPostStatsPage() {
+export default function AdminPostStatisticsPage() {
   const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [mounted, setMounted] = useState(false);
-
-  // đảm bảo ResponsiveContainer render sau khi mount
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
-    axios
-      .get("http://127.0.0.1:8000/api/post-statistics")
-      .then((res) => {
-        setStats(res.data);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Error fetching post statistics:", err);
-        setLoading(false);
-      });
-  }, []);
+  axios.get("http://127.0.0.1:8000/api/post-statistics")
+    .then((res) => setStats(res.data))
+    .catch((err) => {
+      console.error("Lỗi khi tải thống kê:", err);
+    });
+}, []);
 
-  if (loading) {
+
+  if (!stats)
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-600">
-        Đang tải thống kê bài viết...
+      <div className="min-h-screen flex bg-slate-50 text-slate-800">
+        <AdminSidebar />
+        <main className="flex-1 flex items-center justify-center">
+          <p className="text-slate-500">Đang tải thống kê...</p>
+        </main>
       </div>
     );
-  }
-
-  if (!stats) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-red-600">
-        Không thể tải dữ liệu thống kê.
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
@@ -68,112 +45,87 @@ export default function AdminPostStatsPage() {
       <AdminSidebar />
 
       {/* Main content */}
-      <main className="flex-1 w-full min-w-0 overflow-x-hidden p-6 space-y-6">
-        {/* Tiêu đề */}
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-semibold flex items-center gap-2">
-            <FileBarChart className="text-indigo-600" size={26} />
-            Thống kê bài viết
-          </h1>
+      <main className="flex-1 w-full min-w-0 overflow-x-hidden">
+        {/* Header */}
+        <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
+          <div className="w-full px-10 py-4 flex items-center justify-between">
+            <h1 className="text-lg md:text-xl font-semibold">
+              📊 Thống kê Bài viết
+            </h1>
+          </div>
         </div>
 
-        {/* Thống kê tổng quan */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <StatCard
-            icon={<LayoutGrid size={22} />}
-            label="Tổng số bài viết"
-            value={stats.total_posts}
-            color="bg-indigo-500"
-          />
-          <StatCard
-            icon={<TrendingUp size={22} />}
-            label="Bài viết trending"
-            value={stats.trending_posts}
-            color="bg-green-500"
-          />
-          <StatCard
-            icon={<PlusCircle size={22} />}
-            label="Bài viết mới tháng này"
-            value={stats.new_posts_this_month}
-            color="bg-yellow-500"
-          />
-        </div>
+        {/* Nội dung chính */}
+        <div className="w-full px-10 py-6 space-y-8">
+          {/* Tổng quan */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition">
+              <h3 className="text-sm text-slate-500">Tổng bài viết</h3>
+              <p className="text-2xl font-bold mt-1">{stats.total_posts}</p>
+            </div>
+            <div className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition">
+              <h3 className="text-sm text-slate-500">Bài viết nổi bật</h3>
+              <p className="text-2xl font-bold mt-1">
+                {stats.trending_posts}
+              </p>
+            </div>
+            <div className="bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition">
+              <h3 className="text-sm text-slate-500">
+                Bài viết mới trong tháng
+              </h3>
+              <p className="text-2xl font-bold mt-1">
+                {stats.new_posts_this_month}
+              </p>
+            </div>
+          </div>
 
-        {/* Biểu đồ */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Biểu đồ tròn - trạng thái */}
-          <ChartCard title="Tỷ lệ trạng thái">
-            {mounted && (
-              <div className="w-full h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={stats.posts_by_status}
-                      dataKey="value"
-                      nameKey="name"
-                      outerRadius={100}
-                      label
-                    >
-                      {stats.posts_by_status.map((entry, index) => (
-                        <Cell
-                          key={`cell-${index}`}
-                          fill={COLORS[index % COLORS.length]}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </ChartCard>
+          {/* Biểu đồ trạng thái */}
+          <div className="bg-white border rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <PieChartIcon className="w-5 h-5 text-slate-600" />
+              <h2 className="text-lg font-semibold">Trạng thái bài viết</h2>
+            </div>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  dataKey="value"
+                  data={stats.posts_by_status}
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={90}
+                  label
+                >
+                  {stats.posts_by_status.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
 
-          {/* Biểu đồ cột - danh mục */}
-          <ChartCard title="Số lượng bài viết theo danh mục">
-            {mounted && (
-              <div className="w-full h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.posts_by_category}>
-                    <XAxis dataKey="category" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="count" fill="#4F46E5" radius={[6, 6, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            )}
-          </ChartCard>
+          {/* Biểu đồ danh mục */}
+          <div className="bg-white border rounded-xl p-6 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <BarChart2 className="w-5 h-5 text-slate-600" />
+              <h2 className="text-lg font-semibold">Bài viết theo danh mục</h2>
+            </div>
+            <ResponsiveContainer width="100%" height={320}>
+              <BarChart data={stats.posts_by_category}>
+                <XAxis dataKey="category" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="count" fill="#82ca9d" radius={[5, 5, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </main>
-    </div>
-  );
-}
-
-// ✅ Component thẻ thống kê nhỏ
-function StatCard({ icon, label, value, color }) {
-  return (
-    <div className="bg-white rounded-2xl shadow p-5 flex items-center gap-4">
-      <div
-        className={`p-3 rounded-xl text-white flex items-center justify-center ${color}`}
-      >
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-2xl font-semibold">{value}</p>
-      </div>
-    </div>
-  );
-}
-
-// ✅ Component khung biểu đồ
-function ChartCard({ title, children }) {
-  return (
-    <div className="bg-white p-4 rounded-2xl shadow" style={{ minHeight: "350px" }}>
-      <h2 className="text-lg font-semibold mb-4">{title}</h2>
-      {children}
     </div>
   );
 }

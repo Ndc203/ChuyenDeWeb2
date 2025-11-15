@@ -16,16 +16,21 @@ import AdminBrandsPage from "./pages/admin/AdminBrandsPage.jsx";
 import AdminProductsPage from "./pages/admin/AdminProductsPage.jsx";
 import AdminProductAddPage from "./pages/admin/AdminProductAddPage.jsx";
 import AdminProductEditPage from "./pages/admin/AdminProductEditPage.jsx";
+import AdminProductHistoryPage from "./pages/admin/AdminProductHistoryPage.jsx";
 import AdminActivityHistoryPage from "./pages/admin/AdminActivityHistoryPage.jsx";
 import AdminUserStatisticsPage from "./pages/admin/AdminUserStatisticsPage.jsx";
 import AdminStockPage from "./pages/admin/AdminStockPage.jsx";
 import AdminPermissionsPage from "./pages/admin/AdminPermissionsPage.jsx";
 import AdminProfilePage from "./pages/admin/AdminProfilePage.jsx";
-import AdminCouponsPage from "./pages/admin/AdminCouponsPage.jsx";
+import AdminCouponsPage from "./pages/admin/coupon/AdminCouponsPage.jsx";
+import AdminReviewsPage from "./pages/admin/AdminReviewsPage.jsx";
+import ShopPage from "./pages/shop/ShopPage.jsx";
 import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
 import ResetPassword from "./pages/auth/ResetPassword.jsx";
+import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
+import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
@@ -34,6 +39,7 @@ const router = createBrowserRouter([
   { path: "/admin/products", element: <AdminProductsPage /> },
   { path: "/admin/products/add", element: <AdminProductAddPage /> },
   { path: "/admin/products/edit/:id", element: <AdminProductEditPage /> },
+  { path: "/admin/products/:productId/history", element: <AdminProductHistoryPage /> },
   { path: "/admin/stock", element: <AdminStockPage /> },
   { path: "/admin/posts", element: <AdminPostPage /> },
   { path: "/admin/comments", element: <AdminCommentsPage /> },
@@ -51,6 +57,10 @@ const router = createBrowserRouter([
   { path: "/forgot-password", element: <ForgotPassword /> },
   { path: "/reset-password", element: <ResetPassword /> },
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
+  { path: "/admin/reviews", element: <AdminReviewsPage /> },
+  { path: "/shop", element: <ShopPage /> },
+  { path: "/admin/orders", element: <AdminOrdersPage /> },
+  { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 

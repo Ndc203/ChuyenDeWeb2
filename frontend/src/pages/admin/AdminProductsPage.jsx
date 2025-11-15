@@ -8,6 +8,7 @@ import {
   Trash2,
   Eye,
   Star,
+  History,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
@@ -35,6 +36,9 @@ export default function AdminProductsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [categoryOptions, setCategoryOptions] = useState([
+    { value: "all", label: "Tat ca danh muc" },
+  ]);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
@@ -76,7 +80,8 @@ export default function AdminProductsPage() {
 
     setDeleting(true);
     try {
-      const response = await fetch(`${API_URL}/api/products/${productToDelete.id}`, {
+      // Sử dụng hashed_id thay vì id
+      const response = await fetch(`${API_URL}/api/products/${productToDelete.hashed_id}`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -105,23 +110,78 @@ export default function AdminProductsPage() {
     loadProducts();
   }, [loadProducts]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`${API_URL}/api/categories`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid categories response");
+        }
+
+        const map = new Map();
+        data.forEach((category) => {
+          const rawId =
+            category?.category_id ??
+            category?.id ??
+            (typeof category?.value !== "undefined" ? category.value : null);
+          if (rawId === undefined || rawId === null) {
+            return;
+          }
+
+          const value = rawId.toString();
+          if (map.has(value)) {
+            return;
+          }
+
+          const label = category?.name || category?.label || `Danh muc #${value}`;
+          map.set(value, label);
+        });
+
+        setCategoryOptions([
+          { value: "all", label: "Tat ca danh muc" },
+          ...Array.from(map.entries()).map(([value, label]) => ({
+            value,
+            label,
+          })),
+        ]);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategoryOptions([{ value: "all", label: "Tat ca danh muc" }]);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [API_URL]);
+
   // Lọc sản phẩm
+  const getProductCategoryValue = (product) => {
+    if (!product) return "";
+    if (product.category_id !== undefined && product.category_id !== null) {
+      return product.category_id.toString();
+    }
+    if (product.category) {
+      return product.category.toString();
+    }
+    return "";
+  };
+
   const filtered = useMemo(() => {
     return rows.filter((r) => {
       const matchQuery = (r.name || "")
         .toLowerCase()
         .includes(query.toLowerCase());
       const matchCategory =
-        categoryFilter === "all" || r.category === categoryFilter;
+        categoryFilter === "all" ||
+        getProductCategoryValue(r) === categoryFilter;
       return matchQuery && matchCategory;
     });
   }, [rows, query, categoryFilter]);
-
-  // Danh sách danh mục
-  const categories = useMemo(() => {
-    const set = new Set(rows.map((r) => r.category));
-    return ["all", ...Array.from(set)];
-  }, [rows]);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat("vi-VN", {
@@ -178,9 +238,9 @@ export default function AdminProductsPage() {
               onChange={(e) => setCategoryFilter(e.target.value)}
               className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             >
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat === "all" ? "Tất cả danh mục" : cat}
+              {categoryOptions.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
                 </option>
               ))}
             </select>
@@ -337,8 +397,15 @@ export default function AdminProductsPage() {
                             <Eye size={16} />
                           </button>
                           <button
+                            title="Lịch sử thay đổi"
+                            onClick={() => navigate(`/admin/products/${product.id}/history`)}
+                            className="inline-flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-purple-600 hover:bg-purple-100"
+                          >
+                            <History size={16} />
+                          </button>
+                          <button
                             title="Sửa"
-                            onClick={() => navigate(`/admin/products/edit/${product.id}`)}
+                            onClick={() => navigate(`/admin/products/edit/${product.hashed_id}`)}
                             className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-100"
                           >
                             <Edit size={16} />
@@ -557,7 +624,7 @@ export default function AdminProductsPage() {
               <button
                 onClick={() => {
                   setShowDetailModal(false);
-                  navigate(`/admin/products/edit/${selectedProduct.id}`);
+                  navigate(`/admin/products/edit/${selectedProduct.hashed_id}`);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
@@ -624,4 +691,3 @@ export default function AdminProductsPage() {
     </div>
   );
 }
-

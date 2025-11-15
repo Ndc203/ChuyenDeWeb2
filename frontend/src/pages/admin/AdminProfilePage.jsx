@@ -6,7 +6,7 @@ import AdminSidebar from '../layout/AdminSidebar';
 
 // API service definition
 const api = {
-  getOwnProfile: () => axios.get('http://localhost:8000/api/me'),
+  getOwnProfile: () => axios.get('http://localhost:8000/api/user'),
   getUserById: (id) => axios.get(`http://localhost:8000/api/users/${id}`),
   updateProfile: (data) => axios.put('http://localhost:8000/api/me/update', data),
   changePassword: (data) => axios.post('http://localhost:8000/api/me/change-password', data),
@@ -24,6 +24,15 @@ const AdminProfilePage = () => {
 
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isPasswordModalOpen, setPasswordModalOpen] = useState(false);
+
+  const translateGender = (gender) => {
+    const genderMap = {
+      male: 'Nam',
+      female: 'Nữ',
+      other: 'Khác',
+    };
+    return genderMap[gender] || 'Chưa cập nhật';
+  };
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -125,7 +134,7 @@ const AdminProfilePage = () => {
                     <div className="h-32 bg-gradient-to-r from-slate-200 to-slate-300"></div>
                     <div className="p-6 -mt-16 flex flex-col items-center">
                         <img
-                            src={user.avatar || `https://ui-avatars.com/api/?name=${user.username}&background=random&color=fff`}
+                            src={user.avatar || `https://i.pravatar.cc/40?u=${user.email}`}
                             alt="Avatar"
                             className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-md"
                         />
@@ -164,7 +173,7 @@ const AdminProfilePage = () => {
                                     <InfoRow icon={<User size={14}/>} label="Họ và tên" value={user.full_name || 'Chưa cập nhật'} />
                                     <InfoRow icon={<MapPin size={14}/>} label="Địa chỉ" value={user.address || 'Chưa cập nhật'} />
                                     <InfoRow icon={<Calendar size={14}/>} label="Ngày sinh" value={user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString('vi-VN') : 'Chưa cập nhật'} />
-                                    <InfoRow icon={<Users size={14}/>} label="Giới tính" value={user.gender || 'Chưa cập nhật'} />
+                                    <InfoRow icon={<Users size={14}/>} label="Giới tính" value={translateGender(user.gender)} />
                                 </div>
                                 <div className="mt-6 pt-6 border-t border-slate-200">
                                     <h3 className="text-xl font-bold text-slate-800 mb-2">Giới thiệu bản thân</h3>

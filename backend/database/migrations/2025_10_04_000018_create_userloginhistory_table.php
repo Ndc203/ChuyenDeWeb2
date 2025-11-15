@@ -12,19 +12,18 @@ class CreateUserloginhistoryTable extends Migration
     public function up(): void
     {
         Schema::create('userloginhistory', function (Blueprint $table) {
-            $table->increments('login_id');
+            $table->id('login_history_id');
 
-            // KHỚP kiểu với users.user_id (UNSIGNED INT)
-            $table->unsignedInteger('user_id')->nullable();
+            $table->foreignId('user_id')
+          ->constrained(
+              table: 'users',    // Tên bảng tham chiếu
+              column: 'user_id' // Tên cột tham chiếu
+          )
+          ->cascadeOnDelete();  
 
             $table->string('ip_address', 50)->nullable();
             $table->string('device', 100)->nullable();
             $table->timestamp('login_at')->useCurrent();
-
-            // Ràng buộc FK đúng kiểu & tên
-            $table->foreign('user_id')
-                  ->references('user_id')->on('users')
-                  ->cascadeOnDelete();
 
             $table->index('user_id');
         });
