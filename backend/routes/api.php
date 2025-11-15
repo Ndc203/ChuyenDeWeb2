@@ -50,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Activity logs for current user (or all if admin)
+    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+
     // Profile routes
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
