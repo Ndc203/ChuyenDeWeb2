@@ -1,33 +1,16 @@
-import { useEffect, useState } from "react";
+import { Outlet } from "react-router-dom";
+import AdminSidebar from "./pages/layout/AdminSidebar";
+import { useTheme } from "./context/ThemeContext";
 
 function App() {
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchAPI = async () => {
-      try {
-        const res = await fetch("http://127.0.0.1:8000/api/test");
-        if (!res.ok) throw new Error("API lỗi hoặc không tồn tại");
-        const data = await res.json();
-        setMessage(data.message || "Không có dữ liệu trả về");
-      } catch (error) {
-        setMessage("❌ Không kết nối được đến Laravel API");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchAPI();
-  }, []);
+  const { theme } = useTheme();
 
   return (
-    <div style={{ padding: "50px", fontSize: "20px", textAlign: "center" }}>
-      <h1>React + Laravel Demo</h1>
-      {loading ? (
-        <p>⏳ Đang tải dữ liệu từ API...</p>
-      ) : (
-        <p>💬 Kết quả API: <strong>{message}</strong></p>
-      )}
+    <div className={`flex h-screen bg-slate-50 dark:bg-slate-900 ${theme}`}>
+      <AdminSidebar />
+      <main className="flex-1 overflow-y-auto">
+        <Outlet />
+      </main>
     </div>
   );
 }
