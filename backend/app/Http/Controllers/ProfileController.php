@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -11,27 +12,35 @@ use Illuminate\Validation\Rules\Password;
 class ProfileController extends Controller
 {
     /**
-     * Lấy thông tin người dùng kèm profile.
+     * Get the authenticated user's profile information.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function getProfile(Request $request)
     {
-        $user = $request->user()->load('profile');
-        return response()->json($user, 200, [], JSON_UNESCAPED_UNICODE);
+        return response()->json($request->user());
     }
 
     /**
-     * Cập nhật thông tin cá nhân.
+     * Update the authenticated user's profile information.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function updateProfile(Request $request)
     {
         $user = $request->user();
 
         $validator = Validator::make($request->all(), [
-            // Bảng users
-            'email' => ['sometimes', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->user_id, 'user_id')],
-            // Bảng userprofile
             'full_name' => 'sometimes|string|max:255',
-            'avatar' => 'nullable|string',
+            'email' => [
+                'sometimes',
+                'string',
+                'email',
+                'max:255',
+                Rule::unique('users')->ignore($user->user_id, 'user_id'),
+            ],
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:255',
             'date_of_birth' => 'nullable|date',
@@ -39,49 +48,26 @@ class ProfileController extends Controller
             'department' => 'nullable|string|max:255',
             'about_me' => 'nullable|string',
             'social_links' => 'nullable|array',
+            // Add validation for avatar if you handle file uploads
         ]);
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $data = $validator->validated();
-
-        // Cập nhật user
-        $userData = array_intersect_key($data, array_flip(['email']));
-        if (!empty($userData)) {
-            $user->update($userData);
-        }
-
-        // Cập nhật profile
-        $profileData = array_intersect_key($data, array_flip([
-            'full_name',
-            'avatar',
-            'phone',
-            'address',
-            'date_of_birth',
-            'gender',
-            'department',
-            'about_me',
-            'social_links',
-        ]));
-
-        if (!empty($profileData)) {
-            if (isset($profileData['social_links']) && is_array($profileData['social_links'])) {
-                $profileData['social_links'] = json_encode($profileData['social_links']);
-            }
-            $profile = $user->profile()->firstOrCreate([]);
-            $profile->update($profileData);
-        }
+        $user->update($validator->validated());
 
         return response()->json([
-            'message' => 'Cap nhat thong tin thanh cong',
-            'user' => $user->load('profile'),
-        ], 200, [], JSON_UNESCAPED_UNICODE);
+            'message' => 'Cập nhật thông tin thành công',
+            'user' => $user,
+        ]);
     }
 
     /**
-     * Đổi mật khẩu.
+     * Change the authenticated user's password.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
      */
     public function changePassword(Request $request)
     {
@@ -96,13 +82,15 @@ class ProfileController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        // Check if the current password is correct
         if (!Hash::check($request->current_password, $user->password)) {
-            return response()->json(['message' => 'Mat khau hien tai khong dung.'], 400);
+            return response()->json(['message' => 'Mật khẩu hiện tại không đúng.'], 400);
         }
 
+        // Update the password
         $user->password = Hash::make($request->new_password);
         $user->save();
 
-        return response()->json(['message' => 'Doi mat khau thanh cong.'], 200, [], JSON_UNESCAPED_UNICODE);
+        return response()->json(['message' => 'Đổi mật khẩu thành công.']);
     }
 }
