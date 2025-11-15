@@ -224,11 +224,11 @@ const InfoRow = ({ icon, label, value, href }) => (
 
 // Các component Modal (EditProfileModal, ChangePasswordModal) giữ nguyên như cũ
 const EditProfileModal = ({ user, setUser, closeModal }) => {
-    const [formData, setFormData] = useState({
-        full_name: user.full_name || '', phone: user.phone || '', address: user.address || '',
-        date_of_birth: user.date_of_birth || '', gender: user.gender || '', department: user.department || '',
-        about_me: user.about_me || '',
-    });
+  const [formData, setFormData] = useState({
+    full_name: user.full_name || '', phone: user.phone || '', address: user.address || '',
+    date_of_birth: user.date_of_birth || '', gender: user.gender || '',
+    about_me: user.about_me || '',
+  });
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
@@ -258,10 +258,10 @@ const EditProfileModal = ({ user, setUser, closeModal }) => {
                         <input name="phone" value={formData.phone} onChange={handleChange} placeholder="Số điện thoại" className="p-2 border rounded"/>
                         <input name="address" value={formData.address} onChange={handleChange} placeholder="Địa chỉ" className="p-2 border rounded"/>
                         <input type="date" name="date_of_birth" value={formData.date_of_birth} onChange={handleChange} className="p-2 border rounded"/>
-                        <select name="gender" value={formData.gender} onChange={handleChange} className="p-2 border rounded">
-                            <option value="">Chọn giới tính</option> <option value="male">Nam</option> <option value="female">Nữ</option> <option value="other">Khác</option>
-                        </select>
-                        <input name="department" value={formData.department} onChange={handleChange} placeholder="Phòng ban" className="p-2 border rounded"/>
+            <select name="gender" value={formData.gender} onChange={handleChange} className="p-2 border rounded">
+              <option value="">Chọn giới tính</option> <option value="male">Nam</option> <option value="female">Nữ</option> <option value="other">Khác</option>
+            </select>
+            {/* 'Phòng ban' field removed */}
                     </div>
                     <textarea name="about_me" value={formData.about_me} onChange={handleChange} placeholder="Giới thiệu bản thân" className="w-full p-2 border rounded mt-4" rows="3"></textarea>
                     {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
