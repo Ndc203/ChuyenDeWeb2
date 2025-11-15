@@ -70,7 +70,7 @@ export default function AdminSidebar() {
         <SideItem icon={<Package size={18} />} label="Danh sách Sản phẩm" to="/admin/products" />
         <SideItem icon={<HardDrive size={18} />} label="Tồn kho, Nhập và Xuất" to="/admin/stock" />
         <SideItem icon={<Star size={18} />} label="Đánh giá sản phẩm" to="/admin/reviews" />
-        <SideItem icon={<Tag size={18} />} label="Thuộc tính SP" to="/admin/attributes" />
+        
 
         <SectionLabel>QUẢN LÝ CẤU TRÚC</SectionLabel>
         <SideItem icon={<ListTree size={18} />} label="Danh mục Sản phẩm" to="/admin/categories" />
