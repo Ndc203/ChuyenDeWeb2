@@ -18,11 +18,13 @@ export default function AdminProductAddPage() {
     category_id: "",
     brand_id: "",
     stock: "",
-    image: "",
+    image: null,
     is_flash_sale: false,
     is_new: false,
     tags: [],
   });
+
+  const [imagePreview, setImagePreview] = useState(null);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
@@ -59,6 +61,19 @@ export default function AdminProductAddPage() {
     }));
   };
 
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setFormData((prev) => ({ ...prev, image: file }));
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleTagToggle = (tag) => {
     setFormData((prev) => ({
       ...prev,
@@ -86,30 +101,32 @@ export default function AdminProductAddPage() {
       return;
     }
 
-    // Prepare payload
-    const payload = {
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      price: parseFloat(formData.price),
-      discount: formData.discount ? parseInt(formData.discount) : 0,
-      category_id: formData.category_id ? parseInt(formData.category_id) : null,
-      brand_id: formData.brand_id ? parseInt(formData.brand_id) : null,
-      stock: formData.stock ? parseInt(formData.stock) : 0,
-      image: formData.image.trim() || null,
-      is_flash_sale: formData.is_flash_sale,
-      is_new: formData.is_new,
-      tags: formData.tags.join(","),
-      status: "active",
-    };
+    // Prepare FormData for file upload
+    const formPayload = new FormData();
+    formPayload.append("name", formData.name.trim());
+    formPayload.append("description", formData.description.trim());
+    formPayload.append("price", parseFloat(formData.price));
+    formPayload.append("discount", formData.discount ? parseInt(formData.discount) : 0);
+    formPayload.append("category_id", formData.category_id ? parseInt(formData.category_id) : "");
+    formPayload.append("brand_id", formData.brand_id ? parseInt(formData.brand_id) : "");
+    formPayload.append("stock", formData.stock ? parseInt(formData.stock) : 0);
+    formPayload.append("is_flash_sale", formData.is_flash_sale ? 1 : 0);
+    formPayload.append("is_new", formData.is_new ? 1 : 0);
+    formPayload.append("tags", formData.tags.join(","));
+    formPayload.append("status", "active");
+    
+    // Append image file if exists
+    if (formData.image) {
+      formPayload.append("image", formData.image);
+    }
 
     try {
       const response = await fetch(`${API_URL}/api/products`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Accept: "application/json",
         },
-        body: JSON.stringify(payload),
+        body: formPayload,
       });
 
       const data = await response.json();
@@ -289,19 +306,20 @@ export default function AdminProductAddPage() {
                     />
                   </div>
 
-                  {/* URL Hình ảnh */}
+                  {/* Hình ảnh sản phẩm */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      URL Hình ảnh
+                      Hình ảnh sản phẩm
                     </label>
                     <input
-                      type="text"
-                      name="image"
-                      value={formData.image}
-                      onChange={handleInputChange}
-                      placeholder="https://example.com/image.jpg"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageChange}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
+                    <p className="text-xs text-slate-500 mt-1">
+                      Định dạng: JPG, PNG, GIF, WEBP. Tối đa 2MB
+                    </p>
                   </div>
                 </div>
 
@@ -387,25 +405,15 @@ export default function AdminProductAddPage() {
                     </h3>
                     <div className="flex items-center gap-3">
                       <div className="w-20 h-20 bg-slate-200 rounded-lg flex items-center justify-center overflow-hidden">
-                        {formData.image ? (
+                        {imagePreview ? (
                           <img
-                            src={formData.image}
+                            src={imagePreview}
                             alt="Preview"
                             className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = "none";
-                              e.target.nextSibling.style.display = "flex";
-                            }}
                           />
                         ) : (
                           <Upload className="w-6 h-6 text-slate-400" />
                         )}
-                        <div
-                          className="w-full h-full items-center justify-center"
-                          style={{ display: "none" }}
-                        >
-                          <Upload className="w-6 h-6 text-slate-400" />
-                        </div>
                       </div>
                       <div className="flex-1">
                         <p className="font-medium text-slate-800">
@@ -455,4 +463,3 @@ export default function AdminProductAddPage() {
     </div>
   );
 }
-

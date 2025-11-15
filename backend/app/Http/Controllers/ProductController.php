@@ -95,7 +95,7 @@ class ProductController extends Controller
                 'rating' => round($avgRating, 1),
                 'reviews' => $totalReviews,
                 'badges' => $badges,
-                'image' => $product->image,
+                'image' => $product->image ? url('images/products/' . $product->image) : null,
                 'created_at' => optional($product->created_at)?->format('Y-m-d H:i'),
                 'updated_at' => optional($product->updated_at)?->format('Y-m-d H:i'),
             ];
@@ -120,9 +120,17 @@ class ProductController extends Controller
             'is_flash_sale' => ['nullable', 'boolean'],
             'is_new' => ['nullable', 'boolean'],
             'tags' => ['nullable', 'string'],
-            'image' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ]);
+
+        // Handle file upload
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('images/products'), $filename);
+            $data['image'] = $filename;
+        }
 
         // Set default values
         $data['status'] = $data['status'] ?? 'active';
@@ -205,9 +213,22 @@ class ProductController extends Controller
             'is_flash_sale' => ['nullable', 'boolean'],
             'is_new' => ['nullable', 'boolean'],
             'tags' => ['nullable', 'string'],
-            'image' => ['nullable', 'string'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ]);
+
+        // Handle file upload
+        if ($request->hasFile('image')) {
+            // Delete old image if exists
+            if ($product->image && file_exists(public_path('images/products/' . $product->image))) {
+                unlink(public_path('images/products/' . $product->image));
+            }
+            
+            $image = $request->file('image');
+            $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+            $image->move(public_path('images/products'), $filename);
+            $data['image'] = $filename;
+        }
 
         // Lưu giá trị cũ trước khi cập nhật
         $oldValues = $product->only(array_keys($data));
