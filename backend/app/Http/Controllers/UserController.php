@@ -34,11 +34,13 @@ class UserController extends Controller
             'username' => 'required|string|unique:users,username',
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:8',
-            'role' => ['required', Rule::in(['admin', 'customer'])],
+            // Accept 'editor' role as well (frontend may send this value)
+            'role' => ['required', Rule::in(['admin', 'customer', 'editor'])],
+            // status is stored as 'active' or 'banned'
             'status' => ['required', Rule::in(['active', 'banned'])],
             
-            // Bảng 'userprofile'
-            'full_name' => 'required|string|max:255',
+            // Bảng 'userprofile' - make full_name optional so frontend can create minimal users
+            'full_name' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
             // ... thêm các trường profile khác nếu cần
@@ -61,9 +63,9 @@ class UserController extends Controller
 
             // 4. Dùng quan hệ 'profile()' để tạo bản ghi trong 'userprofile'
             $user->profile()->create([
-                'full_name' => $validated['full_name'],
-                'phone' => $validated['phone'],
-                'address' => $validated['address'],
+                'full_name' => $validated['full_name'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'address' => $validated['address'] ?? null,
                 // ... gán các trường profile khác
             ]);
             
@@ -95,7 +97,23 @@ class UserController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        // cập nhật chưa làm
+        $user = User::findOrFail($id);
+
+        $validated = $request->validate([
+            'role' => ['nullable', Rule::in(['admin', 'customer', 'editor'])],
+            'status' => ['nullable', Rule::in(['active', 'banned'])],
+        ]);
+
+        $data = [];
+        if (array_key_exists('role', $validated)) $data['role'] = $validated['role'];
+        if (array_key_exists('status', $validated)) $data['status'] = $validated['status'];
+
+        if (!empty($data)) {
+            $user->update($data);
+        }
+
+        $user->load('profile');
+        return response()->json($user);
     }
 
     /**
@@ -114,8 +132,10 @@ class UserController extends Controller
         $totalUsers = User::count();
         $activeUsers = User::where('status', 'active')->count();
         $inactiveUsers = User::where('status', 'banned')->count();
-        $adminUsers = User::where('role', 'admin')->count();
-        $customerUsers = User::where('role', 'customer')->count();
+    $adminUsers = User::where('role', 'admin')->count();
+    $customerUsers = User::where('role', 'customer')->count();
+    // Count editors if any
+    $editorUsers = User::where('role', 'editor')->count();
 
         return response()->json([
             'totalUsers' => $totalUsers,
@@ -123,6 +143,7 @@ class UserController extends Controller
             'inactiveUsers' => $inactiveUsers,
             'adminUsers' => $adminUsers,
             'customerUsers' => $customerUsers,
+            'editorUsers' => $editorUsers,
         ]);
     }
 

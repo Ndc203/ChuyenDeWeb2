@@ -4,10 +4,36 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AdminSidebar from "../layout/AdminSidebar";
 import { Plus, BarChart2, Search, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
+// Map backend status values to localized labels for UI
+const mapServerStatusToLocal = (status) => {
+  if (!status) return 'Không hoạt động';
+  if (status === 'active') return 'Hoạt động';
+  if (status === 'banned') return 'Bị cấm';
+  return status;
+};
+
+// Map localized UI status back to backend expected values
+const mapLocalStatusToServer = (status) => {
+  if (!status) return null;
+  if (status === 'Hoạt động') return 'active';
+  if (status === 'Bị cấm') return 'banned';
+  if (status === 'Không hoạt động') return 'banned';
+  // If already a backend value, pass through
+  return status;
+};
+
+// Role mapping -- frontend uses 'editor' as a role; backend now accepts it.
+const mapRoleToServer = (role) => {
+  if (!role) return null;
+  return role; // pass through (admin, customer, editor)
+};
+
 const enhanceUserData = (user) => ({
   ...user,
   avatar: `https://i.pravatar.cc/40?u=${user.email}`,
   last_login: user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString(),
+  // Localize status for display
+  status: mapServerStatusToLocal(user.status),
 });
 
 const formatDate = (dateString) => {
@@ -175,7 +201,14 @@ export default function AdminUsersPage() {
   const handleSaveUser = async (userId, updatedData) => {
     const token = localStorage.getItem("authToken");
     try {
-        await axios.put(`${API_URL}/api/users/${userId}`, updatedData, { headers: { Authorization: `Bearer ${token}` } });
+        // Map localized values to backend values before sending
+        const payload = {
+            ...updatedData,
+            status: mapLocalStatusToServer(updatedData.status),
+            role: mapRoleToServer(updatedData.role),
+        };
+        await axios.put(`${API_URL}/api/users/${userId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+        // Update UI with localized values (updatedData.status is localized)
         setUsers(users.map(user => user.user_id === userId ? { ...user, ...updatedData } : user));
         alert("Cập nhật người dùng thành công!");
         handleCloseEditModal();
@@ -185,7 +218,13 @@ export default function AdminUsersPage() {
   const handleAddUser = async (newUserData) => {
     const token = localStorage.getItem("authToken");
     try {
-        await axios.post(`${API_URL}/api/users`, newUserData, { headers: { Authorization: `Bearer ${token}` } });
+    // Map localized values to backend before sending
+    const payload = {
+      ...newUserData,
+      role: mapRoleToServer(newUserData.role),
+      status: mapLocalStatusToServer(newUserData.status),
+    };
+    await axios.post(`${API_URL}/api/users`, payload, { headers: { Authorization: `Bearer ${token}` } });
         // Instead of optimistically updating, re-fetch the entire list for consistency.
         await fetchUsers(); 
         alert("Thêm người dùng thành công!");
