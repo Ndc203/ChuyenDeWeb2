@@ -50,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Activity logs for current user (or all if admin)
+    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+
     // Profile routes
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
@@ -91,6 +94,7 @@ Route::apiResource('postcategories', PostCategoryController::class);
 Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories', 'index');
     Route::post('/categories', 'store');
+    Route::put('/categories/reorder', 'reorder');
     Route::post('/categories/import/preview', 'importPreview');
     Route::post('/categories/import', 'import');
     Route::put('/categories/{id}', 'update');
