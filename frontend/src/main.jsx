@@ -32,6 +32,8 @@ import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
 import ResetPassword from "./pages/auth/ResetPassword.jsx";
+import ShopPostPage from "./pages/shop/ShopPostPage.jsx";
+import ShopPostDetailPage from "./pages/shop/ShopPostDetailPage.jsx";
 import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
 
@@ -62,6 +64,8 @@ const router = createBrowserRouter([
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
   { path: "/admin/reviews", element: <AdminReviewsPage /> },
   { path: "/shop", element: <ShopPage /> },
+  { path: "/shop/posts", element: <ShopPostPage /> },
+  { path: "/shop/posts/:id", element: <ShopPostDetailPage /> },
   { path: "/admin/orders", element: <AdminOrdersPage /> },
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
