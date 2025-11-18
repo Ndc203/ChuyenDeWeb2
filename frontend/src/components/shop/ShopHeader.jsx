@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+
+const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 const ShopHeader = ({ onSearch }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -8,6 +11,53 @@ const ShopHeader = ({ onSearch }) => {
     e.preventDefault();
     onSearch(searchTerm);
   };
+
+  const [cartCount, setCartCount] = useState(0);
+
+  // 2. Tách hàm fetchCartCount ra ngoài
+  // Dùng useCallback để đảm bảo hàm này không bị tạo lại
+  const fetchCartCount = useCallback(async () => {
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      try {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        const response = await axios.get(`${API_URL}/api/cart`);
+        
+        // SỬA: Đếm TỔNG SỐ LƯỢNG (thay vì .length)
+        const totalQuantity = response.data.reduce((sum, item) => sum + item.quantity, 0);
+        setCartCount(totalQuantity); 
+
+      } catch (err) {
+        console.error("Lỗi lấy cart count:", err);
+        if (err.response && (err.response.status === 401 || err.response.status === 404)) {
+           setCartCount(0);
+        }
+      }
+    }
+  }, []); // [] = hàm này chỉ tạo 1 lần
+
+  // 3. SỬA LẠI useEffect để LẮNG NGHE
+  useEffect(() => {
+    // 3.1. Lấy count 1 lần khi tải trang
+    fetchCartCount();
+    
+    // 3.2. Định nghĩa hàm xử lý khi nghe thấy sự kiện
+    const handleCartUpdate = () => {
+      console.log('Event "cartUpdated" đã được nghe! Đang tải lại số lượng...');
+      fetchCartCount(); // Gọi lại hàm fetch
+    };
+
+    // 3.3. Bắt đầu lắng nghe
+    window.addEventListener('cartUpdated', handleCartUpdate);
+
+    // 3.4. Dọn dẹp (rất quan trọng)
+    // Khi component bị gỡ (unmount), ngừng lắng nghe
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate);
+    };
+  }, [fetchCartCount]); // [] = Chạy 1 lần khi header tải
+
+
 
   return (
     <header className="bg-white shadow-md sticky top-0 z-50">
@@ -72,7 +122,7 @@ const ShopHeader = ({ onSearch }) => {
             </button>
 
             {/* Cart */}
-            <button className="relative p-2 text-gray-700 hover:text-blue-600">
+            <Link to={"/shop/cart"} className="relative p-2 text-gray-700 hover:text-blue-600">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
@@ -81,10 +131,12 @@ const ShopHeader = ({ onSearch }) => {
                   d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
                 />
               </svg>
-              <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                0
-              </span>
-            </button>
+              {cartCount > 0 && ( // Chỉ hiển thị nếu count > 0
+          <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {cartCount}
+          </span>
+        )}
+            </Link>
 
             {/* User Account */}
             <button className="flex items-center space-x-2 text-gray-700 hover:text-blue-600">

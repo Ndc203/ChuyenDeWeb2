@@ -196,12 +196,14 @@ Route::get('/orders/{order}', [OrderController::class, 'show']);
 Route::get('/orders/{order}/print', [OrderController::class, 'print']);
 
 // --- THÊM CÁC ROUTE GIỎ HÀNG ---
-    Route::get('/cart', [CartController::class, 'index']);
-    Route::post('/cart/add', [CartController::class, 'add']);
+Route::controller(CouponController::class)->group(function () {
+Route::get('/cart', 'index');
+Route::post('/cart/add', 'add');
     
     // {item} sẽ tự động tìm 'cartitem_id'
-    Route::put('/cart/items/{item}', [CartController::class, 'update']);
-    Route::delete('/cart/items/{item}', [CartController::class, 'remove']);
+Route::put('/cart/items/{item}', 'update');
+Route::delete('/cart/items/{item}','remove');
+});
 
 //Report routes
 Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);

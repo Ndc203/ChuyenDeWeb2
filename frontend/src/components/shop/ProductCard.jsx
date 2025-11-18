@@ -1,5 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ShoppingCart } from 'lucide-react';
+import axios from 'axios';
 
 const ProductCard = ({ product }) => {
   const formatPrice = (price) => {
@@ -55,6 +57,33 @@ const ProductCard = ({ product }) => {
       }
     }
     return stars;
+  };
+
+  const handleAddToCart = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert("Bạn cần đăng nhập để thêm vào giỏ hàng!");
+        // (Hoặc navigate('/login'))
+        return;
+      }
+      
+      // Gắn token vào header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      
+      // Gọi API POST /api/cart/add
+      await axios.post(`${API_URL}/api/cart/add`, {
+        product_id: product.product_id, // Lấy ID sản phẩm
+        quantity: 1 // Thêm 1 sản phẩm
+      });
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
+      alert(`Đã thêm "${product.name}" vào giỏ hàng!`);
+      // (Bạn có thể làm 1 popup xịn hơn)
+
+    } catch (err) {
+      console.error("Lỗi thêm vào giỏ hàng:", err);
+      alert("Lỗi! Không thể thêm sản phẩm.");
+    }
   };
 
   return (
@@ -170,10 +199,11 @@ const ProductCard = ({ product }) => {
 
       {/* Action Buttons */}
       <div className="px-4 pb-4 flex gap-2">
-        <button
-          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          disabled={product.stock === 0}
+        <button 
+          onClick={handleAddToCart}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-md font-medium hover:bg-indigo-100"
         >
+          <ShoppingCart size={18} />
           Thêm vào giỏ
         </button>
         <button className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
