@@ -24,6 +24,7 @@ use App\Http\Controllers\ProductHistoryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\RolePermissionController;
+use App\Http\Controllers\CartController;
 
 /*
 |--------------------------------------------------------------------------
@@ -193,6 +194,14 @@ Route::get('/orders/statistics', [OrderController::class, 'statistics']);
 Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
 Route::get('/orders/{order}', [OrderController::class, 'show']);
 Route::get('/orders/{order}/print', [OrderController::class, 'print']);
+
+// --- THÊM CÁC ROUTE GIỎ HÀNG ---
+    Route::get('/cart', [CartController::class, 'index']);
+    Route::post('/cart/add', [CartController::class, 'add']);
+    
+    // {item} sẽ tự động tìm 'cartitem_id'
+    Route::put('/cart/items/{item}', [CartController::class, 'update']);
+    Route::delete('/cart/items/{item}', [CartController::class, 'remove']);
 
 //Report routes
 Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);

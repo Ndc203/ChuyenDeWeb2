@@ -36,6 +36,7 @@ import ShopPostPage from "./pages/shop/ShopPostPage.jsx";
 import ShopPostDetailPage from "./pages/shop/ShopPostDetailPage.jsx";
 import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
+import CartPage from "./pages/shop/CartPage.jsx";
 
 const router = createBrowserRouter([
   { path: "/", element: <AdminCategoriesPage /> },
@@ -68,6 +69,7 @@ const router = createBrowserRouter([
   { path: "/shop/posts/:id", element: <ShopPostDetailPage /> },
   { path: "/admin/orders", element: <AdminOrdersPage /> },
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
+  { path: "/shop/cart", element: <CartPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
