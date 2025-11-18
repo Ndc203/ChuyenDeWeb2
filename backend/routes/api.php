@@ -23,6 +23,7 @@ use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\ProductHistoryController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RolePermissionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -55,7 +56,22 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
 
     Route::apiResource('users', UserController::class)->only(['index', 'show', 'update', 'destroy', 'store']);
+
+    
 });
+
+//==============Phân quyền và vai trò==================
+    // 1. Lấy danh sách Vai trò (kèm số lượng user/quyền)
+    Route::get('/roles', [RolePermissionController::class, 'getRoles']);
+    
+    // 2. Lấy danh sách tất cả Quyền hạn
+    Route::get('/permissions', [RolePermissionController::class, 'getPermissions']);
+
+    // 3. Cập nhật Vai trò và các Quyền hạn của nó
+    Route::put('/roles/{role}', [RolePermissionController::class, 'update']);
+
+    // 4. Tạo một Vai trò mới
+    Route::post('/roles', [RolePermissionController::class, 'store']);
 
 // User statistics route (public)
 Route::get('/user-statistics', [UserController::class, 'userStatistics']);

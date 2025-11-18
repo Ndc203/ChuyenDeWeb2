@@ -13,6 +13,7 @@
         "laravel/tinker": "^2.10.1",
         "maatwebsite/excel": "4.x-dev",
         "phpoffice/phpspreadsheet": "^5.1",
+        "spatie/laravel-permission": "^6.23",
         "vinkla/hashids": "^13.0"
     },
     "require-dev": {
