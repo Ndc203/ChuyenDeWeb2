@@ -7,6 +7,7 @@ export default function Login() {
   const [form, setForm] = useState({ email: "", password: "", remember: false });
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false); // Thêm state loading
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,6 +29,7 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true); // Bắt đầu loading
 
     try {
       const res = await axios.post("http://127.0.0.1:8000/api/login", {
@@ -35,19 +37,21 @@ export default function Login() {
         password: form.password,
       });
       if (res.data.token) {
-      // Lưu token
-      localStorage.setItem("authToken", res.data.token);
+        // Lưu token
+        localStorage.setItem("authToken", res.data.token);
 
-      // Lưu thông tin user nếu API trả về
-      if (res.data.data) {
-        localStorage.setItem("userData", JSON.stringify(res.data.data));
-      }
+        // Lưu thông tin user nếu API trả về
+        if (res.data.data) {
+          localStorage.setItem("userData", JSON.stringify(res.data.data));
+        }
 
-      alert("Đăng nhập thành công!");
-      navigate("/admin/categories");
+        alert("Đăng nhập thành công!");
+        navigate("/admin/categories");
       }
     } catch (err) {
       setError(err.response?.data?.message || "Đăng nhập thất bại!");
+    } finally {
+      setIsLoading(false); // Dừng loading
     }
   };
 
@@ -151,19 +155,20 @@ export default function Login() {
 
           <button
             type="submit"
+            disabled={isLoading} // Vô hiệu hóa nút khi đang tải
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: "#0ea5e9",
+              backgroundColor: isLoading ? "#9ca3af" : "#0ea5e9", // Thay đổi màu khi bị vô hiệu hóa
               color: "#fff",
               border: "none",
               borderRadius: "12px",
               fontSize: "15px",
               fontWeight: "600",
-              cursor: "pointer",
+              cursor: isLoading ? "not-allowed" : "pointer", // Thay đổi con trỏ
             }}
           >
-            Đăng nhập
+            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
           </button>
         </form>
 
