@@ -2,13 +2,55 @@ import React, { useEffect, useState, useMemo } from "react";
 import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AdminSidebar from "../layout/AdminSidebar";
+import { useThemeLang } from "../../code/ThemeLangContext";
 import { Plus, BarChart2, Search, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
-const enhanceUserData = (user) => ({
-  ...user,
-  avatar: `https://i.pravatar.cc/40?u=${user.email}`,
-  last_login: user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString(),
-});
+// Map backend status values to localized labels for UI
+const mapServerStatusToLocal = (status) => {
+  if (!status) return 'Không hoạt động';
+  if (status === 'active') return 'Hoạt động';
+  if (status === 'banned') return 'Bị cấm';
+  return status;
+};
+
+// Map localized UI status back to backend expected values
+const mapLocalStatusToServer = (status) => {
+  if (!status) return null;
+  if (status === 'Hoạt động') return 'active';
+  if (status === 'Bị cấm') return 'banned';
+  if (status === 'Không hoạt động') return 'banned';
+  // If already a backend value, pass through
+  return status;
+};
+
+// Role mapping -- frontend uses 'editor' as a role; backend now accepts it.
+const mapRoleToServer = (role) => {
+  if (!role) return null;
+  return role; // pass through (admin, customer, editor)
+};
+
+// enhanceUserData: accept currentUserId to mark only the logged-in account as 'Hoạt động'.
+const enhanceUserData = (user, currentUserId = null) => {
+  const avatar = `https://i.pravatar.cc/40?u=${user.email}`;
+  const last_login = user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString();
+
+  // If this is the logged-in user, show 'Hoạt động'.
+  let localizedStatus;
+  if (currentUserId && user.user_id === currentUserId) {
+    localizedStatus = 'Hoạt động';
+  } else {
+    // If user is banned on server, show 'Bị cấm', otherwise treat as 'Không hoạt động'
+    if (user.status === 'banned') localizedStatus = 'Bị cấm';
+    else localizedStatus = 'Không hoạt động';
+  }
+
+  return {
+    ...user,
+    avatar,
+    last_login,
+    status: localizedStatus,
+  };
+};
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
@@ -122,6 +164,7 @@ const EditUserModal = ({ user, onClose, onSave }) => {
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
+  const [currentUserId, setCurrentUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   
@@ -146,9 +189,13 @@ export default function AdminUsersPage() {
     if (!token) { setError("Authentication token not found."); setLoading(false); return; }
     try {
       setLoading(true);
+      // Fetch current user to know which account is the logged-in one
+      const meResp = await axios.get(`${API_URL}/api/user`, { headers: { Authorization: `Bearer ${token}` } });
+      setCurrentUserId(meResp.data.user_id);
+
       const response = await axios.get(`${API_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
-      // Removed mock status and role data. Now it relies on API data.
-      setUsers(response.data.map(enhanceUserData));
+      // Adjust status display so only the logged-in account shows 'Hoạt động'
+      setUsers(response.data.map(u => enhanceUserData(u, meResp.data.user_id)));
     } catch (err) {
       setError(err.response?.data?.message || "Failed to fetch users.");
     } finally {
@@ -175,8 +222,15 @@ export default function AdminUsersPage() {
   const handleSaveUser = async (userId, updatedData) => {
     const token = localStorage.getItem("authToken");
     try {
-        await axios.put(`${API_URL}/api/users/${userId}`, updatedData, { headers: { Authorization: `Bearer ${token}` } });
-        setUsers(users.map(user => user.user_id === userId ? { ...user, ...updatedData } : user));
+        // Map localized values to backend values before sending
+        const payload = {
+            ...updatedData,
+            status: mapLocalStatusToServer(updatedData.status),
+            role: mapRoleToServer(updatedData.role),
+        };
+  await axios.put(`${API_URL}/api/users/${userId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+  // Re-fetch list so status mapping (only current user active) is applied consistently
+  await fetchUsers();
         alert("Cập nhật người dùng thành công!");
         handleCloseEditModal();
     } catch (err) { alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message)); }
@@ -185,7 +239,13 @@ export default function AdminUsersPage() {
   const handleAddUser = async (newUserData) => {
     const token = localStorage.getItem("authToken");
     try {
-        await axios.post(`${API_URL}/api/users`, newUserData, { headers: { Authorization: `Bearer ${token}` } });
+    // Map localized values to backend before sending
+    const payload = {
+      ...newUserData,
+      role: mapRoleToServer(newUserData.role),
+      status: mapLocalStatusToServer(newUserData.status),
+    };
+    await axios.post(`${API_URL}/api/users`, payload, { headers: { Authorization: `Bearer ${token}` } });
         // Instead of optimistically updating, re-fetch the entire list for consistency.
         await fetchUsers(); 
         alert("Thêm người dùng thành công!");
@@ -251,13 +311,13 @@ export default function AdminUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
-                  <tr className="text-left text-slate-600">
-                    <th className="p-4 w-12"><input type="checkbox" onChange={handleSelectAll} checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0} /></th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Người dùng</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Vai trò</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Trạng thái</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Đăng nhập cuối</th>
-                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider">Ngày tạo</th>
+                  <tr className="text-left text-slate-600 border-b border-slate-300">
+                    <th className="p-4 w-12 border-r border-slate-300"><input type="checkbox" onChange={handleSelectAll} checked={selectedUsers.length === currentUsers.length && currentUsers.length > 0} /></th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Người dùng</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Vai trò</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Trạng thái</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Đăng nhập cuối</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider border-r border-slate-300">Ngày tạo</th>
                     <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-center">Thao tác</th>
                   </tr>
                 </thead>
@@ -265,20 +325,20 @@ export default function AdminUsersPage() {
                   {loading ? (
                     <tr><td colSpan={7} className="p-6 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
                   ) : error ? (
-                    <tr><td colSpan={7} className="p-6 text-center text-red-500">{error}</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-red-500">{{ error }}</td></tr>
                   ) : currentUsers.map(user => (
-                    <tr key={user.user_id} className="hover:bg-slate-50">
-                      <td className="p-4"><input type="checkbox" checked={selectedUsers.includes(user.user_id)} onChange={e => handleSelectUser(e, user.user_id)} /></td>
-                      <td className="px-4 py-3">
+                    <tr key={user.user_id} className="hover:bg-slate-50 border-b border-slate-200">
+                      <td className="p-4 border-r border-slate-200"><input type="checkbox" checked={selectedUsers.includes(user.user_id)} onChange={e => handleSelectUser(e, user.user_id)} /></td>
+                      <td className="px-4 py-3 border-r border-slate-200">
                         <div className="flex items-center gap-3">
                           <img src={user.avatar} alt={user.username} className="h-10 w-10 rounded-full object-cover" />
                           <div><p className="font-semibold text-slate-800">{user.username}</p><p className="text-slate-500">{user.email}</p></div>
                         </div>
                       </td>
-                      <td className="px-4 py-3"><RoleBadge role={user.role} /></td>
-                      <td className="px-4 py-3"><StatusBadge status={user.status} /></td>
-                      <td className="px-4 py-3 text-slate-500">{formatDate(user.last_login)}</td>
-                      <td className="px-4 py-3 text-slate-500">{formatDate(user.created_at)}</td>
+                      <td className="px-4 py-3 border-r border-slate-200"><RoleBadge role={user.role} /></td>
+                      <td className="px-4 py-3 border-r border-slate-200"><StatusBadge status={user.status} /></td>
+                      <td className="px-4 py-3 text-slate-500 border-r border-slate-200">{formatDate(user.last_login)}</td>
+                      <td className="px-4 py-3 text-slate-500 border-r border-slate-200">{formatDate(user.created_at)}</td>
                       <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-2 text-slate-500">
                             <Link to={`/admin/profile/${user.user_id}`} className="hover:text-indigo-600"><Eye size={16} /></Link>

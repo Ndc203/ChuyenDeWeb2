@@ -21,10 +21,13 @@ export default function AdminPostStatisticsPage() {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    axios.get("http://127.0.0.1:8000/api/posts/statistics").then((res) => {
-      setStats(res.data);
+  axios.get("http://127.0.0.1:8000/api/post-statistics")
+    .then((res) => setStats(res.data))
+    .catch((err) => {
+      console.error("Lỗi khi tải thống kê:", err);
     });
-  }, []);
+}, []);
+
 
   if (!stats)
     return (

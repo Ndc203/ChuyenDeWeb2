@@ -60,6 +60,16 @@ export default function AdminCategoriesPage() {
   const [editForm, setEditForm] = useState(emptyCategoryForm);
   const [editTarget, setEditTarget] = useState(null);
   const [viewTarget, setViewTarget] = useState(null);
+  const [treeData, setTreeData] = useState([]);
+  const [treeLock, setTreeLock] = useState(false);
+  const [draggingId, setDraggingId] = useState(null);
+  const [dragOver, setDragOver] = useState({ id: null, type: null });
+  const [bulkSelected, setBulkSelected] = useState(new Set());
+  const [bulkTarget, setBulkTarget] = useState("");
+  const [treeMessage, setTreeMessage] = useState("");
+  const treeSnapshotRef = useRef(null);
+  const rowsSnapshotRef = useRef(null);
+  const treeNoticeTimeout = useRef(null);
   const importInputRef = useRef(null);
 
   const API_URL = (
@@ -88,10 +98,24 @@ export default function AdminCategoriesPage() {
         : `${API_URL}/api/categories`;
     return fetch(endpoint)
       .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setRows(data) : setRows([])))
-      .catch(() => setRows([]))
+      .then((data) => {
+        const list = Array.isArray(data) ? data : [];
+        setRows(list);
+        if (!isDeletedView) {
+          setTreeData(buildCategoryTree(list));
+          setBulkSelected(new Set());
+        } else {
+          setTreeData([]);
+          setBulkSelected(new Set());
+        }
+        return list;
+      })
+      .catch(() => {
+        setRows([]);
+        setTreeData([]);
+      })
       .finally(() => setLoading(false));
-  }, [API_URL, viewMode]);
+  }, [API_URL, viewMode, isDeletedView]);
 
   useEffect(() => {
     loadCategories();
@@ -583,10 +607,14 @@ export default function AdminCategoriesPage() {
     );
   }, [parentOptions, editTarget]);
 
-  const categoryTree = useMemo(
-    () => (isDeletedView ? [] : buildCategoryTree(rows)),
-    [rows, isDeletedView]
-  );
+  useEffect(() => {
+    if (isDeletedView) {
+      setTreeData([]);
+      setBulkSelected(new Set());
+      return;
+    }
+    setTreeData(buildCategoryTree(rows));
+  }, [rows, isDeletedView]);
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
@@ -605,6 +633,228 @@ export default function AdminCategoriesPage() {
       return matchQuery && matchParent && matchStatus;
     });
   }, [rows, query, parentFilter, statusFilter, isDeletedView]);
+
+  useEffect(
+    () => () => {
+      if (treeNoticeTimeout.current) {
+        clearTimeout(treeNoticeTimeout.current);
+      }
+    },
+    []
+  );
+
+  const emitTreeMessage = useCallback((msg) => {
+    if (treeNoticeTimeout.current) {
+      clearTimeout(treeNoticeTimeout.current);
+    }
+    setTreeMessage(msg);
+    treeNoticeTimeout.current = setTimeout(() => setTreeMessage(""), 2500);
+  }, []);
+
+  const canDrop = useCallback(
+    (dragId, targetId) => {
+      if (!dragId || !targetId) return false;
+      if (dragId === targetId) return false;
+      return !isDescendant(treeData, dragId, targetId);
+    },
+    [treeData]
+  );
+
+  const handleDragStart = useCallback(
+    (id) => {
+      if (treeLock) return;
+      setDraggingId(id);
+      treeSnapshotRef.current = cloneTree(treeData);
+      rowsSnapshotRef.current = rows;
+    },
+    [treeData, rows, treeLock]
+  );
+
+  const handleDragEnd = useCallback(() => {
+    setDraggingId(null);
+    setDragOver({ id: null, type: null });
+  }, []);
+
+  const persistMoves = useCallback(
+    async (moves) => {
+      const response = await fetch(`${API_URL}/api/categories/reorder`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ moves }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            (data?.errors
+              ? Object.values(data.errors).flat().join(", ")
+              : "Khong the cap nhat cay danh muc.")
+        );
+      }
+      return data;
+    },
+    [API_URL]
+  );
+
+  const applyMove = useCallback(
+    async ({ nodeId, newParentId, position }) => {
+      const prevTree = cloneTree(treeData);
+      const prevRows = rows;
+      const movedTree = moveNodeInTree(treeData, nodeId, newParentId, position);
+      if (!movedTree) {
+        emitTreeMessage("Khong the di chuyen nut nay.");
+        return;
+      }
+      setTreeData(movedTree);
+      setRows(updateRowsForMove(rows, nodeId, newParentId));
+      setTreeLock(true);
+      setDragOver({ id: null, type: null });
+      try {
+        await persistMoves([
+          {
+            id: nodeId,
+            parent_id: newParentId,
+            position: typeof position === "number" ? position : null,
+          },
+        ]);
+      } catch (error) {
+        setTreeData(prevTree);
+        setRows(prevRows);
+        emitTreeMessage(error.message || "Khong the cap nhat cay.");
+      } finally {
+        setTreeLock(false);
+        handleDragEnd();
+      }
+    },
+    [
+      treeData,
+      rows,
+      emitTreeMessage,
+      persistMoves,
+      handleDragEnd,
+    ]
+  );
+
+  const handleDropNode = useCallback(
+    (targetId, dropType) => {
+      if (!draggingId || treeLock) {
+        return;
+      }
+      const found = findNodeWithParent(treeData, targetId);
+      if (!found) return;
+      const { node: target, parent } = found;
+      let parentId = null;
+      let position = null;
+
+      if (dropType === "inside") {
+        parentId = target.id;
+        position = target.children?.length || 0;
+      } else {
+        parentId = parent ? parent.id : null;
+        const siblings = parent ? parent.children : treeData;
+        const targetIndex = siblings.findIndex((x) => x.id === target.id);
+        position =
+          dropType === "before"
+            ? targetIndex
+            : Math.min(siblings.length, targetIndex + 1);
+      }
+
+      if (draggingId === parentId) {
+        emitTreeMessage("Khong the di chuyen vao chinh no.");
+        handleDragEnd();
+        return;
+      }
+
+      if (parentId && isDescendant(treeData, draggingId, parentId)) {
+        emitTreeMessage("Khong the tao vong lap (node con cua chinh no).");
+        handleDragEnd();
+        return;
+      }
+
+      applyMove({ nodeId: draggingId, newParentId: parentId, position });
+    },
+    [draggingId, treeData, treeLock, emitTreeMessage, applyMove, handleDragEnd]
+  );
+
+  const toggleBulk = useCallback((id) => {
+    setBulkSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const clearBulk = useCallback(() => {
+    setBulkSelected(new Set());
+  }, []);
+
+  const handleBulkMove = useCallback(async () => {
+    if (!bulkSelected.size) {
+      emitTreeMessage("Chua chon danh muc de di chuyen.");
+      return;
+    }
+    const targetParentId = bulkTarget ? Number(bulkTarget) : null;
+    const selectedIds = Array.from(bulkSelected);
+
+    const invalid = selectedIds.some(
+      (id) => id === targetParentId || isDescendant(treeData, id, targetParentId)
+    );
+    if (invalid) {
+      emitTreeMessage("Khong the di chuyen vao chinh no hoac nhanh con.");
+      return;
+    }
+
+    treeSnapshotRef.current = cloneTree(treeData);
+    rowsSnapshotRef.current = rows;
+    setTreeLock(true);
+
+    let nextTree = treeData;
+    let nextRows = rows;
+    selectedIds.forEach((id, idx) => {
+      const updated = moveNodeInTree(nextTree, id, targetParentId, idx);
+      if (updated) {
+        nextTree = updated;
+        nextRows = updateRowsForMove(nextRows, id, targetParentId);
+      }
+    });
+
+    setTreeData(nextTree);
+    setRows(nextRows);
+
+    try {
+      await persistMoves(
+        selectedIds.map((id, idx) => ({
+          id,
+          parent_id: targetParentId,
+          position: idx,
+        }))
+      );
+      emitTreeMessage("Da di chuyen nhom thanh cong.");
+      clearBulk();
+    } catch (error) {
+      setTreeData(treeSnapshotRef.current || treeData);
+      setRows(rowsSnapshotRef.current || rows);
+      emitTreeMessage(error.message || "Khong the di chuyen nhom.");
+    } finally {
+      setTreeLock(false);
+    }
+  }, [
+    bulkSelected,
+    bulkTarget,
+    emitTreeMessage,
+    treeData,
+    rows,
+    persistMoves,
+    clearBulk,
+  ]);
+
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
       <input
@@ -755,16 +1005,72 @@ export default function AdminCategoriesPage() {
           >
             {!isDeletedView && (
               <div className="rounded-2xl border bg-white shadow-sm">
-                <div className="border-b px-5 py-4">
-                  <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-                    Cay danh muc
-                  </h3>
-                  <p className="mt-1 text-xs text-slate-500">
-                    Hien thi cau truc cha - con.
-                  </p>
+                <div className="border-b px-5 py-4 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
+                        Cay danh muc nang cao
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        Keo tha de doi thu tu/cha-con. Chon nhieu de di chuyen nhom.
+                      </p>
+                    </div>
+                    {treeLock && (
+                      <span className="text-[11px] font-medium text-indigo-600">
+                        Dang cap nhat...
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <select
+                      className="rounded-lg border px-2 py-1 text-xs"
+                      value={bulkTarget}
+                      onChange={(e) => setBulkTarget(e.target.value)}
+                    >
+                      <option value="">Chon goc</option>
+                      {rows.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleBulkMove}
+                      disabled={treeLock || !bulkSelected.size}
+                      className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
+                    >
+                      Di chuyen nhom ({bulkSelected.size || 0})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearBulk}
+                      disabled={!bulkSelected.size || treeLock}
+                      className="rounded-lg border px-3 py-1 text-xs font-semibold text-slate-600 disabled:opacity-50"
+                    >
+                      Bo chon
+                    </button>
+                    {treeMessage && (
+                      <span className="text-[11px] text-amber-600">
+                        {treeMessage}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div className="max-h-[520px] overflow-y-auto px-3 py-4">
-                  <CategoryTree nodes={categoryTree} />
+                  <CategoryTree
+                    nodes={treeData}
+                    onDropNode={handleDropNode}
+                    onDragStart={handleDragStart}
+                    onDragEnd={handleDragEnd}
+                    draggingId={draggingId}
+                    dragOver={dragOver}
+                    setDragOver={setDragOver}
+                    canDrop={canDrop}
+                    bulkSelected={bulkSelected}
+                    onToggleBulk={toggleBulk}
+                    lock={treeLock}
+                  />
                 </div>
               </div>
             )}
@@ -1716,7 +2022,19 @@ function formatDate(s) {
   });
 }
 
-function CategoryTree({ nodes }) {
+function CategoryTree({
+  nodes,
+  onDropNode,
+  onDragStart,
+  onDragEnd,
+  draggingId,
+  dragOver,
+  setDragOver,
+  canDrop,
+  bulkSelected,
+  onToggleBulk,
+  lock,
+}) {
   const [expanded, setExpanded] = useState(() => new Set());
 
   useEffect(() => {
@@ -1736,6 +2054,14 @@ function CategoryTree({ nodes }) {
       return next;
     });
   }, [nodes]);
+
+  const ensureExpanded = useCallback((id) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  }, []);
 
   const toggle = (id) => {
     setExpanded((prev) => {
@@ -1764,21 +2090,100 @@ function CategoryTree({ nodes }) {
           depth={0}
           expanded={expanded}
           onToggle={toggle}
+          ensureExpanded={ensureExpanded}
+          onDropNode={onDropNode}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          draggingId={draggingId}
+          dragOver={dragOver}
+          setDragOver={setDragOver}
+          canDrop={canDrop}
+          bulkSelected={bulkSelected}
+          onToggleBulk={onToggleBulk}
+          lock={lock}
         />
       ))}
     </div>
   );
 }
 
-function CategoryTreeNode({ node, depth, expanded, onToggle }) {
+function DropZone({ active, onDrop, onDragOver }) {
+  return (
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        onDragOver?.();
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        onDrop?.();
+      }}
+      className={`h-1.5 rounded-full transition-colors ${
+        active ? "bg-indigo-400" : "bg-transparent hover:bg-indigo-100"
+      }`}
+    />
+  );
+}
+
+function CategoryTreeNode({
+  node,
+  depth,
+  expanded,
+  onToggle,
+  ensureExpanded,
+  onDropNode,
+  onDragStart,
+  onDragEnd,
+  draggingId,
+  dragOver,
+  setDragOver,
+  canDrop,
+  bulkSelected,
+  onToggleBulk,
+  lock,
+}) {
   const hasChildren = node.children && node.children.length > 0;
   const isOpen = expanded.has(node.id);
+  const isDragging = draggingId === node.id;
+  const isDragOver =
+    dragOver?.id === node.id && ["before", "after", "inside"].includes(dragOver?.type);
+  const selected = bulkSelected.has(node.id);
+
+  const handleDrop = (type) => {
+    onDropNode(node.id, type);
+    ensureExpanded(node.id);
+  };
+
+  const allowDropHere = !lock && draggingId && canDrop(draggingId, node.id);
 
   return (
     <div>
+      <DropZone
+        active={dragOver?.id === node.id && dragOver?.type === "before"}
+        onDragOver={() => {
+          if (!allowDropHere) return;
+          setDragOver({ id: node.id, type: "before" });
+        }}
+        onDrop={() => handleDrop("before")}
+      />
       <div
-        className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-50"
+        className={`flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-slate-50 ${
+          isDragging ? "opacity-60" : ""
+        } ${isDragOver ? "ring-1 ring-indigo-300" : ""}`}
         style={{ paddingLeft: depth * 14 }}
+        draggable={!lock}
+        onDragStart={() => onDragStart(node.id)}
+        onDragEnd={onDragEnd}
+        onDragOver={(e) => {
+          if (!allowDropHere) return;
+          e.preventDefault();
+          setDragOver({ id: node.id, type: "inside" });
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          if (!allowDropHere) return;
+          handleDrop("inside");
+        }}
       >
         {hasChildren ? (
           <button
@@ -1794,6 +2199,13 @@ function CategoryTreeNode({ node, depth, expanded, onToggle }) {
         ) : (
           <span className="w-4" />
         )}
+        <input
+          type="checkbox"
+          className="h-4 w-4"
+          checked={selected}
+          onChange={() => onToggleBulk(node.id)}
+          disabled={lock}
+        />
         <div className="flex flex-1 items-center justify-between gap-2">
           <div>
             <p className="text-sm font-medium text-slate-700">{node.name}</p>
@@ -1802,6 +2214,14 @@ function CategoryTreeNode({ node, depth, expanded, onToggle }) {
           <StatusBadge status={node.status} />
         </div>
       </div>
+      <DropZone
+        active={dragOver?.id === node.id && dragOver?.type === "after"}
+        onDragOver={() => {
+          if (!allowDropHere) return;
+          setDragOver({ id: node.id, type: "after" });
+        }}
+        onDrop={() => handleDrop("after")}
+      />
       {hasChildren && isOpen && (
         <div className="space-y-1">
           {node.children.map((child) => (
@@ -1811,10 +2231,129 @@ function CategoryTreeNode({ node, depth, expanded, onToggle }) {
               depth={depth + 1}
               expanded={expanded}
               onToggle={onToggle}
+              ensureExpanded={ensureExpanded}
+              onDropNode={onDropNode}
+              onDragStart={onDragStart}
+              onDragEnd={onDragEnd}
+              draggingId={draggingId}
+              dragOver={dragOver}
+              setDragOver={setDragOver}
+              canDrop={canDrop}
+              bulkSelected={bulkSelected}
+              onToggleBulk={onToggleBulk}
+              lock={lock}
             />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+function cloneTree(nodes) {
+  return nodes.map((node) => ({
+    ...node,
+    children: cloneTree(node.children || []),
+  }));
+}
+
+function findNodeWithParent(nodes, id, parent = null) {
+  for (const node of nodes) {
+    if (node.id === id) {
+      return { node, parent };
+    }
+    const found = findNodeWithParent(node.children || [], id, node);
+    if (found) return found;
+  }
+  return null;
+}
+
+function nodeContains(node, targetId) {
+  if (!node) return false;
+  if (node.id === targetId) return true;
+  return (node.children || []).some((child) => nodeContains(child, targetId));
+}
+
+function isDescendant(nodes, ancestorId, childId) {
+  if (!ancestorId || !childId) return false;
+  const ancestor = findNodeWithParent(nodes, ancestorId)?.node;
+  if (!ancestor) return false;
+  return nodeContains(ancestor, childId);
+}
+
+function removeNodeFromTree(nodes, id) {
+  const result = [];
+  let removed = null;
+
+  nodes.forEach((node) => {
+    if (node.id === id) {
+      removed = { ...node };
+      return;
+    }
+    const { tree: childTree, removed: childRemoved } = removeNodeFromTree(
+      node.children || [],
+      id
+    );
+    const newNode = childRemoved
+      ? { ...node, children: childTree }
+      : { ...node, children: cloneTree(node.children || []) };
+    if (childRemoved) {
+      removed = childRemoved;
+    }
+    result.push(newNode);
+  });
+
+  return { tree: result, removed };
+}
+
+function insertNodeIntoTree(nodes, node, parentId, position = null) {
+  if (!parentId) {
+    const roots = [...nodes];
+    const insertPos =
+      position !== null ? Math.min(position, roots.length) : roots.length;
+    roots.splice(insertPos, 0, node);
+    return roots;
+  }
+
+  return nodes.map((n) => {
+    if (n.id === parentId) {
+      const children = [...(n.children || [])];
+      const insertPos =
+        position !== null ? Math.min(position, children.length) : children.length;
+      children.splice(insertPos, 0, node);
+      return { ...n, children };
+    }
+    const updatedChildren = insertNodeIntoTree(
+      n.children || [],
+      node,
+      parentId,
+      position
+    );
+    if (updatedChildren !== n.children) {
+      return { ...n, children: updatedChildren };
+    }
+    return n;
+  });
+}
+
+function moveNodeInTree(tree, nodeId, newParentId, position) {
+  const { tree: withoutNode, removed } = removeNodeFromTree(tree, nodeId);
+  if (!removed) return null;
+  const movedNode = { ...removed, parent_id: newParentId ?? null };
+  return insertNodeIntoTree(withoutNode, movedNode, newParentId, position);
+}
+
+function updateRowsForMove(rows, id, parentId) {
+  const parentName = parentId
+    ? rows.find((r) => r.id === parentId)?.name || null
+    : null;
+  return rows.map((r) =>
+    r.id === id
+      ? {
+          ...r,
+          parent_id: parentId ?? null,
+          parent: parentId ? parentName : null,
+        }
+      : r
   );
 }

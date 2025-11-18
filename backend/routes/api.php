@@ -51,6 +51,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Activity logs for current user (or all if admin)
+    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+
     // Profile routes
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
@@ -79,16 +82,25 @@ Route::get('/monthly-user-statistics', [UserController::class, 'monthlyUserStati
 
 
 // Comment routes
+Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
 Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
-// ✅ Post routes
-Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
-Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
-Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+// Public routes
+Route::get('/posts', [PostController::class, 'index']);       // public
+Route::get('/posts/{id}', [PostController::class, 'show']);  // public
 Route::get('/post-statistics', [PostController::class, 'statistics']);
-Route::get('/posts/export', [PostExportController::class, 'export']);
-Route::apiResource('posts', PostController::class);
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']); 
+Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
+
+// Protected routes (auth required)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/posts', [PostController::class, 'store']);
+    Route::put('/posts/{id}', [PostController::class, 'update']);
+    Route::delete('/posts/{id}', [PostController::class, 'destroy']);
+    Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+});
+
 
 // Post Category routes
 Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
@@ -98,6 +110,7 @@ Route::apiResource('postcategories', PostCategoryController::class);
 Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories', 'index');
     Route::post('/categories', 'store');
+    Route::put('/categories/reorder', 'reorder');
     Route::post('/categories/import/preview', 'importPreview');
     Route::post('/categories/import', 'import');
     Route::put('/categories/{id}', 'update');

@@ -5,9 +5,37 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\File;
 
 class ProductSeeder extends Seeder
 {
+    /**
+     * Tải ảnh từ URL và lưu vào thư mục local
+     */
+    private function downloadImage($url, $filename)
+    {
+        try {
+            $path = public_path('images/products/' . $filename);
+            
+            // Tạo thư mục nếu chưa tồn tại
+            if (!File::exists(public_path('images/products'))) {
+                File::makeDirectory(public_path('images/products'), 0755, true);
+            }
+            
+            // Tải ảnh từ URL
+            $imageContent = @file_get_contents($url);
+            
+            if ($imageContent !== false) {
+                file_put_contents($path, $imageContent);
+                return $filename;
+            }
+            
+            return null;
+        } catch (\Exception $e) {
+            return null;
+        }
+    }
+
     /**
      * Run the database seeds.
      */
@@ -16,7 +44,6 @@ class ProductSeeder extends Seeder
         // Lấy category_id và brand_id từ database
         $categories = DB::table('categories')->pluck('category_id', 'name');
         $brands = DB::table('brands')->pluck('brand_id', 'name');
-
         $products = [
             [
                 'name' => 'iPhone 15 Pro Max',
@@ -30,6 +57,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => false,
                 'is_new' => true,
                 'tags' => 'hot',
+                'image' => 'iphone-15-pro-max.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -46,6 +74,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => true,
                 'is_new' => false,
                 'tags' => null,
+                'image' => 'samsung.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -62,6 +91,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => false,
                 'is_new' => false,
                 'tags' => 'hot',
+                'image' => 'macbookM3.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -78,6 +108,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => true,
                 'is_new' => false,
                 'tags' => null,
+                'image' => 'dellXPS13.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -94,6 +125,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => false,
                 'is_new' => true,
                 'tags' => null,
+                'image' => 'ipad-pro.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -110,6 +142,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => true,
                 'is_new' => false,
                 'tags' => 'hot',
+                'image' => 'apr2.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -126,6 +159,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => false,
                 'is_new' => true,
                 'tags' => 'hot',
+                'image' => 'Sony WH-1000XM5.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -142,6 +176,7 @@ class ProductSeeder extends Seeder
                 'is_flash_sale' => false,
                 'is_new' => true,
                 'tags' => null,
+                'image' => 'apple-watch-series-9.jpg',
                 'status' => 'active',
                 'created_at' => now(),
                 'updated_at' => now(),
@@ -149,6 +184,8 @@ class ProductSeeder extends Seeder
         ];
 
         DB::table('products')->insert($products);
+        
+        echo "✓ Đã thêm " . count($products) . " sản phẩm vào database.\n";
 
         // Tạo một số review mẫu
         $productIds = DB::table('products')->pluck('product_id');

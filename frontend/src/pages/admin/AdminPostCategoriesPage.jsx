@@ -6,7 +6,6 @@ import {
   Edit,
   Trash2,
   X,
-  ChevronDown,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 
@@ -22,14 +21,11 @@ export default function AdminPostCategoriesPage() {
   const [createLoading, setCreateLoading] = useState(false);
   const [openExport, setOpenExport] = useState(false);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
-
+  const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
   const exportRef = useRef(null);
+
   useEffect(() => {
-    const close = (e) =>
-      !exportRef.current?.contains(e.target) && setOpenExport(false);
+    const close = (e) => !exportRef.current?.contains(e.target) && setOpenExport(false);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -48,9 +44,7 @@ export default function AdminPostCategoriesPage() {
   }, [loadCategories]);
 
   const filtered = useMemo(() => {
-    return rows.filter((r) =>
-      r.name.toLowerCase().includes(query.toLowerCase())
-    );
+    return rows.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()));
   }, [rows, query]);
 
   function handleOpenCreate() {
@@ -93,11 +87,11 @@ export default function AdminPostCategoriesPage() {
     }
   }
 
-  async function handleDelete(id) {
+  async function handleDelete(post_category_id) {
     if (!confirm("Bạn có chắc muốn xoá danh mục này?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/postcategories/${id}`, {
+      const res = await fetch(`${API_URL}/api/postcategories/${post_category_id}`, {
         method: "DELETE",
         headers: { Accept: "application/json" },
       });
@@ -107,16 +101,16 @@ export default function AdminPostCategoriesPage() {
         return;
       }
 
-      setRows((prev) => prev.filter((it) => it.id !== id));
+      setRows((prev) => prev.filter((it) => it.post_category_id !== post_category_id));
       alert("Đã xoá danh mục thành công!");
     } catch {
       alert("Không thể kết nối tới máy chủ.");
     }
   }
 
-  async function handleEdit(id) {
+  async function handleEdit(post_category_id) {
     try {
-      const res = await fetch(`${API_URL}/api/postcategories/${id}`);
+      const res = await fetch(`${API_URL}/api/postcategories/${post_category_id}`);
       if (!res.ok) throw new Error("Không thể tải thông tin danh mục.");
       const data = await res.json();
       setEditCategory(data);
@@ -139,7 +133,7 @@ export default function AdminPostCategoriesPage() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/postcategories/${editCategory.id}`, {
+      const res = await fetch(`${API_URL}/api/postcategories/${editCategory.post_category_id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -172,9 +166,7 @@ export default function AdminPostCategoriesPage() {
         {/* Header */}
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
           <div className="w-full px-10 py-4 flex items-center justify-between">
-            <h1 className="text-lg md:text-xl font-semibold">
-              Quản lý Danh mục bài viết
-            </h1>
+            <h1 className="text-lg md:text-xl font-semibold">Quản lý Danh mục bài viết</h1>
             <div className="flex items-center gap-2">
               <div className="relative" ref={exportRef}>
                 <button
@@ -250,10 +242,10 @@ export default function AdminPostCategoriesPage() {
                 {!loading &&
                   filtered.map((r, i) => (
                     <tr
-                      key={r.id}
+                      key={r.post_category_id}
                       className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                     >
-                      <td className="px-4 py-3">{r.id}</td>
+                      <td className="px-4 py-3">{r.post_category_id}</td>
                       <td className="px-4 py-3 font-medium">{r.name}</td>
                       <td className="px-4 py-3">{r.description || "—"}</td>
                       <td className="px-4 py-3">{formatDate(r.created_at)}</td>
@@ -262,14 +254,14 @@ export default function AdminPostCategoriesPage() {
                           <IconBtn
                             title="Sửa"
                             intent="warning"
-                            onClick={() => handleEdit(r.id)}
+                            onClick={() => handleEdit(r.post_category_id)}
                           >
                             <Edit size={16} />
                           </IconBtn>
                           <IconBtn
                             title="Xoá"
                             intent="danger"
-                            onClick={() => handleDelete(r.id)}
+                            onClick={() => handleDelete(r.post_category_id)}
                           >
                             <Trash2 size={16} />
                           </IconBtn>

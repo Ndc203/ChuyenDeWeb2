@@ -23,11 +23,12 @@ import AdminSidebar from "../layout/AdminSidebar.jsx";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
 
+// === Form mặc định ===
 const emptyPostForm = () => ({
   title: "",
   excerpt: "",
   content: "",
-  category_id: "",
+  post_category_id: "",
   image: null,
   status: "draft",
   is_trending: false,
@@ -38,23 +39,44 @@ export default function AdminPostPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+
   const [openCreate, setOpenCreate] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
   const [formError, setFormError] = useState("");
-  const [form, setForm] = useState(emptyPostForm);
+  const [form, setForm] = useState(emptyPostForm());
+
   const [openDetail, setOpenDetail] = useState(false);
   const [detailPost, setDetailPost] = useState(null);
+
   const [openEdit, setOpenEdit] = useState(false);
   const [editPost, setEditPost] = useState(null);
+
   const [openHistory, setOpenHistory] = useState(false);
   const [historyData, setHistoryData] = useState([]);
   const [selectedPostId, setSelectedPostId] = useState(null);
+
+  const [openExport, setOpenExport] = useState(false);
+  const exportRef = useRef(null);
 
   const API_URL = (
     import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
   ).replace(/\/$/, "");
 
-  // === Xem chi tiết bài viết ===
+  // === Load danh sách bài viết ===
+  const loadPosts = useCallback(() => {
+    setLoading(true);
+    return fetch(`${API_URL}/api/posts`)
+      .then((res) => res.json())
+      .then((data) => setRows(Array.isArray(data) ? data : data.data || []))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false));
+  }, [API_URL]);
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  // === Xem chi tiết ===
   async function handleViewDetail(id) {
     try {
       const res = await fetch(`${API_URL}/api/posts/${id}`);
@@ -66,6 +88,12 @@ export default function AdminPostPage() {
       alert(err.message || "Không thể kết nối tới máy chủ.");
     }
   }
+  function handleCloseDetail() {
+    setOpenDetail(false);
+    setDetailPost(null);
+  }
+
+  // === Lịch sử ===
   async function handleViewHistory(id) {
     try {
       const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
@@ -79,172 +107,109 @@ export default function AdminPostPage() {
     }
   }
 
-  function handleCloseDetail() {
-    setOpenDetail(false);
-    setDetailPost(null);
-  }
-  // === Lấy danh sách bài viết ===
-  const loadPosts = useCallback(() => {
-    setLoading(true);
-    return fetch(`${API_URL}/api/posts`)
-      .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setRows(data) : setRows([])))
-      .catch(() => setRows([]))
-      .finally(() => setLoading(false));
-  }, [API_URL]);
-
-  useEffect(() => {
-    loadPosts();
-  }, [loadPosts]);
-
-  // === Mở modal tạo bài viết ===
+  // === Tạo bài viết ===
   const handleOpenCreate = () => {
     setForm(emptyPostForm());
     setFormError("");
     setCreateLoading(false);
     setOpenCreate(true);
   };
-
   const handleCloseCreate = () => {
     setOpenCreate(false);
     setForm(emptyPostForm());
     setFormError("");
     setCreateLoading(false);
   };
+  const updateFormValue = (key, value) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
-  const updateFormValue = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
-  };
-
-  // === Gửi bài viết mới ===
-  const handleSubmitCreate = async (event) => {
-    event.preventDefault();
+  const handleSubmitCreate = async (e) => {
+    e.preventDefault();
     if (!form.title.trim()) {
       setFormError("Vui lòng nhập tiêu đề bài viết.");
       return;
     }
-
+     if (!form.post_category_id) { // ✅ thêm check danh mục
+    setFormError("Vui lòng chọn danh mục bài viết.");
+    return;
+  }
     const formData = new FormData();
     formData.append("title", form.title.trim());
     formData.append("excerpt", form.excerpt.trim());
     formData.append("content", form.content.trim());
     formData.append("status", form.status);
     formData.append("is_trending", form.is_trending ? 1 : 0);
-    if (form.category_id) formData.append("category_id", form.category_id);
+    if (form.post_category_id) 
+  formData.append("post_category_id", Number(form.post_category_id));
     if (form.image) formData.append("image", form.image);
+
+    const user = JSON.parse(localStorage.getItem("userData") || "{}");
+    if (user.role !== "admin") {
+      formData.set("status", "draft");
+      formData.set("is_trending", 0);
+    }
 
     setCreateLoading(true);
     setFormError("");
 
     try {
-      const response = await fetch(`${API_URL}/api/posts`, {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_URL}/api/posts`, {
         method: "POST",
+        headers: {
+          Accept: "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
         body: formData,
       });
-      const data = await response.json().catch(() => ({}));
 
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Không thể tạo bài viết mới.");
-        setFormError(message);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFormError(data.message || "Không thể tạo bài viết mới.");
         return;
       }
 
+      // ✅ Thêm user_id của người tạo để isOwner = true
+      setRows((prev) => [{ ...data, user_id: user.user_id }, ...prev]);
       await loadPosts();
       handleCloseCreate();
-    } catch (error) {
+    } catch (err) {
       setFormError("Không thể kết nối tới máy chủ.");
     } finally {
       setCreateLoading(false);
     }
   };
 
-  // === Đổi trạng thái bài viết ===
-  async function handleToggleStatus(id) {
-    setRows((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, _updating: true } : it))
-    );
-    try {
-      const res = await fetch(`${API_URL}/api/posts/${id}/toggle`, {
-        method: "PATCH",
-        headers: { Accept: "application/json" },
-      });
-      const data = await res.json();
-      setRows((prev) =>
-        prev.map((it) =>
-          it.id === id
-            ? {
-                ...it,
-                status:
-                  data?.status ||
-                  (it.status === "published" ? "draft" : "published"),
-                _updating: false,
-              }
-            : it
-        )
-      );
-    } catch {
-      alert("Không thể đổi trạng thái");
-      setRows((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, _updating: false } : it))
-      );
-    }
-  }
-
-  // === Xuất file ===
-  const [openExport, setOpenExport] = useState(false);
-  const exportRef = useRef(null);
-  useEffect(() => {
-    const close = (e) =>
-      !exportRef.current?.contains(e.target) && setOpenExport(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-  const handleExport = (format) => {
-    window.open(`${API_URL}/api/posts/export?format=${format}`, "_blank");
-  };
-
-  const filtered = useMemo(() => {
-    return rows.filter((r) => {
-      const matchQuery = (r.title || "")
-        .toLowerCase()
-        .includes(query.toLowerCase());
-      const matchStatus = statusFilter === "all" || r.status === statusFilter;
-      return matchQuery && matchStatus;
-    });
-  }, [rows, query, statusFilter]);
-  // === Xoá bài viết ===
+  // === Delete ===
   async function handleDelete(id) {
     if (!confirm("Bạn có chắc chắn muốn xoá bài viết này?")) return;
 
     try {
+      const token = localStorage.getItem("authToken");
+
       const res = await fetch(`${API_URL}/api/posts/${id}`, {
-        method: "DELETE",
-        headers: { Accept: "application/json" },
+        method: "DELETE", // ✅ DELETE đúng chuẩn
+        headers: {
+          Accept: "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
         alert(data.message || "Không thể xoá bài viết.");
         return;
       }
 
-      // Cập nhật lại danh sách bài viết
       setRows((prev) => prev.filter((it) => it.id !== id));
       alert("Đã xoá bài viết thành công!");
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert("Không thể kết nối tới máy chủ.");
     }
   }
 
-  // === Mở form sửa ===
+  // === Edit ===
   async function handleEdit(id) {
     try {
       const res = await fetch(`${API_URL}/api/posts/${id}`);
@@ -256,27 +221,42 @@ export default function AdminPostPage() {
       alert(err.message || "Lỗi kết nối tới máy chủ.");
     }
   }
-
-  function handleCloseEdit() {
+  const handleCloseEdit = () => {
     setOpenEdit(false);
     setEditPost(null);
-  }
+  };
+
+  // === Export ===
+  useEffect(() => {
+    const close = (e) =>
+      !exportRef.current?.contains(e.target) && setOpenExport(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+  const handleExport = (format) =>
+    window.open(`${API_URL}/api/posts/export?format=${format}`, "_blank");
+
+  // === Filter ===
+  const filtered = useMemo(() => {
+    return rows.filter((r) => {
+      const matchQuery = (r.title || "")
+        .toLowerCase()
+        .includes(query.toLowerCase());
+      const matchStatus = statusFilter === "all" || r.status === statusFilter;
+      return matchQuery && matchStatus;
+    });
+  }, [rows, query, statusFilter]);
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
-      {/* Sidebar */}
       <AdminSidebar />
-
-      {/* Main content */}
       <main className="flex-1 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
           <div className="w-full px-10 py-4 flex items-center justify-between">
-            <div>
-              <h1 className="text-lg md:text-xl font-semibold">
-                Quản lý Bài viết
-              </h1>
-            </div>
+            <h1 className="text-lg md:text-xl font-semibold">
+              Quản lý Bài viết
+            </h1>
             <div className="flex items-center gap-2">
               <div className="relative" ref={exportRef}>
                 <button
@@ -355,83 +335,106 @@ export default function AdminPostPage() {
                 </tr>
               </thead>
               <tbody>
-                {loading && (
+                {loading ? (
                   <tr>
                     <td colSpan={6} className="p-6 text-center text-slate-500">
                       Đang tải dữ liệu...
                     </td>
                   </tr>
-                )}
-                {!loading &&
-                  filtered.map((r, i) => (
-                    <tr
-                      key={r.id}
-                      className={i % 2 ? "bg-white" : "bg-slate-50/50"}
-                    >
-                      <td className="px-4 py-3">
-                        {r.image ? (
-                          <img
-                            src={`${API_URL}/images/posts/${r.image}`}
-                            alt={r.title}
-                            className="w-16 h-16 object-cover rounded-lg border"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 flex items-center justify-center border rounded-lg text-slate-400">
-                            <ImageIcon size={18} />
+                ) : filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="p-6 text-center text-slate-500">
+                      Không có bài viết nào.
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((r, i) => {
+                    const user = JSON.parse(
+                      localStorage.getItem("userData") || "{}"
+                    );
+                    const isOwner =
+                      user.role === "admin" ||
+                      Number(r.user_id) === Number(user.user_id);
+
+                    return (
+                      <tr
+                        key={r.id}
+                        className={i % 2 ? "bg-white" : "bg-slate-50/50"}
+                      >
+                        <td className="px-4 py-3">
+                          {r.image ? (
+                            <img
+                              src={`${API_URL}/images/posts/${r.image}`}
+                              alt={r.title}
+                              className="w-16 h-16 object-cover rounded-lg border"
+                            />
+                          ) : (
+                            <div className="w-16 h-16 flex items-center justify-center border rounded-lg text-slate-400">
+                              <ImageIcon size={18} />
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 font-medium">{r.title}</td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={r.status} />
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          {r.is_trending ? "🔥" : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {formatDate(r.created_at)}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <IconBtn
+                              title="Xem chi tiết"
+                              intent="primary"
+                              onClick={() => handleViewDetail(r.id)}
+                            >
+                              <Eye size={16} />
+                            </IconBtn>
+                            <IconBtn
+                              title="Lịch sử chỉnh sửa"
+                              intent="info"
+                              onClick={() => handleViewHistory(r.id)}
+                            >
+                              <Clock size={16} />
+                            </IconBtn>
+                            {isOwner ? (
+                              <>
+                                <IconBtn
+                                  title="Sửa"
+                                  intent="warning"
+                                  onClick={() => handleEdit(r.id)}
+                                >
+                                  <Edit size={16} />
+                                </IconBtn>
+                                <IconBtn
+                                  title="Xoá"
+                                  intent="danger"
+                                  onClick={() => handleDelete(r.id)}
+                                >
+                                  <Trash2 size={16} />
+                                </IconBtn>
+                              </>
+                            ) : (
+                              <span className="text-gray-400 text-xs">
+                                Không có quyền
+                              </span>
+                            )}
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 font-medium">{r.title}</td>
-                      <td className="px-4 py-3">
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        {r.is_trending ? "🔥" : "—"}
-                      </td>
-                      <td className="px-4 py-3">{formatDate(r.created_at)}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <IconBtn
-                            title="Xem chi tiết"
-                            intent="primary"
-                            onClick={() => handleViewDetail(r.id)}
-                          >
-                            <Eye size={16} />
-                          </IconBtn>
-
-                          <IconBtn
-                            title="Lịch sử chỉnh sửa"
-                            intent="info"
-                            onClick={() => handleViewHistory(r.id)}
-                          >
-                            <Clock size={16} />
-                          </IconBtn>
-
-                          <IconBtn
-                            title="Sửa"
-                            intent="warning"
-                            onClick={() => handleEdit(r.id)}
-                          >
-                            <Edit size={16} />
-                          </IconBtn>
-
-                          <IconBtn
-                            title="Xoá"
-                            intent="danger"
-                            onClick={() => handleDelete(r.id)}
-                          >
-                            <Trash2 size={16} />
-                          </IconBtn>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
       </main>
 
+      {/* Modals */}
       <CreatePostModal
         open={openCreate}
         form={form}
@@ -441,13 +444,6 @@ export default function AdminPostPage() {
         loading={createLoading}
         error={formError}
       />
-      <HistoryModal
-        open={openHistory}
-        onClose={() => setOpenHistory(false)}
-        history={historyData}
-        postId={selectedPostId}
-      />
-
       <PostDetailModal
         open={openDetail}
         onClose={handleCloseDetail}
@@ -458,14 +454,20 @@ export default function AdminPostPage() {
         open={openEdit}
         onClose={handleCloseEdit}
         post={editPost}
-        onUpdated={() => loadPosts()} // ✅ đổi fetchPosts -> loadPosts
+        onUpdated={loadPosts}
         API_URL={API_URL}
+      />
+      <HistoryModal
+        open={openHistory}
+        onClose={() => setOpenHistory(false)}
+        history={historyData}
+        postId={selectedPostId}
       />
     </div>
   );
 }
 
-/* === COMPONENTS === */
+/* === Các component phụ === */
 function Th({ children, className = "" }) {
   return (
     <th
@@ -481,7 +483,9 @@ function IconBtn({ children, title, intent, onClick, disabled }) {
   const color =
     intent === "primary"
       ? "border-indigo-200 text-indigo-600 hover:bg-indigo-50"
-      : "border-rose-200 text-rose-600 hover:bg-rose-50";
+      : intent === "danger"
+      ? "border-rose-200 text-rose-600 hover:bg-rose-50"
+      : "border-gray-200 text-gray-600 hover:bg-gray-50";
   return (
     <button
       className={`${base} ${color}`}
@@ -628,14 +632,14 @@ function CreatePostModal({
               Danh mục bài viết
             </label>
             <select
-              value={form.category_id}
-              onChange={(e) => onChange("category_id", e.target.value)}
+              value={form.post_category_id}
+              onChange={(e) => onChange("post_category_id", e.target.value)}
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               required
             >
               <option value="">-- Chọn danh mục --</option>
               {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
+                <option key={cat.post_category_id} value={cat.post_category_id}>
                   {cat.name}
                 </option>
               ))}
@@ -695,34 +699,55 @@ function CreatePostModal({
 
           {/* Trạng thái + Trending */}
           <div className="flex items-center justify-between gap-4">
-            <div className="flex-1">
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Trạng thái
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => onChange("status", e.target.value)}
-                className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                <option value="draft">Bản nháp</option>
-                <option value="published">Đã xuất bản</option>
-              </select>
-            </div>
-            <div className="flex items-center mt-6">
-              <input
-                id="is_trending"
-                type="checkbox"
-                checked={form.is_trending}
-                onChange={(e) => onChange("is_trending", e.target.checked)}
-                className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-              />
-              <label
-                htmlFor="is_trending"
-                className="ml-2 text-sm text-slate-700 select-none"
-              >
-                Nổi bật (Trending)
-              </label>
-            </div>
+            {(() => {
+              const user = JSON.parse(localStorage.getItem("userData") || "{}");
+              const isAdmin = user.role === "admin";
+
+              if (isAdmin) {
+                return (
+                  <>
+                    <div className="flex-1">
+                      <label className="mb-1 block text-sm font-medium text-slate-700">
+                        Trạng thái
+                      </label>
+                      <select
+                        value={form.status}
+                        onChange={(e) => onChange("status", e.target.value)}
+                        className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+                      >
+                        <option value="draft">Bản nháp</option>
+                        <option value="published">Đã xuất bản</option>
+                      </select>
+                    </div>
+
+                    <div className="flex items-center mt-6">
+                      <input
+                        id="is_trending"
+                        type="checkbox"
+                        checked={form.is_trending}
+                        onChange={(e) =>
+                          onChange("is_trending", e.target.checked)
+                        }
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      />
+                      <label
+                        htmlFor="is_trending"
+                        className="ml-2 text-sm text-slate-700 select-none"
+                      >
+                        Nổi bật (Trending)
+                      </label>
+                    </div>
+                  </>
+                );
+              }
+
+              // Nếu không phải admin, chỉ hiển thị trạng thái draft và Trending tắt
+              return (
+                <div className="text-sm text-slate-500">
+                  Bài viết sẽ ở trạng thái <strong>Bản nháp</strong>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Nút hành động */}
@@ -820,7 +845,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
     excerpt: "",
     content: "",
     status: "draft",
-    category_id: "",
+    post_category_id: "",
     image: null,
     is_trending: false,
   });
@@ -843,7 +868,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
         excerpt: post.excerpt || "",
         content: post.content || "",
         status: post.status || "draft",
-        category_id: post.category_id || "",
+        post_category_id: post.post_category_id || "",
         is_trending: !!post.is_trending,
         image: null,
       });
@@ -855,7 +880,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!form.category_id) {
+    if (!form.post_category_id) {
       alert("Vui lòng chọn danh mục bài viết.");
       return;
     }
@@ -866,13 +891,18 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
       formData.append("excerpt", form.excerpt);
       formData.append("content", form.content);
       formData.append("status", form.status);
-      formData.append("category_id", Number(form.category_id)); // ✅ ép kiểu thành số
+      formData.append("post_category_id", Number(form.post_category_id)); // ✅ ép kiểu thành số
       formData.append("is_trending", form.is_trending ? 1 : 0);
       if (form.image) formData.append("image", form.image);
+      const token = localStorage.getItem("authToken");
 
       const res = await fetch(`${API_URL}/api/posts/${post.id}`, {
         method: "POST", // ⚠ Laravel PUT phải spoof qua POST + _method=PUT
-        headers: { Accept: "application/json" },
+        headers: {
+          Accept: "application/json",
+          Authorization: token ? `Bearer ${token}` : "",
+        },
+
         body: (() => {
           formData.append("_method", "PUT"); // ✅ spoof method
           return formData;
@@ -943,9 +973,9 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               Danh mục bài viết
             </label>
             <select
-              value={form.category_id || ""}
+              value={form.post_category_id || ""}
               onChange={(e) =>
-                setForm({ ...form, category_id: Number(e.target.value) })
+                setForm({ ...form, post_category_id: Number(e.target.value) })
               } // ✅ ép kiểu
               className="w-full border rounded-lg px-3 py-2"
               required
@@ -986,23 +1016,54 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
 
           {/* Trạng thái + Trending */}
           <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center mt-6">
-              <input
-                id="is_trending_edit"
-                type="checkbox"
-                checked={form.is_trending}
-                onChange={(e) =>
-                  setForm({ ...form, is_trending: e.target.checked })
-                }
-                className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-              />
-              <label
-                htmlFor="is_trending_edit"
-                className="ml-2 text-sm text-slate-700 select-none"
-              >
-                Nổi bật (Trending)
-              </label>
-            </div>
+            {(() => {
+              const user = JSON.parse(localStorage.getItem("userData") || "{}");
+              const isAdmin = user.role === "admin";
+
+              if (isAdmin) {
+                return (
+                  <div className="flex items-center mt-6 gap-4">
+                    <select
+                      value={form.status}
+                      onChange={(e) =>
+                        setForm({ ...form, status: e.target.value })
+                      }
+                      className="border rounded-lg px-3 py-2 text-sm"
+                    >
+                      <option value="draft">Bản nháp</option>
+                      <option value="published">Đã xuất bản</option>
+                    </select>
+
+                    <div className="flex items-center">
+                      <input
+                        id="is_trending_edit"
+                        type="checkbox"
+                        checked={form.is_trending}
+                        onChange={(e) =>
+                          setForm({ ...form, is_trending: e.target.checked })
+                        }
+                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                      />
+                      <label
+                        htmlFor="is_trending_edit"
+                        className="ml-2 text-sm text-slate-700 select-none"
+                      >
+                        Nổi bật (Trending)
+                      </label>
+                    </div>
+                  </div>
+                );
+              }
+
+              // Nếu không phải admin, chỉ hiển thị thông tin không thể chỉnh
+              return (
+                <div className="text-sm text-slate-500">
+                  Bài viết sẽ ở trạng thái <strong>{form.status}</strong> và
+                  Trending {form.is_trending ? "✅" : "❌"} (chỉ admin mới có
+                  thể chỉnh)
+                </div>
+              );
+            })()}
           </div>
 
           {/* Nút hành động */}

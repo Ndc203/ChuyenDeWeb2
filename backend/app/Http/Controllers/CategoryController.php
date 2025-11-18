@@ -10,6 +10,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Csv;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Illuminate\Support\Facades\DB;
 
 class CategoryController extends Controller
 {
@@ -96,6 +97,61 @@ class CategoryController extends Controller
             'id' => $category->category_id,
             'status' => $category->status,
             'message' => 'Cập nhật trạng thái thành công.',
+        ], 200, [], JSON_UNESCAPED_UNICODE);
+    }
+
+    public function reorder(Request $request)
+    {
+        $data = $request->validate([
+            'moves' => ['required', 'array', 'min:1'],
+            'moves.*.id' => ['required', 'integer', 'exists:categories,category_id'],
+            'moves.*.parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
+            'moves.*.position' => ['nullable', 'integer', 'min:0'],
+        ]);
+
+        $moves = $data['moves'];
+
+        // Build lookup for current structure
+        $all = Category::all(['category_id', 'parent_id'])->keyBy('category_id');
+
+        // Apply moves in-memory to detect cycles/self-parent
+        $updatedParents = [];
+        foreach ($moves as $move) {
+            $id = (int) $move['id'];
+            $parentId = $move['parent_id'] !== null ? (int) $move['parent_id'] : null;
+
+            if ($id === $parentId) {
+                return response()->json([
+                    'message' => 'Khong the gan danh muc lam cha cua chinh no.',
+                ], 422, [], JSON_UNESCAPED_UNICODE);
+            }
+
+            // walk up to ensure no cycle
+            $cursor = $parentId;
+            while ($cursor !== null) {
+                if ($cursor === $id) {
+                    return response()->json([
+                        'message' => 'Khong the tao vong lap trong cay danh muc.',
+                    ], 422, [], JSON_UNESCAPED_UNICODE);
+                }
+                $cursor = $updatedParents[$cursor] ?? $all[$cursor]->parent_id ?? null;
+            }
+
+            $updatedParents[$id] = $parentId;
+        }
+
+        DB::transaction(function () use ($updatedParents) {
+            foreach ($updatedParents as $id => $parentId) {
+                Category::where('category_id', $id)->update([
+                    'parent_id' => $parentId,
+                ]);
+            }
+        });
+
+        return response()->json([
+            'ok' => true,
+            'message' => 'Cap nhat cay danh muc thanh cong.',
+            'updated' => array_keys($updatedParents),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 

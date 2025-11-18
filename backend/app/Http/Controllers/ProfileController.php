@@ -8,6 +8,10 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class ProfileController extends Controller
 {
@@ -55,12 +59,73 @@ class ProfileController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $user->update($validator->validated());
+        $validated = $validator->validated();
 
-        return response()->json([
-            'message' => 'Cập nhật thông tin thành công',
-            'user' => $user,
-        ]);
+        // Separate user-level fields and profile-level fields
+        $userFields = Arr::only($validated, ['email', 'status', 'role']);
+        $profileFields = Arr::only($validated, ['full_name', 'avatar', 'phone', 'address', 'date_of_birth', 'gender', 'department', 'about_me', 'social_links']);
+
+        DB::beginTransaction();
+        try {
+            // Update user fields if present
+            if (!empty($userFields)) {
+                $user->fill($userFields);
+                $user->save();
+            }
+
+            // Ensure profile table has the columns we attempt to write to (guard against schema drift)
+            $profileTable = $user->profile()->getRelated()->getTable();
+            $safeProfileData = [];
+            foreach ($profileFields as $k => $v) {
+                if (Schema::hasColumn($profileTable, $k)) {
+                    $safeProfileData[$k] = $v;
+                }
+            }
+
+            if (!empty($safeProfileData)) {
+                // updateOrCreate on relation
+                $user->profile()->updateOrCreate(
+                    ['user_id' => $user->user_id],
+                    $safeProfileData
+                );
+            }
+
+            DB::commit();
+
+            // Reload user with profile and flatten profile fields for frontend convenience
+            $user = $user->fresh()->load('profile');
+            $userArr = $user->toArray();
+            if (isset($userArr['profile']) && is_array($userArr['profile'])) {
+                foreach ($userArr['profile'] as $k => $v) {
+                    $userArr[$k] = $v;
+                }
+                unset($userArr['profile']);
+            }
+
+            // Normalize date formats to ISO (YYYY-MM-DD) so frontend <input type="date"> and
+            // new Date(...) parsing behave predictably regardless of locale/timezone.
+            if (!empty($userArr['date_of_birth'])) {
+                try {
+                    $userArr['date_of_birth'] = Carbon::parse($userArr['date_of_birth'])->toDateString();
+                } catch (\Exception $e) {
+                    // If parsing fails, leave the raw value but log for debugging
+                    logger()->warning('Unable to parse date_of_birth for user', [
+                        'user_id' => $user->user_id,
+                        'value' => $userArr['date_of_birth']
+                    ]);
+                }
+            }
+
+            return response()->json([
+                'message' => 'Cập nhật thông tin thành công',
+                'user' => $userArr,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            // Log error and return generic message
+            logger()->error('Profile update failed', ['user_id' => $user->user_id, 'exception' => $e->getMessage()]);
+            return response()->json(['message' => 'Đã có lỗi khi cập nhật thông tin.'], 500);
+        }
     }
 
     /**
