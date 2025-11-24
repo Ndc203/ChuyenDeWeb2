@@ -18,41 +18,47 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user();
         $query = Order::query();
 
-        // 1. Eager Loading (Tải kèm profile của customer)
-        // Chúng ta cần 'customer.profile' để tìm kiếm 'full_name'
-        $query->with('customer.profile')->withCount('items as item_count');
+        // --- 1. PHÂN QUYỀN (QUAN TRỌNG NHẤT) ---
+        // Nếu KHÔNG PHẢI là 'Admin' hoặc 'Staff', thì chỉ được xem đơn của chính mình
+        // (Lưu ý: Tên Role phải khớp với Database của bạn, ví dụ: 'Admin', 'admin', 'Staff'...)
+        if (!$user->hasRole(['Admin', 'admin', 'Staff', 'staff'])) {
+            $query->where('user_id', $user->user_id);
+        }
 
-        // 2. Lọc theo trạng thái
+        // --- 2. Eager Loading (Nạp dữ liệu cần thiết) ---
+        // - 'items.product': Để lấy ảnh và tên sản phẩm hiển thị ra list
+        // - 'customer.profile': Để Admin xem ai mua
+        $query->with(['items.product', 'customer.profile'])
+              ->withCount('items as item_count');
+
+        // --- 3. Lọc theo trạng thái ---
         if ($request->filled('status') && $request->status != 'all') {
             $query->where('status', $request->status);
         }
 
-        // 3. Lọc theo tìm kiếm (ĐÃ SỬA LỖI)
+        // --- 4. Tìm kiếm (Giữ nguyên logic cũ của bạn) ---
         if ($request->filled('search')) {
             $search = $request->search;
             
             $query->where(function ($q) use ($search) {
-                // Tìm trên bảng 'orders'
                 $q->where('order_id', 'like', "%{$search}%")
                   ->orWhere('customer_name', 'like', "%{$search}%")
                   ->orWhere('customer_email', 'like', "%{$search}%")
-                  
-                  // Tìm trên bảng 'users' (quan hệ 'customer')
                   ->orWhereHas('customer', function ($subQ) use ($search) {
-                      $subQ->where('username', 'like', "%{$search}%") // Sửa: 'name' -> 'username'
+                      $subQ->where('username', 'like', "%{$search}%")
                            ->orWhere('email', 'like', "%{$search}%");
                   })
-                  
-                  // MỚI: Tìm trên bảng 'userprofile' (quan hệ 'customer.profile')
                   ->orWhereHas('customer.profile', function ($subQ) use ($search) {
-                      $subQ->where('full_name', 'like', "%{$search}%"); // Tìm 'full_name'
+                      $subQ->where('full_name', 'like', "%{$search}%");
                   });
             });
         }
 
-        // 4. Sắp xếp và Phân trang
+        // --- 5. Sắp xếp & Phân trang ---
+        // Mới nhất lên đầu
         $orders = $query->latest()->paginate(10);
 
         return response()->json($orders);
