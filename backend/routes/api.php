@@ -24,6 +24,7 @@ use App\Http\Controllers\ProductHistoryController;
 use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ApiTokenController;
+use App\Http\Controllers\PaymentWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -77,6 +78,8 @@ Route::get('/users/count', fn() => ['count' => DB::table('users')->count()]);
 Route::get('/orders/count', fn() => ['count' => DB::table('orders')->count()]);
 Route::post('/coupons/apply', [CouponController::class, 'apply']);
 
+// --- Webhook từ Casso (Thanh toán tự động) ---
+Route::post('/payment/casso-webhook', [PaymentWebhookController::class, 'handleCasso']);
 
 // ========================================================================
 //  PHẦN 2: PROTECTED ROUTES (Bắt buộc phải có Token)
@@ -108,9 +111,11 @@ Route::middleware('auth:sanctum')->group(function () {
     // Customer xem đơn mình, Admin/Shop xem tất cả (Logic phân quyền trong Controller)
     Route::get('/orders', [OrderController::class, 'index']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);
+    Route::post('/orders', [OrderController::class, 'store']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']); // Admin/Shop update
     Route::get('/orders/{order}/print', [OrderController::class, 'print']);
     Route::get('/orders/statistics', [OrderController::class, 'statistics']);
+    Route::get('/orders/{order}/status', [OrderController::class, 'checkStatus']);
 
     // --- 2.4 Quản lý Phân quyền (Roles) - CHO ADMIN ---
     Route::get('/roles', [RolePermissionController::class, 'getRoles']);

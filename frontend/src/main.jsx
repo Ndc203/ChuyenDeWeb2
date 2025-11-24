@@ -11,7 +11,7 @@ import GlobalDarkModeApplier from "./code/GlobalDarkModeApplier";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage.jsx";
 import AdminPostPage from "./pages/admin/AdminPostPage.jsx";
 import AdminPostCategoriesPage from "./pages/admin/AdminPostCategoriesPage.jsx";
-import AdminCommentsPage from "./pages/admin/AdminCommentsPage.jsx"; 
+import AdminCommentsPage from "./pages/admin/AdminCommentsPage.jsx";
 import AdminPostStatsPage from "./pages/admin/AdminPostStatsPage.jsx";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage.jsx";
 import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
@@ -38,6 +38,8 @@ import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
 import CartPage from "./pages/shop/CartPage.jsx";
 import ProductDetail from './pages/shop/ProductDetail';
+import CheckoutPage from './pages/shop/CheckoutPage';
+import PaymentPendingPage from './pages/shop/PaymentPendingPage.jsx';
 
 const router = createBrowserRouter([
   { path: "/", element: <ShopPage /> },
@@ -51,7 +53,7 @@ const router = createBrowserRouter([
   { path: "/admin/posts", element: <AdminPostPage /> },
   { path: "/admin/comments", element: <AdminCommentsPage /> },
   { path: "/admin/post-statistics", element: <AdminPostStatsPage /> },
-  { path: "/admin/dashboard", element: <AdminDashboardPage /> }, 
+  { path: "/admin/dashboard", element: <AdminDashboardPage /> },
   { path: "/admin/brands", element: <AdminBrandsPage /> },
   { path: "/admin/users", element: <AdminUsersPage /> },
   { path: "/admin/activity-history", element: <AdminActivityHistoryPage /> },
@@ -72,6 +74,8 @@ const router = createBrowserRouter([
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
   { path: "/cart", element: <CartPage /> },
   { path: "/product/:slug", element: <ProductDetail /> },
+  { path: "/checkout", element: <CheckoutPage /> },
+  { path: "/payment-pending/:orderId",element: <PaymentPendingPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
