@@ -88,7 +88,7 @@ const ProductCard = ({ product }) => {
 
   return (
     <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden group">
-      <Link to={`/shop/product/${product.id}`}>
+      <Link to={`/product/${product.slug || product.product_id}`}>
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-gray-100">
           {/* Badges */}

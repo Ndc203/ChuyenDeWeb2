@@ -60,6 +60,7 @@ Route::get('/brands/slugify', [BrandController::class, 'slugify']);
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/products/slugify', [ProductController::class, 'slugify']);
+Route::get('/reviews', [ProductReviewController::class, 'index']);
 
 // Posts & Comments
 Route::get('/posts', [PostController::class, 'index']);
@@ -171,6 +172,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/stock/history', [StockController::class, 'history']);
 
     // Product Reviews Management
+    Route::post('/reviews', [ProductReviewController::class, 'store']);
     Route::patch('/reviews/{id}/status', [ProductReviewController::class, 'updateStatus']);
     Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy']);
     Route::get('/reviews/statistics', [ProductReviewController::class, 'statistics']);
