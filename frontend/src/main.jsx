@@ -40,6 +40,7 @@ import CartPage from "./pages/shop/CartPage.jsx";
 import ProductDetail from './pages/shop/ProductDetail';
 import CheckoutPage from './pages/shop/CheckoutPage';
 import PaymentPendingPage from './pages/shop/PaymentPendingPage.jsx';
+import OrderSuccessPage from './pages/shop/OrderSuccessPage.jsx';
 
 const router = createBrowserRouter([
   { path: "/", element: <ShopPage /> },
@@ -76,6 +77,7 @@ const router = createBrowserRouter([
   { path: "/product/:slug", element: <ProductDetail /> },
   { path: "/checkout", element: <CheckoutPage /> },
   { path: "/payment-pending/:orderId",element: <PaymentPendingPage /> },
+  { path: "/order-success/:orderId",element: <OrderSuccessPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
