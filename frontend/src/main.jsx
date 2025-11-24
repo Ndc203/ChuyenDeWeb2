@@ -37,6 +37,7 @@ import ShopPostDetailPage from "./pages/shop/ShopPostDetailPage.jsx";
 import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
 import CartPage from "./pages/shop/CartPage.jsx";
+import ProductDetail from './pages/shop/ProductDetail';
 
 const router = createBrowserRouter([
   { path: "/", element: <ShopPage /> },
@@ -70,6 +71,7 @@ const router = createBrowserRouter([
   { path: "/admin/orders", element: <AdminOrdersPage /> },
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
   { path: "/cart", element: <CartPage /> },
+  { path: "/product/:slug", element: <ProductDetail /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
