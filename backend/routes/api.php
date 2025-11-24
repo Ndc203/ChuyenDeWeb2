@@ -75,6 +75,7 @@ Route::get('/posts/count', fn() => ['count' => DB::table('posts')->count()]);
 Route::get('/comments/count', fn() => ['count' => DB::table('comments')->count()]);
 Route::get('/users/count', fn() => ['count' => DB::table('users')->count()]);
 Route::get('/orders/count', fn() => ['count' => DB::table('orders')->count()]);
+Route::post('/coupons/apply', [CouponController::class, 'apply']);
 
 
 // ========================================================================
@@ -162,6 +163,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/coupons/{coupon}', [CouponController::class, 'destroy']);
     Route::patch('/coupons/{coupon}/toggle', [CouponController::class, 'toggleStatus']);
     Route::get('/coupons/statistics', [CouponController::class, 'statistics']);
+    Route::post('/coupons/apply', [CouponController::class, 'apply']);
 
     // Reports
     Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
