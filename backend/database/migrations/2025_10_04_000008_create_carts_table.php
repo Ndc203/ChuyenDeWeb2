@@ -17,7 +17,7 @@ class CreateCartsTable extends Migration
               column: 'user_id'
           )
           ->onDelete('set null');
-            $table->timestamp('created_at')->useCurrent();
+            $table->timestamps();
 
         });
     }
