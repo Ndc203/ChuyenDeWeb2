@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 export default function PostCard({ post }) {
   return (
-    <Link to={`/shop/posts/${post.post_id}`}>
+    <Link to={`/posts/${post.post_id}`}>
       <div className="bg-white rounded-lg shadow p-4 flex flex-col hover:shadow-lg cursor-pointer transition">
         {post.image && (
           <img
