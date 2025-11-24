@@ -36,9 +36,10 @@ import ShopPostPage from "./pages/shop/ShopPostPage.jsx";
 import ShopPostDetailPage from "./pages/shop/ShopPostDetailPage.jsx";
 import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
+import CartPage from "./pages/shop/CartPage.jsx";
 
 const router = createBrowserRouter([
-  { path: "/", element: <AdminCategoriesPage /> },
+  { path: "/", element: <ShopPage /> },
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
   { path: "/admin/postcategories", element: <AdminPostCategoriesPage /> },
   { path: "/admin/products", element: <AdminProductsPage /> },
@@ -64,10 +65,11 @@ const router = createBrowserRouter([
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
   { path: "/admin/reviews", element: <AdminReviewsPage /> },
   { path: "/shop", element: <ShopPage /> },
-  { path: "/shop/posts", element: <ShopPostPage /> },
-  { path: "/shop/posts/:id", element: <ShopPostDetailPage /> },
+  { path: "/posts", element: <ShopPostPage /> },
+  { path: "/posts/:id", element: <ShopPostDetailPage /> },
   { path: "/admin/orders", element: <AdminOrdersPage /> },
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
+  { path: "/cart", element: <CartPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
