@@ -188,7 +188,7 @@ const ShopHeader = ({ onSearch }) => {
                     </button>
 
                     {/* Dropdown Menu */}
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block border border-gray-100">
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden group-hover:block border border-gray-100 before:block before:absolute before:-top-2 before:left-0 before:w-full before:h-2 before:bg-transparent">
                         <div className="px-4 py-2 border-b">
                             <p className="text-sm font-bold text-gray-900 truncate">{user.full_name || user.username}</p>
                             <p className="text-xs text-gray-500 truncate">{user.email}</p>

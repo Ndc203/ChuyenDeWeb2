@@ -88,7 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
-    
+
     // Route hỗ trợ code cũ (AdminProfilePage)
     Route::get('/user', function (Request $request) {
         return $request->user()->load('profile');
@@ -123,7 +123,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/activity-logs', [ActivityLogController::class, 'index']);
 
     // --- 2.6 Quản lý Content (Sản phẩm, Danh mục...) - CHO SHOP & ADMIN ---
-    
+
     // Products Management
     Route::post('/products', [ProductController::class, 'store']);
     Route::put('/products/{id}', [ProductController::class, 'update']);
@@ -140,20 +140,20 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/categories/trashed', [CategoryController::class, 'trashed']);
     Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::post('/categories/import', [CategoryController::class, 'import']);
-    
+
     // Brands Management
     Route::post('/brands', [BrandController::class, 'store']);
     Route::put('/brands/{id}', [BrandController::class, 'update']);
     Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
     Route::patch('/brands/{id}/toggle', [BrandController::class, 'toggleStatus']);
-    
+
     // Posts Management
     Route::post('/posts', [PostController::class, 'store']);
     Route::put('/posts/{id}', [PostController::class, 'update']);
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
     Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
-    Route::get('/posts/{id}/versions', [PostController::class, 'versions']); 
-    
+    Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
+
     // Coupons Management
     Route::get('/coupons', [CouponController::class, 'index']); // Admin view list
     Route::post('/coupons', [CouponController::class, 'store']);
@@ -174,7 +174,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/reviews/{id}/status', [ProductReviewController::class, 'updateStatus']);
     Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy']);
     Route::get('/reviews/statistics', [ProductReviewController::class, 'statistics']);
-
 });
 
 

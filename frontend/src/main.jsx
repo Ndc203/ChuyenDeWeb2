@@ -39,7 +39,7 @@ import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.
 import CartPage from "./pages/shop/CartPage.jsx";
 
 const router = createBrowserRouter([
-  { path: "/", element: <AdminCategoriesPage /> },
+  { path: "/", element: <ShopPage /> },
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
   { path: "/admin/postcategories", element: <AdminPostCategoriesPage /> },
   { path: "/admin/products", element: <AdminProductsPage /> },
@@ -65,11 +65,11 @@ const router = createBrowserRouter([
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
   { path: "/admin/reviews", element: <AdminReviewsPage /> },
   { path: "/shop", element: <ShopPage /> },
-  { path: "/shop/posts", element: <ShopPostPage /> },
-  { path: "/shop/posts/:id", element: <ShopPostDetailPage /> },
+  { path: "/posts", element: <ShopPostPage /> },
+  { path: "/posts/:id", element: <ShopPostDetailPage /> },
   { path: "/admin/orders", element: <AdminOrdersPage /> },
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
-  { path: "/shop/cart", element: <CartPage /> },
+  { path: "/cart", element: <CartPage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
