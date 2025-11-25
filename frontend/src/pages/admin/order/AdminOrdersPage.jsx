@@ -1,21 +1,26 @@
-import React, { useState, useEffect, useMemo, useCallback, Fragment } from "react";
-import { Search, Eye, Edit, Printer, Download, Package, Clock, RefreshCw, Truck, CheckCircle, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
+import React, { useState, useEffect, Fragment } from "react";
+import { Search, Edit, Printer, Package, Clock, RefreshCw, Truck, CheckCircle, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
 import AdminSidebar from "../../layout/AdminSidebar.jsx";
 import OrderDetailModal from "./OrderDetailModal.jsx";
+import axios from 'axios';
 
+// CẤU HÌNH API URL
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
-// Helper function to format currency (giữ nguyên từ file coupon)
+// *** QUAN TRỌNG: Kiểm tra xem lúc Login bạn lưu là 'token' hay 'authToken' nhé ***
+const TOKEN_KEY = 'authToken'; 
+
+// Helper function to format currency
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
 
-// Helper function to format date (chỉ ngày)
+// Helper function to format date
 const formatSimpleDate = (dateString) => {
     if (!dateString) return "N/A";
     const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
     return new Date(dateString).toLocaleString('vi-VN', options);
 };
 
-// Stat Card Component (giữ nguyên từ file coupon)
+// --- CÁC COMPONENT CON ---
 const StatCard = ({ icon, title, value, color, loading }) => (
     <div className="bg-white p-5 rounded-xl shadow-sm flex items-center gap-5">
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${color}`}>
@@ -32,7 +37,6 @@ const StatCard = ({ icon, title, value, color, loading }) => (
     </div>
 );
 
-// Badge Component cho Trạng thái Đơn hàng (MỚI)
 const OrderStatusBadge = ({ status }) => {
     const styles = {
         'Hoàn thành': "bg-green-100 text-green-700",
@@ -49,12 +53,8 @@ const OrderStatusBadge = ({ status }) => {
         'Đã hủy': <XCircle size={12} />,
     };
 
-    // Mặc định nếu gặp trạng thái lạ
-    const defaultStyle = "bg-slate-100 text-slate-600";
-    const defaultIcon = <Package size={12} />;
-
-    const style = styles[status] || defaultStyle;
-    const icon = icons[status] || defaultIcon;
+    const style = styles[status] || "bg-slate-100 text-slate-600";
+    const icon = icons[status] || <Package size={12} />;
 
     return <span className={`px-2.5 py-1 text-xs font-medium rounded-full inline-flex items-center gap-1.5 ${style}`}>
         {icon}
@@ -62,10 +62,8 @@ const OrderStatusBadge = ({ status }) => {
     </span>;
 };
 
-// Pagination Component (giữ nguyên từ file coupon)
 const Pagination = ({ pagination, onPageChange }) => {
     if (!pagination || pagination.total <= pagination.per_page) return null;
-
     return (
         <div className="p-4 flex items-center justify-between flex-wrap gap-4">
             <p className="text-sm text-slate-600">
@@ -80,6 +78,11 @@ const Pagination = ({ pagination, onPageChange }) => {
     );
 };
 
+function Th({ children, className = "" }) {
+    return <th scope="col" className={`px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ${className}`}>{children}</th>;
+}
+
+// --- MAIN COMPONENT ---
 export default function AdminOrdersPage() {
     const [paginationData, setPaginationData] = useState(null);
     const [stats, setStats] = useState(null);
@@ -94,7 +97,7 @@ export default function AdminOrdersPage() {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    // useEffect để tải danh sách đơn hàng
+    // 1. TẢI DANH SÁCH ĐƠN HÀNG
     useEffect(() => {
         setLoading(true);
         const params = new URLSearchParams({
@@ -103,30 +106,48 @@ export default function AdminOrdersPage() {
             status: statusFilter,
         });
 
-        // *** LƯU Ý: Thay đổi '/api/orders' thành endpoint API của bạn
-        fetch(`${API_URL}/api/orders?${params.toString()}`, { cache: 'no-store' })
-            .then((res) => {
-                if (!res.ok) throw new Error(`Lỗi HTTP! Trạng thái: ${res.status}`);
-                return res.json();
-            })
-            .then((data) => setPaginationData(data))
-            .catch((error) => {
-                console.error("Không thể tải dữ liệu đơn hàng:", error);
-                setPaginationData(null); // Xóa dữ liệu cũ nếu lỗi
-            })
-            .finally(() => setLoading(false));
+        // Lấy token mới nhất mỗi khi gọi API
+        const token = localStorage.getItem(TOKEN_KEY);
+
+        axios.get(`${API_URL}/api/orders?${params.toString()}`, {
+            headers: {
+                'Authorization': `Bearer ${token}` 
+            }
+        })
+        .then((res) => {
+            setPaginationData(res.data);
+        })
+        .catch((error) => {
+            console.error("Lỗi tải đơn hàng:", error);
+            if (error.response && error.response.status === 401) {
+                // Token hết hạn hoặc chưa đăng nhập -> chuyển về login
+                window.location.href = '/login';
+            }
+            setPaginationData(null);
+        })
+        .finally(() => setLoading(false));
     }, [currentPage, searchQuery, statusFilter, refreshTrigger]);
 
-    // useEffect để tải thống kê
+    // 2. TẢI THỐNG KÊ (STATISTICS)
     useEffect(() => {
         setLoadingStats(true);
-        // *** LƯU Ý: Thay đổi '/api/orders/statistics' thành endpoint API của bạn
-        fetch(`${API_URL}/api/orders/statistics`)
-            .then(res => res.json())
-            .then(data => setStats(data))
-            .catch(error => console.error("Không thể tải thống kê:", error))
-            .finally(() => setLoadingStats(false));
-    }, [refreshTrigger]); // Thêm refreshTrigger để tải lại stats sau khi có thay đổi
+        const token = localStorage.getItem(TOKEN_KEY);
+
+        axios.get(`${API_URL}/api/orders/statistics`, {
+            headers: {
+                'Authorization': `Bearer ${token}`, // Gửi kèm token để tránh lỗi 401/Redirect
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(res => {
+            setStats(res.data);
+        })
+        .catch(error => {
+            console.error("Không thể tải thống kê:", error);
+            // Không redirect ở đây để tránh loop nếu api stats lỗi cục bộ
+        })
+        .finally(() => setLoadingStats(false));
+    }, [refreshTrigger]);
 
     // Xử lý mở modal xem chi tiết
     const handleOpenViewModal = (order) => {
@@ -134,46 +155,32 @@ export default function AdminOrdersPage() {
         setIsViewModalOpen(true);
     };
 
-    // Xử lý in đơn hàng (ví dụ)
     const handlePrint = (orderId) => {
-        // Đây có thể là một trang in chuyên dụng
         window.open(`${API_URL}/api/orders/${orderId}/print`, '_blank');
     };
 
-    // Xử lý xuất dữ liệu (ví dụ)
-    const handleExport = () => {
-        // Logic để gọi API xuất file
-        console.log("Đang bắt đầu xuất dữ liệu...");
-        alert("Chức năng xuất dữ liệu đang được phát triển!");
-    };
-
-    //hàm cập nhật trạng thái đơn hàng
+    // 3. CẬP NHẬT TRẠNG THÁI (Đã sửa thêm Auth header)
     const handleUpdateOrderStatus = async (orderId, newStatus) => {
         try {
+            const token = localStorage.getItem(TOKEN_KEY);
+            
             const response = await fetch(`${API_URL}/api/orders/${orderId}/status`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    // 'Authorization': 'Bearer ...' // Thêm nếu cần
+                    'Authorization': `Bearer ${token}` // <--- Đã thêm dòng này
                 },
-                body: JSON.stringify({ status: newStatus }) // Gửi trạng thái mới
+                body: JSON.stringify({ status: newStatus })
             });
 
             if (!response.ok) {
-                // Nếu server trả về lỗi (như lỗi 400), đọc message
                 const errorData = await response.json();
                 throw new Error(errorData.message || 'Cập nhật thất bại!');
             }
 
-            // 1. Cập nhật thành công
             alert('Cập nhật trạng thái thành công!');
-
-            // 2. Đóng modal (nếu bạn gọi từ modal)
-            // setIsViewModalOpen(false); // Giả sử
-
-            // 3. Kích hoạt refresh lại toàn bộ bảng
-            setRefreshTrigger(prev => prev + 1);
+            setRefreshTrigger(prev => prev + 1); // Load lại dữ liệu
 
         } catch (error) {
             console.error("Lỗi khi cập nhật trạng thái:", error);
@@ -187,7 +194,7 @@ export default function AdminOrdersPage() {
                 <AdminSidebar />
                 <main className="flex-1 w-full min-w-0">
                     <div className="w-full px-6 md:px-10 py-6">
-                        {/* 1. Header */}
+                        {/* Header */}
                         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                             <div>
                                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý Đơn hàng</h1>
@@ -195,7 +202,7 @@ export default function AdminOrdersPage() {
                             </div>
                         </div>
 
-                        {/* 2. Dashboard (Dựa trên hình ảnh) */}
+                        {/* Dashboard Stats */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-5 mb-6">
                             <StatCard icon={<Package size={24} className="text-slate-500" />} title="Tổng Đơn hàng" value={stats?.total ?? '0'} color="bg-slate-100" loading={loadingStats} />
                             <StatCard icon={<Clock size={24} className="text-yellow-600" />} title="Chờ thanh toán" value={stats?.pending ?? '0'} color="bg-yellow-100" loading={loadingStats} />
@@ -204,7 +211,7 @@ export default function AdminOrdersPage() {
                             <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Hoàn thành" value={stats?.completed ?? '0'} color="bg-green-100" loading={loadingStats} />
                         </div>
 
-                        {/* 3. Toolbar */}
+                        {/* Toolbar */}
                         <div className="p-4 bg-white rounded-xl shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
                             <div className="relative flex-grow max-w-md">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -232,7 +239,7 @@ export default function AdminOrdersPage() {
                             </div>
                         </div>
 
-                        {/* 4. Data Table */}
+                        {/* Data Table */}
                         <div className="overflow-hidden shadow-sm rounded-xl bg-white">
                             <div className="overflow-x-auto">
                                 <table className="w-full text-sm">
@@ -255,41 +262,25 @@ export default function AdminOrdersPage() {
                                         ) : (
                                             paginationData.data.map((order) => (
                                                 <tr key={order.order_id} className="hover:bg-slate-50">
-
-                                                    {/* ID Đơn hàng */}
                                                     <td className="px-5 py-4 align-top">
                                                         <p className="font-semibold text-slate-800 font-mono">#{order.order_id}</p>
                                                     </td>
-
-                                                    {/* Khách hàng */}
                                                     <td className="px-5 py-4 align-top">
-                                                        {/* *** LƯU Ý: Giả định cấu trúc data là order.customer.name */}
                                                         <p className="font-semibold text-slate-800">{order.customer?.name ?? 'Khách lẻ'}</p>
                                                         <p className="text-slate-500 text-xs mt-1">{order.customer?.email}</p>
                                                     </td>
-
-                                                    {/* Ngày */}
                                                     <td className="px-5 py-4 align-top text-slate-600">
                                                         {formatSimpleDate(order.created_at)}
                                                     </td>
-
-                                                    {/* Sản phẩm */}
                                                     <td className="px-5 py-4 align-top text-slate-600">
-                                                        {/* *** LƯU Ý: Giả định có trường 'item_count' */}
                                                         {order.item_count} sản phẩm
                                                     </td>
-
-                                                    {/* Tổng tiền */}
                                                     <td className="px-5 py-4 align-top">
                                                         <p className="font-semibold text-slate-700">{formatCurrency(order.final_amount)}</p>
                                                     </td>
-
-                                                    {/* Trạng thái */}
                                                     <td className="px-5 py-4 align-top">
                                                         <OrderStatusBadge status={order.status} />
                                                     </td>
-
-                                                    {/* Thao tác */}
                                                     <td className="px-5 py-4 align-top text-right">
                                                         <div className="flex items-center justify-end gap-1">
                                                             <button onClick={() => handleOpenViewModal(order)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md" title="Xem chi tiết/ Sửa trạng thái">
@@ -306,28 +297,19 @@ export default function AdminOrdersPage() {
                                     </tbody>
                                 </table>
                             </div>
-                            {/* Phân trang */}
                             <Pagination pagination={paginationData} onPageChange={setCurrentPage} />
                         </div>
                     </div>
                 </main>
             </div>
 
-            {/* 5. MODAL XEM CHI TIẾT (trong AdminOrdersPage.jsx) */}
+            {/* Modal */}
             <OrderDetailModal
                 isOpen={isViewModalOpen}
                 onClose={() => setIsViewModalOpen(false)}
-
-                // TRUYỀN 'orderId' THAY VÌ 'order'
                 orderId={selectedOrder?.order_id}
-
                 onStatusChange={handleUpdateOrderStatus}
             />
         </Fragment>
     );
-}
-
-// Helper Th (giữ nguyên từ file coupon)
-function Th({ children, className = "" }) {
-    return <th scope="col" className={`px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ${className}`}>{children}</th>;
 }

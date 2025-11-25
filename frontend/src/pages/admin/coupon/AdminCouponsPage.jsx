@@ -131,7 +131,10 @@ export default function AdminCouponsPage() {
     });
 
     fetch(`${API_URL}/api/coupons?${params.toString()}`,
-      { cache: 'no-store' }) // tránh cache để luôn lấy dữ liệu mới nhất(nhất là sau khi thêm mới)
+      { cache: 'no-store', headers: {
+    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+    'Accept': 'application/json'
+} }) // tránh cache để luôn lấy dữ liệu mới nhất(nhất là sau khi thêm mới)
       .then((res) => {
         if (!res.ok) {
           throw new Error(`Lỗi HTTP! Trạng thái: ${res.status}`);

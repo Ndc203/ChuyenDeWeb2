@@ -33,46 +33,34 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccessMessage("");
     setIsLoading(true);
 
     try {
-      // 1. Gọi API đăng nhập
-      const res = await axios.post(`${API_URL}/login`, {
+      const res = await axios.post("http://127.0.0.1:8000/api/login", {
         email: form.email,
         password: form.password,
       });
 
-      // 2. Lấy dữ liệu từ phản hồi (Khớp với AuthController backend)
-      const { access_token, role, user, message } = res.data;
+      // Lấy dữ liệu từ API trả về
+      const { access_token, role, user } = res.data;
 
       if (access_token) {
-        // 3. Lưu thông tin vào LocalStorage
+        // 1. Lưu vào LocalStorage
         localStorage.setItem("authToken", access_token);
-        localStorage.setItem("userRole", role); // Lưu vai trò (admin, customer,...)
-        localStorage.setItem("userInfo", JSON.stringify(user)); // Lưu thông tin user
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userInfo", JSON.stringify(user));
 
-        // Hiển thị thông báo
-        setSuccessMessage(message || "Đăng nhập thành công!");
+        alert("Đăng nhập thành công!");
 
-        // 4. Điều hướng dựa trên Vai trò (Role)
-        setTimeout(() => {
-          if (role === 'admin' || role === 'Admin') {
-            navigate("/admin/dashboard");
-          } else if (role === 'Shop Owner') {
-            navigate("/shop/dashboard");
-          } else {
-            // Mặc định là khách hàng (customer)
-            navigate("/"); 
-          }
-        }, 500); // Delay nhẹ 0.5s để người dùng thấy thông báo
+        // 2. ĐIỀU HƯỚNG THÔNG MINH (Dựa trên role)
+        if (role === 'admin' || role === 'Admin') {
+            navigate("/admin/dashboard"); // Admin vào trang quản trị
+        } else {
+            navigate("/"); // Khách hàng về trang chủ mua sắm
+        }
       }
-
     } catch (err) {
-      console.error(err);
-      // Xử lý lỗi hiển thị
-      const msg = err.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại!";
-      setError(msg);
+      setError(err.response?.data?.message || "Đăng nhập thất bại!");
     } finally {
       setIsLoading(false);
     }

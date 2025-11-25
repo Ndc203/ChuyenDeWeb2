@@ -14,7 +14,7 @@ class User extends Authenticatable
 
     // KHÓA CHÍNH LÀ user_id
     protected $primaryKey = 'user_id';
-    
+
     // SỬA: Xóa các trường profile khỏi $fillable
     protected $fillable = [
         'username',
@@ -52,7 +52,6 @@ class User extends Authenticatable
             'password' => 'hashed',
             'status' => 'string',
             'role' => 'string',
-            // Xóa: social_links, date_of_birth (đã chuyển sang profile)
             'last_login_at' => 'datetime',
         ];
     }

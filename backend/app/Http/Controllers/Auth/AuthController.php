@@ -47,7 +47,7 @@ class AuthController extends Controller
         // 5. Lấy vai trò (Role) quan trọng nhất
         // Spatie trả về Collection, ta lấy tên role đầu tiên
         // Nếu chưa có role, mặc định là 'customer'
-        $role = $user->getRoleNames()->first() ?? 'customer';
+        $role = $user->getRoleNames()->first() ?? $user->role;
 
         // 6. Trả về dữ liệu JSON cho Frontend
         return response()->json([
