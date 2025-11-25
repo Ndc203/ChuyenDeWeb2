@@ -12,8 +12,7 @@ const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replac
     if (!path) return null;
     if (path.startsWith('http')) return path;
     // Nối với đường dẫn storage (giống ProductDetail)
-    const baseUrl = API_URL.replace('/api', ''); 
-    return `${baseUrl}/storage/${path}`;
+    return `${API_URL.replace('/api', '')}/storage/${path}`; 
 };
 
 export default function ProfilePage() {
@@ -54,7 +53,6 @@ export default function ProfilePage() {
           address: u.profile?.address || '',
           date_of_birth: u.profile?.date_of_birth || '',
           gender: u.profile?.gender || 'other',
-          avatar: u.profile?.avatar || '',
         });
       } catch (err) {
         console.error(err);
@@ -141,42 +139,36 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Hồ sơ cá nhân</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        
-
+            
             {/* Sidebar Menu */}
-            <div className="bg-white rounded-xl shadow-sm p-6 h-fit"> {/* Tăng padding lên p-6 */}
-                
-                {/* SỬA: Dùng flex-col để xếp dọc (Ảnh trên, Tên dưới) */}
-                <div className="flex flex-col items-center gap-4 mb-6"> 
-                    
-                    {/* --- KHU VỰC AVATAR (GIỮ NGUYÊN LOGIC CŨ) --- */}
-                    <div className="relative group w-fit">
+            <div className="bg-white rounded-xl shadow-sm p-4 h-fit">
+                <div className="flex items-center gap-3 mb-6 px-2">
+                    <div className="relative group w-fit mx-auto">
+                        
+                        {/* 1. TẠO CÁI KHUNG TRÒN ĐỂ CẮT ẢNH */}
+                        {/* - w-24 h-24: Kích thước khung */}
+                        {/* - rounded-full: Làm tròn khung */}
+                        {/* - overflow-hidden: CỰC QUAN TRỌNG - Cắt bỏ mọi thứ lòi ra ngoài khung tròn */}
+                        {/* - border-4... shadow-md: Viền và bóng */}
+                        <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100 relative">
+                            <img 
+                                // Ưu tiên hiển thị ảnh xem trước -> ảnh thật -> ảnh mặc định
+                                src={previewUrl || getAvatarUrl(user?.profile?.avatar) || `https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random`} 
+                                alt="Avatar" 
+                                // 2. ÉP ẢNH LẤP ĐẦY KHUNG */}
+                                // - w-full h-full: Chiếm hết diện tích khung
+                                // - object-cover: CỰC QUAN TRỌNG - Zoom ảnh lên để lấp đầy mà không bị méo
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                        
+                        {/* Nút chọn ảnh (Icon Camera) - Nằm đè lên góc dưới phải của khung */}
                         <label 
                             htmlFor="avatar-upload" 
-                            className="cursor-pointer block relative"
+                            className="absolute bottom-0 right-0 bg-gray-800 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors shadow-sm z-10 transform translate-x-1 translate-y-1"
                         >
-                            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-200">
-                                <img 
-                                    src={
-                                        previewUrl || 
-                                        getAvatarUrl(user?.profile?.avatar) || 
-                                        `https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random&size=128`
-                                    } 
-                                    alt="Avatar" 
-                                    className="w-full h-full object-cover transition-opacity hover:opacity-90"
-                                    style={{ objectFit: 'cover' }}
-                                    onError={(e) => {
-                                        e.target.onerror = null;
-                                        e.target.src = `https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random&size=128`;
-                                    }}
-                                />
-                            </div>
-
-                            <div className="absolute bottom-1 right-1 bg-gray-800 text-white p-2 rounded-full border-2 border-white shadow-sm transform transition-colors hover:bg-blue-600">
-                                <Camera size={16} />
-                            </div>
+                            <Camera size={16} />
                         </label>
-
                         <input 
                             id="avatar-upload" 
                             type="file" 
@@ -185,18 +177,10 @@ export default function ProfilePage() {
                             onChange={handleFileChange}
                         />
                     </div>
-                    {/* -------------------------------------------- */}
-
-                    {/* Phần tên và email căn giữa */}
-                    <div className="text-center w-full">
-                        <p className="font-bold text-lg text-gray-900 truncate">
-                            {user?.profile?.full_name || user?.username}
-                        </p>
-                        <p className="text-sm text-gray-500 truncate px-2" title={user?.email}>
-                            {user?.email}
-                        </p>
+                    <div>
+                        <p className="font-bold text-sm text-gray-900">{user?.profile?.full_name}</p>
+                        <p className="text-xs text-gray-500">{user?.email}</p>
                     </div>
-
                 </div>
                 <nav className="space-y-1">
                     <button 
@@ -296,7 +280,7 @@ export default function ProfilePage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
                                 <input type="password" value={passData.current_password} onChange={e => setPassData({...passData, current_password: e.target.value})} 
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Nhập mật khẩu hiện tại..." />
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
@@ -306,7 +290,7 @@ export default function ProfilePage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
                                 <input type="password" value={passData.new_password_confirmation} onChange={e => setPassData({...passData, new_password_confirmation: e.target.value})} 
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Ít nhất 8 ký tự" />
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
                             </div>
                         </div>
 

@@ -61,7 +61,6 @@ class ProfileController extends Controller
                 'address' => $validated['address'],
                 'date_of_birth' => $validated['date_of_birth'],
                 'gender' => $validated['gender'],
-                'avatar' => $avatarPath,
             ]
         );
 
