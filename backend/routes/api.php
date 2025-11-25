@@ -65,10 +65,34 @@ Route::get('/products/slugify', [ProductController::class, 'slugify']);
 Route::get('/reviews', [ProductReviewController::class, 'index']);
 
 // Posts & Comments
-Route::get('/posts', [PostController::class, 'index']);
-Route::get('/posts/{id}', [PostController::class, 'show']);
+// Comment routes
 Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
-Route::get('/post-statistics', [PostController::class, 'statistics']);
+Route::get('/comments/export', [CommentController::class, 'export']);
+Route::apiResource('comments', CommentController::class);
+
+// --------------------
+// Public routes (không cần đăng nhập)
+// --------------------
+Route::get('/posts', [PostController::class, 'index']);               // Danh sách bài viết
+Route::get('/posts/{id}', [PostController::class, 'show']);          // Chi tiết bài viết
+Route::get('/post-statistics', [PostController::class, 'statistics']); // Thống kê
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']);          // Lịch sử chỉnh sửa
+Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']); // Xem chi tiết phiên bản
+
+// --------------------
+// Protected routes (yêu cầu đăng nhập)
+// --------------------
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/posts', [PostController::class, 'store']);                           // Tạo bài viết mới
+    Route::put('/posts/{id}', [PostController::class, 'update']);                     // Cập nhật bài viết
+    Route::delete('/posts/{id}', [PostController::class, 'destroy']);                 // Xóa bài viết
+    Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']); // Khôi phục từ phiên bản cũ
+});
+
+
+// Post Category routes
+Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+Route::apiResource('postcategories', PostCategoryController::class);
 
 // Quick Counts (Thống kê nhanh cho trang chủ)
 Route::get('/brands/count', fn() => ['count' => DB::table('brands')->count()]);
