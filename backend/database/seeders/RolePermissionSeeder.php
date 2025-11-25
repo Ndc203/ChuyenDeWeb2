@@ -46,40 +46,15 @@ class RolePermissionSeeder extends Seeder
 
         // --- TẠO CÁC VAI TRÒ (ROLES) VÀ GÁN QUYỀN ---
 
-        // 1. Vai trò "Staff" (Nhân viên giao hàng/kho)
-        $staffRole = Role::firstOrCreate(['name' => 'Staff']);
-        $staffRole->syncPermissions([
-            'Truy cập Admin',
-            'Xem Đơn hàng',
-            'Sửa Đơn hàng',
-            'Xem (tất cả) Sản phẩm',
-        ]);
-
-        // 2. Vai trò "Editor" (Biên tập viên)
-        $editorRole = Role::firstOrCreate(['name' => 'Editor']);
-        $editorRole->syncPermissions([
-            'Truy cập Admin',
-            'Xem (tất cả) Bài viết',
-            'Xóa (tất cả) Bài viết',
-        ]);
-        
-        // 3. THÊM MỚI: Vai trò "Shop Owner" (Chủ Shop)
-        $shopRole = Role::firstOrCreate(['name' => 'Shop Owner']);
-        $shopRole->syncPermissions([
-            'Truy cập Admin', // (Để họ vào xem dashboard riêng của họ)
-            'Xem Báo cáo', // (Xem báo cáo của riêng họ)
-            'Quản lý (riêng) Sản phẩm Shop',
-        ]);
-
-        // 4. THÊM MỚI: Vai trò "User" (Người dùng thường)
-        $userRole = Role::firstOrCreate(['name' => 'customer']);
+        // 1. Vai trò "User" (Khách hàng)
+        $userRole = Role::firstOrCreate(['name' => 'customer']); // Thống nhất là 'customer' nhé
         $userRole->syncPermissions([
-            'Quản lý (riêng) Bài viết', // (Họ không cần truy cập admin)
+            'Quản lý (riêng) Bài viết',
         ]);
 
-        // 5. Vai trò "Admin" (Quản trị viên)
-        $adminRole = Role::firstOrCreate(['name' => 'Admin']);
-        $adminRole->givePermissionTo(Permission::all()); // Gán tất cả các quyền
+        // 2. Vai trò "Admin" (Quản trị viên - Quản lý TẤT CẢ)
+        $adminRole = Role::firstOrCreate(['name' => 'admin']);
+        $adminRole->givePermissionTo(Permission::all());
 
         // --- GÁN VAI TRÒ CHO USER HIỆN CÓ ---
         // (Chúng ta sẽ gán lại dựa trên UserSeeder của bạn)
@@ -94,12 +69,12 @@ class RolePermissionSeeder extends Seeder
         // Ví dụ: gán 'ngocanh' làm Staff, 'thanhdat' làm Shop Owner
         $customerUser1 = User::where('username', 'ngocanh')->first();
         if ($customerUser1) {
-            $customerUser1->assignRole('Staff');
+            $customerUser1->assignRole('customer');
         }
         
         $customerUser2 = User::where('username', 'thanhdat')->first();
         if ($customerUser2) {
-            $customerUser2->assignRole('Shop Owner');
+            $customerUser2->assignRole('customer');
         }
     }
 }
