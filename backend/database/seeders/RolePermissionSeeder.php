@@ -72,7 +72,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         // 4. THÊM MỚI: Vai trò "User" (Người dùng thường)
-        $userRole = Role::firstOrCreate(['name' => 'User']);
+        $userRole = Role::firstOrCreate(['name' => 'customer']);
         $userRole->syncPermissions([
             'Quản lý (riêng) Bài viết', // (Họ không cần truy cập admin)
         ]);
