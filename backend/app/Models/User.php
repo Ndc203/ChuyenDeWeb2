@@ -56,8 +56,19 @@ class User extends Authenticatable
         ];
     }
 
+    /**
+     * Quan hệ 1-N với Order
+     */
     public function orders() {
         return $this->hasMany(Order::class);
     }
 
+
+    /**
+     * Quan hệ 1-1 với Cart
+     */
+    public function cart()
+    {
+        return $this->hasOne(Cart::class, 'user_id', 'user_id');
+    }
 }

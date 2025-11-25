@@ -11,7 +11,7 @@ import GlobalDarkModeApplier from "./code/GlobalDarkModeApplier";
 import AdminCategoriesPage from "./pages/admin/AdminCategoriesPage.jsx";
 import AdminPostPage from "./pages/admin/AdminPostPage.jsx";
 import AdminPostCategoriesPage from "./pages/admin/AdminPostCategoriesPage.jsx";
-import AdminCommentsPage from "./pages/admin/AdminCommentsPage.jsx"; 
+import AdminCommentsPage from "./pages/admin/AdminCommentsPage.jsx";
 import AdminPostStatsPage from "./pages/admin/AdminPostStatsPage.jsx";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage.jsx";
 import AdminUsersPage from "./pages/admin/AdminUsersPage.jsx";
@@ -36,9 +36,17 @@ import ShopPostPage from "./pages/shop/ShopPostPage.jsx";
 import ShopPostDetailPage from "./pages/shop/ShopPostDetailPage.jsx";
 import AdminOrdersPage from "./pages/admin/order/AdminOrdersPage.jsx";
 import AdminRevenueReportPage from "./pages/admin/report/AdminRevenueReportPage.jsx";
+import CartPage from "./pages/shop/CartPage.jsx";
+import ProductDetail from './pages/shop/ProductDetail';
+import CheckoutPage from './pages/shop/CheckoutPage';
+import PaymentPendingPage from './pages/shop/PaymentPendingPage.jsx';
+import OrderSuccessPage from './pages/shop/OrderSuccessPage.jsx';
+import OrderHistoryPage from './pages/shop/OrderHistoryPage';
+import OrderDetailsPage from './pages/shop/OrderDetailsPage';
+import ProfilePage from './pages/shop/ProfilePage.jsx';
 
 const router = createBrowserRouter([
-  { path: "/", element: <AdminCategoriesPage /> },
+  { path: "/", element: <ShopPage /> },
   { path: "/admin/categories", element: <AdminCategoriesPage /> },
   { path: "/admin/postcategories", element: <AdminPostCategoriesPage /> },
   { path: "/admin/products", element: <AdminProductsPage /> },
@@ -49,7 +57,7 @@ const router = createBrowserRouter([
   { path: "/admin/posts", element: <AdminPostPage /> },
   { path: "/admin/comments", element: <AdminCommentsPage /> },
   { path: "/admin/post-statistics", element: <AdminPostStatsPage /> },
-  { path: "/admin/dashboard", element: <AdminDashboardPage /> }, 
+  { path: "/admin/dashboard", element: <AdminDashboardPage /> },
   { path: "/admin/brands", element: <AdminBrandsPage /> },
   { path: "/admin/users", element: <AdminUsersPage /> },
   { path: "/admin/activity-history", element: <AdminActivityHistoryPage /> },
@@ -64,10 +72,18 @@ const router = createBrowserRouter([
   { path: "/admin/coupons", element: <AdminCouponsPage /> },
   { path: "/admin/reviews", element: <AdminReviewsPage /> },
   { path: "/shop", element: <ShopPage /> },
-  { path: "/shop/posts", element: <ShopPostPage /> },
-  { path: "/shop/posts/:id", element: <ShopPostDetailPage /> },
+  { path: "/posts", element: <ShopPostPage /> },
+  { path: "/posts/:id", element: <ShopPostDetailPage /> },
   { path: "/admin/orders", element: <AdminOrdersPage /> },
   { path: "/admin/revenue-report", element: <AdminRevenueReportPage /> },
+  { path: "/cart", element: <CartPage /> },
+  { path: "/product/:slug", element: <ProductDetail /> },
+  { path: "/checkout", element: <CheckoutPage /> },
+  { path: "/payment-pending/:orderId",element: <PaymentPendingPage /> },
+  { path: "/order-success/:orderId",element: <OrderSuccessPage /> },
+  { path: "/orders", element: <OrderHistoryPage /> },
+  { path: "/orders/:id", element: <OrderDetailsPage /> },
+  { path: "/profile", element: <ProfilePage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 

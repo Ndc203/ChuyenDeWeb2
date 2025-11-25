@@ -1,5 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { ShoppingCart } from 'lucide-react';
+import axios from 'axios';
+
+const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 const ProductCard = ({ product }) => {
   const formatPrice = (price) => {
@@ -57,9 +61,63 @@ const ProductCard = ({ product }) => {
     return stars;
   };
 
+  const handleAddToCart = async (e) => {
+    // Ngăn chặn sự kiện click lan ra ngoài (để không bị nhảy vào trang chi tiết khi bấm nút Mua)
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      // 1. Kiểm tra đăng nhập
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert("Vui lòng đăng nhập để mua hàng!");
+        return;
+      }
+
+      // 2. Lấy ID sản phẩm an toàn (phòng trường hợp API trả về id hoặc product_id)
+      const idToSend = product.product_id || product.id;
+      if (!idToSend) {
+        alert("Lỗi dữ liệu: Không tìm thấy ID sản phẩm.");
+        return;
+      }
+
+      // 3. Cấu hình Header
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+
+      // 4. Gọi API Thêm vào giỏ
+      await axios.post(`${API_URL}/api/cart/add`, {
+        product_id: idToSend,
+        quantity: 1
+      });
+
+      // 5. Thông báo thành công
+      alert(`Đã thêm "${product.name}" vào giỏ hàng!`);
+
+      // 6. QUAN TRỌNG: Bắn tín hiệu để Header cập nhật số lượng ngay lập tức
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
+
+    } catch (err) {
+      console.error("Lỗi thêm vào giỏ:", err);
+
+      // 7. Xử lý các loại lỗi
+      if (err.response) {
+        if (err.response.status === 401) {
+          alert("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.");
+        } else if (err.response.status === 500) {
+          alert("Lỗi Server (500). Vui lòng thử lại sau.");
+        } else {
+          // Hiển thị tin nhắn lỗi từ Backend trả về (nếu có)
+          alert(err.response.data.message || "Có lỗi xảy ra khi thêm sản phẩm.");
+        }
+      } else {
+        alert("Không thể kết nối đến Server.");
+      }
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden group">
-      <Link to={`/shop/product/${product.id}`}>
+      <Link to={`/product/${product.slug || product.product_id}`}>
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-gray-100">
           {/* Badges */}
@@ -171,9 +229,10 @@ const ProductCard = ({ product }) => {
       {/* Action Buttons */}
       <div className="px-4 pb-4 flex gap-2">
         <button
-          className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md text-sm font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-          disabled={product.stock === 0}
+          onClick={handleAddToCart}
+          className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-md font-medium hover:bg-indigo-100"
         >
+          <ShoppingCart size={18} />
           Thêm vào giỏ
         </button>
         <button className="p-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">

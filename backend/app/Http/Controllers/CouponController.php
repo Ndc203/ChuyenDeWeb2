@@ -165,4 +165,78 @@ class CouponController extends Controller
             return response()->json(['message' => 'Không thể cập nhật trạng thái.'], 500);
         }
     }
+
+    /**
+     * API: POST /api/coupons/apply
+     * Kiểm tra mã giảm giá và trả về số tiền giảm
+     */
+    public function apply(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string',
+            'order_total' => 'required|numeric|min:0'
+        ]);
+
+        $code = $request->code;
+        $total = $request->order_total;
+        $today = now();
+
+        // 1. Tìm mã trong database
+        $coupon = \App\Models\Coupon::where('code', $code)->first();
+
+        // 2. Các bước kiểm tra (Validate)
+        if (!$coupon) {
+            return response()->json(['message' => 'Mã giảm giá không tồn tại!'], 404);
+        }
+
+        if (!$coupon->is_active) {
+            return response()->json(['message' => 'Mã giảm giá này đã bị vô hiệu hóa!'], 400);
+        }
+
+        if ($coupon->start_date > $today) {
+            return response()->json(['message' => 'Mã giảm giá chưa đến đợt áp dụng!'], 400);
+        }
+
+        if ($coupon->end_date < $today) {
+            return response()->json(['message' => 'Mã giảm giá đã hết hạn!'], 400);
+        }
+
+        if ($coupon->usage_count >= $coupon->max_usage) {
+            return response()->json(['message' => 'Mã giảm giá đã hết lượt sử dụng!'], 400);
+        }
+
+        if ($total < $coupon->min_order_value) {
+            return response()->json([
+                'message' => 'Đơn hàng chưa đạt giá trị tối thiểu: ' . number_format($coupon->min_order_value) . 'đ'
+            ], 400);
+        }
+
+        // 3. Kiểm tra giá trị đơn hàng tối thiểu
+        if ($request->order_total < $coupon->min_order_value) {
+            return response()->json([
+                'message' => 'Đơn hàng chưa đạt tối thiểu ' . number_format($coupon->min_order_value) . 'đ'
+            ], 400);
+        }
+
+        // 4. Tính tiền giảm
+        $discount = 0;
+        if ($coupon->type === 'percentage') {
+            $discount = $request->order_total * ($coupon->value / 100);
+            if ($coupon->max_value > 0) { // Nếu có giảm tối đa
+                $discount = min($discount, $coupon->max_value);
+            }
+        } else {
+            $discount = $coupon->value;
+        }
+
+        // Không giảm quá tổng tiền
+        $discount = min($discount, $request->order_total);
+
+        return response()->json([
+            'message' => 'Áp dụng mã thành công!',
+            'discount_amount' => $discount,
+            'coupon_code' => $coupon->code,
+            'coupon_id' => $coupon->coupon_id
+        ]);
+    }
 }
