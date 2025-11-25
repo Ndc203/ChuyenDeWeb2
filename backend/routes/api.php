@@ -110,12 +110,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- 2.3 Quản lý Đơn hàng (Orders) ---
     // Customer xem đơn mình, Admin/Shop xem tất cả (Logic phân quyền trong Controller)
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::get('/orders/{order}', [OrderController::class, 'show']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']); // Admin/Shop update
     Route::get('/orders/{order}/print', [OrderController::class, 'print']);
     Route::get('/orders/statistics', [OrderController::class, 'statistics']);
     Route::get('/orders/{order}/status', [OrderController::class, 'checkStatus']);
+    Route::get('/orders/{order}', [OrderController::class, 'show']);
 
     // --- 2.4 Quản lý Phân quyền (Roles) - CHO ADMIN ---
     Route::get('/roles', [RolePermissionController::class, 'getRoles']);

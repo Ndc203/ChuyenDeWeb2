@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axiosClient from '../../api/axiosClient';
 import { useNavigate, Link, useLocation } from "react-router-dom";
-
-// Định nghĩa URL API (có thể đưa ra file config riêng sau này)
-const API_URL = "http://127.0.0.1:8000/api";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "", remember: false });
@@ -33,46 +30,38 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
-    setSuccessMessage("");
     setIsLoading(true);
 
     try {
-      // 1. Gọi API đăng nhập
-      const res = await axios.post(`${API_URL}/login`, {
+      const res = await axiosClient.post("/login", {
         email: form.email,
         password: form.password,
       });
 
-      // 2. Lấy dữ liệu từ phản hồi (Khớp với AuthController backend)
-      const { access_token, role, user, message } = res.data;
+      // Lấy dữ liệu (axiosClient trả về response object)
+      const { access_token, role, user } = res.data;
 
       if (access_token) {
-        // 3. Lưu thông tin vào LocalStorage
+        // 1. Lưu vào LocalStorage (Token Key phải khớp với axiosClient)
         localStorage.setItem("authToken", access_token);
-        localStorage.setItem("userRole", role); // Lưu vai trò (admin, customer,...)
-        localStorage.setItem("userInfo", JSON.stringify(user)); // Lưu thông tin user
+        
+        // Lưu thêm thông tin phụ trợ nếu cần hiển thị UI
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userInfo", JSON.stringify(user));
 
-        // Hiển thị thông báo
-        setSuccessMessage(message || "Đăng nhập thành công!");
+        alert("Đăng nhập thành công!");
 
-        // 4. Điều hướng dựa trên Vai trò (Role)
-        setTimeout(() => {
-          if (role === 'admin' || role === 'Admin') {
+        // 2. ĐIỀU HƯỚNG
+        if (role === 'admin' || role === 'Admin') {
             navigate("/admin/dashboard");
-          } else if (role === 'Shop Owner') {
-            navigate("/shop/dashboard");
-          } else {
-            // Mặc định là khách hàng (customer)
+        } else {
             navigate("/"); 
-          }
-        }, 500); // Delay nhẹ 0.5s để người dùng thấy thông báo
+        }
       }
-
     } catch (err) {
       console.error(err);
-      // Xử lý lỗi hiển thị
-      const msg = err.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại!";
-      setError(msg);
+      // Xử lý thông báo lỗi từ Backend trả về
+      setError(err.response?.data?.message || "Đăng nhập thất bại! Vui lòng kiểm tra lại.");
     } finally {
       setIsLoading(false);
     }
