@@ -43,6 +43,7 @@ import PaymentPendingPage from './pages/shop/PaymentPendingPage.jsx';
 import OrderSuccessPage from './pages/shop/OrderSuccessPage.jsx';
 import OrderHistoryPage from './pages/shop/OrderHistoryPage';
 import OrderDetailsPage from './pages/shop/OrderDetailsPage';
+import ProfilePage from './pages/shop/ProfilePage.jsx';
 
 const router = createBrowserRouter([
   { path: "/", element: <ShopPage /> },
@@ -82,6 +83,7 @@ const router = createBrowserRouter([
   { path: "/order-success/:orderId",element: <OrderSuccessPage /> },
   { path: "/orders", element: <OrderHistoryPage /> },
   { path: "/orders/:id", element: <OrderDetailsPage /> },
+  { path: "/profile", element: <ProfilePage /> },
   //{ path: "*", element: <Login /> }, // 404 → về login
 ]);
 
