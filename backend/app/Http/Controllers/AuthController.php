@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Validator;
@@ -31,6 +32,23 @@ class AuthController extends Controller
             'role' => 'customer',
         ]);
 
+        // Log registration event
+        try {
+            ActivityLog::create([
+                'user_id' => $user->user_id,
+                'username' => $user->username,
+                'event' => 'register',
+                'status' => 'success',
+                'ip_address' => $request->ip(),
+                'device' => $request->header('User-Agent'),
+                'location' => null,
+                'response_time_ms' => null,
+                'meta' => null,
+            ]);
+        } catch (\Exception $e) {
+            // ignore logging errors
+        }
+
         return response()->json([
             'success' => true,
             'message' => 'Đăng ký thành công',
@@ -41,6 +59,7 @@ class AuthController extends Controller
     // API: POST /api/login
     public function login(Request $request)
     {
+        $start = microtime(true);
         $validated = $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
@@ -57,11 +76,30 @@ class AuthController extends Controller
 
         // Update status and last login time on successful login
         $user->status = 'active';
-        // $user->last_login = now(); // Uncomment this if you have a last_login column
         $user->save();
 
         // Tạo token bằng Sanctum
         $token = $user->createToken('apitoken')->plainTextToken;
+
+        // Log activity
+        $end = microtime(true);
+        $responseTimeMs = (int)(($end - $start) * 1000);
+
+        try {
+            ActivityLog::create([
+                'user_id' => $user->user_id,
+                'username' => $user->username,
+                'event' => 'login',
+                'status' => 'success',
+                'ip_address' => $request->ip(),
+                'device' => $request->header('User-Agent'),
+                'location' => null,
+                'response_time_ms' => $responseTimeMs,
+                'meta' => null,
+            ]);
+        } catch (\Exception $e) {
+            // swallow logging errors so login still succeeds
+        }
 
         return response()->json([
             'success' => true,

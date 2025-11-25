@@ -1,62 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AdminSidebar from '../layout/AdminSidebar';
 import { ArrowLeft, Search, Download } from 'lucide-react';
+import axios from 'axios';
 
-// --- DUMMY DATA ---
-const loginHistoryData = [
-  {
-    id: 1,
-    user: { name: 'Nguyễn Văn A', email: 'nguyenvana@example.com', avatar: 'https://i.pravatar.cc/40?u=1' },
-    loginTime: '2025-10-31 09:15:30',
-    device: 'Windows Desktop',
-    location: 'Hồ Chí Minh, Vietnam',
-    ipAddress: '118.70.123.45',
-    status: 'Thành công',
-    responseTime: '350ms',
-  },
-  {
-    id: 2,
-    user: { name: 'Trần Thị B', email: 'tranthib@example.com', avatar: 'https://i.pravatar.cc/40?u=2' },
-    loginTime: '2025-10-31 08:45:10',
-    device: 'iPhone 15 Pro',
-    location: 'Hà Nội, Vietnam',
-    ipAddress: '27.72.98.110',
-    status: 'Thất bại',
-    responseTime: '1200ms',
-  },
-  {
-    id: 3,
-    user: { name: 'Lê Văn C', email: 'levanc@example.com', avatar: 'https://i.pravatar.cc/40?u=3' },
-    loginTime: '2025-10-30 22:10:05',
-    device: 'Macbook Pro',
-    location: 'Đà Nẵng, Vietnam',
-    ipAddress: '14.225.19.87',
-    status: 'Thành công',
-    responseTime: '420ms',
-  },
-    {
-    id: 4,
-    user: { name: 'Phạm Thị D', email: 'phamthid@example.com', avatar: 'https://i.pravatar.cc/40?u=4' },
-    loginTime: '2025-10-30 19:30:15',
-    device: 'Android Phone',
-    location: 'Hồ Chí Minh, Vietnam',
-    ipAddress: '113.161.78.54',
-    status: 'Bị chặn',
-    responseTime: 'N/A',
-  },
-  {
-    id: 5,
-    user: { name: 'Nguyễn Văn A', email: 'nguyenvana@example.com', avatar: 'https://i.pravatar.cc/40?u=1' },
-    loginTime: '2025-10-30 15:05:45',
-    device: 'Windows Desktop',
-    location: 'Hồ Chí Minh, Vietnam',
-    ipAddress: '118.70.123.45',
-    status: 'Thành công',
-    responseTime: '380ms',
-  },
-];
-// --- END DUMMY DATA ---
+const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+
 
 const StatCard = ({ title, value, colorClass }) => (
   <div className={`bg-white p-5 rounded-lg shadow`}>
@@ -84,12 +33,74 @@ const StatusPill = ({ status }) => {
   return <span className={`${baseStyle} ${specificStyle}`}>{status}</span>;
 };
 
+const mapStatusToLabel = (status) => {
+  if (!status) return 'N/A';
+  switch (status) {
+    case 'success': return 'Thành công';
+    case 'failed': return 'Thất bại';
+    case 'blocked': return 'Bị chặn';
+    default: return status;
+  }
+};
+
+const formatDateTime = (dateTimeStr) => {
+  if (!dateTimeStr) return 'N/A';
+  try {
+    const date = new Date(dateTimeStr);
+    return date.toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  } catch (e) {
+    return dateTimeStr;
+  }
+};
+
 export default function AdminActivityHistoryPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('Tất cả');
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => { fetchLogs(); }, []);
+
+  const fetchLogs = async () => {
+    const token = localStorage.getItem('authToken');
+    if (!token) return;
+    setLoading(true);
+    try {
+      const resp = await axios.get(`${API_URL}/api/activity-logs`, { headers: { Authorization: `Bearer ${token}` } });
+      // Laravel pagination returns data in resp.data.data
+      const data = resp.data.data ?? resp.data;
+      setLogs(data.map(l => ({
+        id: l.id,
+        user: {
+          name: l.username || l.user?.username || 'N/A',
+          email: l.user?.email || '',
+          avatar: `https://i.pravatar.cc/40?u=${l.user?.email || l.username || l.id}`,
+        },
+        loginTime: formatDateTime(l.created_at),
+        // Per request: always show "Laptop" for device and location in UI
+        device: 'Laptop',
+        location: 'Tp.HCM',
+        ipAddress: l.ip_address || 'N/A',
+        status: mapStatusToLabel(l.status),
+        responseTime: l.response_time_ms ? `${l.response_time_ms}ms` : 'N/A',
+      })));
+    } catch (err) {
+      console.error('Failed to fetch activity logs', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredData = useMemo(() => {
-    return loginHistoryData
+    return logs
       .filter(item => {
         if (statusFilter === 'Tất cả') return true;
         return item.status === statusFilter;
@@ -98,18 +109,18 @@ export default function AdminActivityHistoryPage() {
         const term = searchTerm.toLowerCase();
         return (
           item.user.name.toLowerCase().includes(term) ||
-          item.user.email.toLowerCase().includes(term) ||
+          (item.user.email && item.user.email.toLowerCase().includes(term)) ||
           item.ipAddress.includes(term)
         );
       });
-  }, [searchTerm, statusFilter]);
+  }, [logs, searchTerm, statusFilter]);
 
   const stats = useMemo(() => ({
-    total: loginHistoryData.length,
-    success: loginHistoryData.filter(i => i.status === 'Thành công').length,
-    failed: loginHistoryData.filter(i => i.status === 'Thất bại').length,
-    blocked: loginHistoryData.filter(i => i.status === 'Bị chặn').length,
-  }), [loginHistoryData]);
+    total: logs.length,
+    success: logs.filter(i => i.status === 'Thành công').length,
+    failed: logs.filter(i => i.status === 'Thất bại').length,
+    blocked: logs.filter(i => i.status === 'Bị chặn').length,
+  }), [logs]);
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">

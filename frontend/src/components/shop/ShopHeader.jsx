@@ -23,8 +23,8 @@ const ShopHeader = ({ onSearch }) => {
             <Link to="/shop" className="text-gray-700 hover:text-blue-600 font-medium">
               Sản phẩm
             </Link>
-            <Link to="/shop/about" className="text-gray-700 hover:text-blue-600 font-medium">
-              Giới thiệu
+             <Link to="/shop/posts" className="text-gray-700 hover:text-blue-600 font-medium">
+              Bài viết
             </Link>
             <Link to="/shop/contact" className="text-gray-700 hover:text-blue-600 font-medium">
               Liên hệ

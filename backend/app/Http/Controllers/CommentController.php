@@ -5,16 +5,22 @@ namespace App\Http\Controllers;
 use App\Models\Comment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Purifier;
 
 class CommentController extends Controller
 {
+    protected function jsonError($message, $status = 400)
+{
+    return response()->json(['success' => false, 'message' => $message], $status);
+}
+
+
     public function __construct()
     {
-        // Các route không yêu cầu đăng nhập
         $this->middleware('auth:sanctum')->except(['index', 'show', 'getCommentsByPost']);
     }
 
-    // 🧩 Lấy danh sách tất cả bình luận
+    // Lấy tất cả comment
     public function index(Request $request)
     {
         $query = Comment::with('user', 'post')->orderByDesc('created_at');
@@ -23,36 +29,46 @@ class CommentController extends Controller
             $query->where('post_id', $request->post_id);
         }
 
-        return response()->json($query->get()->map(function ($comment) {
+        $comments = $query->get()->map(function ($comment) {
             return [
                 'id' => $comment->comment_id,
                 'user_name' => $comment->user->username ?? 'Ẩn danh',
-                'content' => html_entity_decode($comment->content),
+                'user_email' => $comment->user->email ?? 'default@example.com',
+                'user_id' => $comment->user_id,
+                'content' => $comment->content, // raw HTML
                 'created_at' => $comment->created_at,
             ];
-        }));
-    }
-
-    // 🧩 Lấy comment theo post
-    public function getCommentsByPost($postId)
-    {
-        $comments = Comment::with('user')
-            ->where('post_id', $postId)
-            ->orderBy('created_at', 'asc')
-            ->get()
-            ->map(function ($comment) {
-                return [
-                    'id' => $comment->comment_id,
-                    'user_name' => $comment->user->username ?? 'Ẩn danh',
-                    'content' => html_entity_decode($comment->content),
-                    'created_at' => $comment->created_at,
-                ];
-            });
+        });
 
         return response()->json($comments);
     }
 
-    // 🧩 Xem chi tiết 1 comment
+    // Lấy comment theo post
+    public function getCommentsByPost($postId)
+{
+    $comments = Comment::with(['user', 'replies.user', 'replies.replies'])
+        ->where('post_id', $postId)
+        ->orderBy('created_at', 'asc')
+        ->get()
+        ->map(function ($comment) {
+            return [
+                'id' => $comment->comment_id,
+                'post_id' => $comment->post_id,
+                'user_id' => $comment->user_id,
+                'user_name' => $comment->user->username ?? 'Ẩn danh',
+                'user_email' => $comment->user->email ?? 'default@example.com',
+                'content' => $comment->content,
+                'parent_id' => $comment->parent_id,
+                'created_at' => $comment->created_at,
+            ];
+        });
+
+    return response()->json($comments);
+}
+
+
+
+    // Xem chi tiết 1 comment
     public function show($id)
     {
         $comment = Comment::with(['user', 'post'])->findOrFail($id);
@@ -60,109 +76,121 @@ class CommentController extends Controller
         return response()->json([
             'id' => $comment->comment_id,
             'user_name' => $comment->user->username ?? 'Ẩn danh',
+            'user_email' => $comment->user->email ?? 'default@example.com',
+            'user_id' => $comment->user_id,
             'post_title' => $comment->post->title ?? 'Không xác định',
-            'content' => $comment->content,
+            'content' => $comment->content, // raw HTML
             'created_at' => $comment->created_at,
         ]);
     }
 
-    // 🧩 Thêm bình luận mới (chỉ user login)
-    // Thêm bình luận mới
-public function store(Request $request)
+    // Thêm comment mới
+    
+ public function store(Request $request)
 {
     $validator = Validator::make($request->all(), [
-        'post_id' => 'required|exists:posts,post_id',
-        'content' => 'required|string|max:2000',
+        'post_id'   => 'required|exists:posts,post_id',
+        'content'   => 'required|string|max:5000',
+        'parent_id' => 'nullable|exists:comments,comment_id',
     ]);
 
     if ($validator->fails()) {
-        return response()->json(['errors' => $validator->errors()], 422);
+        return response()->json([
+            'success' => false,
+            'errors'  => $validator->errors()
+        ], 422);
     }
 
     $user = auth()->user();
-    if (!$user) {
-        return response()->json(['message' => 'Bạn cần đăng nhập để bình luận.'], 403);
-    }
+    if (!$user) return $this->jsonError("Bạn cần đăng nhập.", 403);
 
-    try {
-        $validated = $validator->validated();
+    $cleanContent = Purifier::clean($request->content);
 
-        // Nếu nội dung chỉ là text, bọc <p>
-        $content = $validated['content'];
-        if (!str_starts_with(trim($content), '<')) {
-            $content = '<p>' . e($content) . '</p>';
-        }
+    $comment = Comment::create([
+        'post_id'   => $request->post_id,
+        'user_id'   => $user->user_id,
+        'parent_id' => $request->parent_id,
+        'content'   => $cleanContent,
+    ]);
 
-        $comment = Comment::create([
-            'post_id' => $validated['post_id'],
-            'user_id' => $user->user_id,
-            'content' => $content,
-        ]);
-
-        return response()->json([
-            'message' => 'Thêm bình luận thành công!',
-            'data' => [
-                'id' => $comment->comment_id,
-                'user_name' => $user->username,
-                'content' => $comment->content,
-                'created_at' => $comment->created_at,
-            ]
-        ], 201);
-
-    } catch (\Exception $e) {
-        return response()->json([
-            'message' => 'Thêm bình luận thất bại.',
-            'error' => $e->getMessage(),
-        ], 500);
-    }
+    return response()->json([
+        'success' => true,
+        'message' => "Thêm bình luận thành công!",
+        'data' => [
+            'id'         => $comment->comment_id,
+            'post_id'    => $comment->post_id,
+            'user_id'    => $comment->user_id,
+            'parent_id'  => $comment->parent_id,
+            'user_name'  => $user->username,
+            'user_email' => $user->email,
+            'content'    => $comment->content,
+            'created_at' => $comment->created_at,
+        ]
+    ], 201);
 }
 
 
-    // 🧩 Cập nhật bình luận
+
+    // Cập nhật comment
     public function update(Request $request, $id)
-    {
-        $comment = Comment::findOrFail($id);
-        $user = auth()->user();
+{
+    $comment = Comment::find($id);
+    if (!$comment) return $this->jsonError("Comment không tồn tại.", 404);
 
-        // Chỉ admin hoặc người tạo comment mới được sửa
-        if ($user->role !== 'admin' && $comment->user_id !== $user->user_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bạn không có quyền chỉnh sửa bình luận này!',
-            ], 403);
-        }
+    $user = auth()->user();
+    if (!$user) return $this->jsonError("Bạn cần đăng nhập.", 403);
+    if ($user->role !== "admin" && $comment->user_id !== $user->user_id)
+        return $this->jsonError("Bạn không có quyền sửa bình luận này.", 403);
 
-        $validated = $request->validate([
-            'content' => 'required|string|max:2000',
-        ]);
+    $validator = Validator::make($request->all(), [
+        'content' => 'required|string|max:5000'
+    ]);
 
-        $comment->update(['content' => $validated['content']]);
-
+    if ($validator->fails()) {
         return response()->json([
-            'success' => true,
-            'message' => 'Cập nhật bình luận thành công!',
-            'data' => $comment
-        ]);
+            'success' => false,
+            'errors'  => $validator->errors()
+        ], 422);
     }
 
-    // 🧩 Xoá bình luận
+    $cleanContent = Purifier::clean($request->content);
+
+    $comment->content = $cleanContent;
+    $comment->save();
+
+    return response()->json([
+        'success' => true,
+        'message' => "Cập nhật bình luận thành công!",
+        'data' => [
+            'id'         => $comment->comment_id,
+            'content'    => $comment->content,
+            'user_id'    => $comment->user->user_id,
+            'user_name'  => $comment->user->username,
+            'user_email' => $comment->user->email,
+            'parent_id'  => $comment->parent_id,
+            'created_at' => $comment->created_at,
+        ]
+    ]);
+}
+
+    // Xoá comment
     public function destroy($id)
-    {
-        $comment = Comment::findOrFail($id);
-        $user = auth()->user();
+{
+    $comment = Comment::find($id);
+    if (!$comment) return $this->jsonError("Comment không tồn tại.", 404);
 
-        if ($user->role !== 'admin' && $comment->user_id !== $user->user_id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bạn không có quyền xóa bình luận này!',
-            ], 403);
-        }
+    $user = auth()->user();
+    if (!$user) return $this->jsonError("Bạn cần đăng nhập.", 403);
 
-        $comment->delete();
+    if ($user->role !== "admin" && $comment->user_id !== $user->user_id)
+        return $this->jsonError("Bạn không có quyền xóa bình luận này.", 403);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã xóa bình luận!'
-        ]);
-    }
+    $comment->delete();
+
+    return response()->json([
+        'success' => true,
+        'message' => "Đã xóa bình luận!"
+    ]);
+}
+
 }

@@ -94,18 +94,21 @@ export default function AdminPostPage() {
   }
 
   // === Lịch sử ===
-  async function handleViewHistory(id) {
-    try {
-      const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
-      if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
-      const data = await res.json();
-      setHistoryData(data);
-      setSelectedPostId(id);
-      setOpenHistory(true);
-    } catch (err) {
-      alert(err.message || "Không thể kết nối tới máy chủ.");
-    }
+async function handleViewHistory(id) {
+  try {
+    const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
+    if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
+    const data = await res.json();
+    // Lấy mảng versions
+    setHistoryData(data.versions || []);
+    setSelectedPostId(id);
+    setOpenHistory(true);
+  } catch (err) {
+    alert(err.message || "Không thể kết nối tới máy chủ.");
   }
+}
+
+
 
   // === Tạo bài viết ===
   const handleOpenCreate = () => {
@@ -358,7 +361,7 @@ export default function AdminPostPage() {
 
                     return (
                       <tr
-                        key={r.id}
+                        key={r.post_id}
                         className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                       >
                         <td className="px-4 py-3">
@@ -389,14 +392,14 @@ export default function AdminPostPage() {
                             <IconBtn
                               title="Xem chi tiết"
                               intent="primary"
-                              onClick={() => handleViewDetail(r.id)}
+                              onClick={() => handleViewDetail(r.post_id)}
                             >
                               <Eye size={16} />
                             </IconBtn>
                             <IconBtn
                               title="Lịch sử chỉnh sửa"
                               intent="info"
-                              onClick={() => handleViewHistory(r.id)}
+                              onClick={() => handleViewHistory(r.post_id)}
                             >
                               <Clock size={16} />
                             </IconBtn>
@@ -405,14 +408,14 @@ export default function AdminPostPage() {
                                 <IconBtn
                                   title="Sửa"
                                   intent="warning"
-                                  onClick={() => handleEdit(r.id)}
+                                  onClick={() => handleEdit(r.post_id)}
                                 >
                                   <Edit size={16} />
                                 </IconBtn>
                                 <IconBtn
                                   title="Xoá"
                                   intent="danger"
-                                  onClick={() => handleDelete(r.id)}
+                                  onClick={() => handleDelete(r.post_id)}
                                 >
                                   <Trash2 size={16} />
                                 </IconBtn>
@@ -850,32 +853,37 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
     is_trending: false,
   });
   const [categories, setCategories] = useState([]);
+  const [loadingCategories, setLoadingCategories] = useState(true);
 
-  // Lấy danh mục
+  // Load danh mục khi modal mở
   useEffect(() => {
     if (!open) return;
+    setLoadingCategories(true);
     fetch(`${API_URL}/api/postcategories`)
-      .then((res) => res.json())
-      .then((data) => setCategories(Array.isArray(data) ? data : []))
-      .catch(() => setCategories([]));
+      .then(res => res.json())
+      .then(data => setCategories(Array.isArray(data) ? data : []))
+      .catch(() => setCategories([]))
+      .finally(() => setLoadingCategories(false));
   }, [open, API_URL]);
 
-  // Gán dữ liệu bài viết vào form khi mở modal
+  // Gán dữ liệu bài viết khi post có và categories load xong
   useEffect(() => {
-    if (post) {
+    if (open && post && categories.length > 0) {
       setForm({
         title: post.title || "",
         excerpt: post.excerpt || "",
         content: post.content || "",
         status: post.status || "draft",
-        post_category_id: post.post_category_id || "",
+        post_category_id: post.post_category_id
+          ? String(post.post_category_id)
+          : "",
         is_trending: !!post.is_trending,
-        image: null,
+        image: null, // upload mới
       });
     }
-  }, [post]);
+  }, [open, post, categories]);
 
-  if (!open) return null;
+  if (!open || !post) return null;
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -891,22 +899,19 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
       formData.append("excerpt", form.excerpt);
       formData.append("content", form.content);
       formData.append("status", form.status);
-      formData.append("post_category_id", Number(form.post_category_id)); // ✅ ép kiểu thành số
+      formData.append("post_category_id", Number(form.post_category_id));
       formData.append("is_trending", form.is_trending ? 1 : 0);
       if (form.image) formData.append("image", form.image);
-      const token = localStorage.getItem("authToken");
+      formData.append("_method", "PUT"); // Laravel spoof PUT
 
-      const res = await fetch(`${API_URL}/api/posts/${post.id}`, {
-        method: "POST", // ⚠ Laravel PUT phải spoof qua POST + _method=PUT
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${API_URL}/api/posts/${post.post_id}`, {
+        method: "POST",
         headers: {
           Accept: "application/json",
           Authorization: token ? `Bearer ${token}` : "",
         },
-
-        body: (() => {
-          formData.append("_method", "PUT"); // ✅ spoof method
-          return formData;
-        })(),
+        body: formData,
       });
 
       const data = await res.json().catch(() => ({}));
@@ -925,6 +930,9 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
     }
   }
 
+  const user = JSON.parse(localStorage.getItem("userData") || "{}");
+  const isAdmin = user.role === "admin";
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
       <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
@@ -940,153 +948,157 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Tiêu đề */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600">
-              Tiêu đề
-            </label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-              required
-            />
-          </div>
+        {loadingCategories && (
+          <div className="text-center text-slate-500 py-10">Đang tải danh mục...</div>
+        )}
 
-          {/* Tóm tắt */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600">
-              Tóm tắt
-            </label>
-            <textarea
-              value={form.excerpt}
-              onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
-              className="w-full border rounded-lg px-3 py-2"
-            />
-          </div>
+        {!loadingCategories && (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Tiêu đề */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600">
+                Tiêu đề
+              </label>
+              <input
+                type="text"
+                value={form.title}
+                onChange={e => setForm({ ...form, title: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              />
+            </div>
 
-          {/* Danh mục */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600">
-              Danh mục bài viết
-            </label>
-            <select
-              value={form.post_category_id || ""}
-              onChange={(e) =>
-                setForm({ ...form, post_category_id: Number(e.target.value) })
-              } // ✅ ép kiểu
-              className="w-full border rounded-lg px-3 py-2"
-              required
-            >
-              <option value="">-- Chọn danh mục --</option>
-              {categories.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            {/* Tóm tắt */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600">
+                Tóm tắt
+              </label>
+              <textarea
+                value={form.excerpt}
+                onChange={e => setForm({ ...form, excerpt: e.target.value })}
+                className="w-full border rounded-lg px-3 py-2"
+              />
+            </div>
 
-          {/* Nội dung */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600">
-              Nội dung
-            </label>
-            <ReactQuill
-              value={form.content}
-              onChange={(value) => setForm({ ...form, content: value })}
-              theme="snow"
-            />
-          </div>
+            {/* Danh mục */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600">
+                Danh mục bài viết
+              </label>
+              <select
+                value={form.post_category_id}
+                onChange={e =>
+                  setForm({ ...form, post_category_id: e.target.value })
+                }
+                className="w-full border rounded-lg px-3 py-2"
+                required
+              >
+                <option value="">-- Chọn danh mục --</option>
+                {categories.map(cat => (
+                  <option
+                    key={cat.post_category_id}
+                    value={String(cat.post_category_id)}
+                  >
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Ảnh đại diện */}
-          <div>
-            <label className="block text-sm font-medium text-slate-600">
-              Ảnh mới (nếu muốn thay)
-            </label>
-            <input
-              type="file"
-              onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
-              className="w-full border rounded-lg px-3 py-2"
-              accept="image/*"
-            />
-          </div>
+            {/* Nội dung */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600">
+                Nội dung
+              </label>
+              <ReactQuill
+                value={form.content}
+                onChange={value => setForm({ ...form, content: value })}
+                theme="snow"
+              />
+            </div>
 
-          {/* Trạng thái + Trending */}
-          <div className="flex items-center justify-between gap-4">
-            {(() => {
-              const user = JSON.parse(localStorage.getItem("userData") || "{}");
-              const isAdmin = user.role === "admin";
+            {/* Ảnh */}
+            <div>
+              <label className="block text-sm font-medium text-slate-600">
+                Ảnh mới (nếu muốn thay)
+              </label>
+              <input
+                type="file"
+                onChange={e => setForm({ ...form, image: e.target.files[0] })}
+                className="w-full border rounded-lg px-3 py-2"
+                accept="image/*"
+              />
+              {form.image ? (
+                <img
+                  src={URL.createObjectURL(form.image)}
+                  alt="preview"
+                  className="w-24 h-24 object-cover rounded-lg mt-2"
+                />
+              ) : post.image ? (
+                <img
+                  src={`${API_URL}/images/posts/${post.image}`}
+                  alt="current"
+                  className="w-24 h-24 object-cover rounded-lg mt-2"
+                />
+              ) : null}
+            </div>
 
-              if (isAdmin) {
-                return (
-                  <div className="flex items-center mt-6 gap-4">
-                    <select
-                      value={form.status}
-                      onChange={(e) =>
-                        setForm({ ...form, status: e.target.value })
-                      }
-                      className="border rounded-lg px-3 py-2 text-sm"
-                    >
-                      <option value="draft">Bản nháp</option>
-                      <option value="published">Đã xuất bản</option>
-                    </select>
-
-                    <div className="flex items-center">
-                      <input
-                        id="is_trending_edit"
-                        type="checkbox"
-                        checked={form.is_trending}
-                        onChange={(e) =>
-                          setForm({ ...form, is_trending: e.target.checked })
-                        }
-                        className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
-                      />
-                      <label
-                        htmlFor="is_trending_edit"
-                        className="ml-2 text-sm text-slate-700 select-none"
-                      >
-                        Nổi bật (Trending)
-                      </label>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Nếu không phải admin, chỉ hiển thị thông tin không thể chỉnh
-              return (
-                <div className="text-sm text-slate-500">
-                  Bài viết sẽ ở trạng thái <strong>{form.status}</strong> và
-                  Trending {form.is_trending ? "✅" : "❌"} (chỉ admin mới có
-                  thể chỉnh)
+            {/* Trạng thái + Trending */}
+            {isAdmin && (
+              <div className="flex items-center mt-4 gap-4">
+                <select
+                  value={form.status}
+                  onChange={e => setForm({ ...form, status: e.target.value })}
+                  className="border rounded-lg px-3 py-2 text-sm"
+                >
+                  <option value="draft">Bản nháp</option>
+                  <option value="published">Đã xuất bản</option>
+                </select>
+                <div className="flex items-center">
+                  <input
+                    id="is_trending_edit"
+                    type="checkbox"
+                    checked={form.is_trending}
+                    onChange={e =>
+                      setForm({ ...form, is_trending: e.target.checked })
+                    }
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
+                  />
+                  <label
+                    htmlFor="is_trending_edit"
+                    className="ml-2 text-sm text-slate-700 select-none"
+                  >
+                    Nổi bật (Trending)
+                  </label>
                 </div>
-              );
-            })()}
-          </div>
+              </div>
+            )}
 
-          {/* Nút hành động */}
-          <div className="mt-6 flex justify-end gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              Huỷ
-            </button>
-            <button
-              type="submit"
-              className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm hover:bg-indigo-700"
-            >
-              Lưu thay đổi
-            </button>
-          </div>
-        </form>
+            {/* Nút */}
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm hover:bg-slate-50"
+              >
+                Huỷ
+              </button>
+              <button
+                type="submit"
+                className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm hover:bg-indigo-700"
+              >
+                Lưu thay đổi
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   );
 }
+
+
+
 /* === Modal Lịch sử chỉnh sửa === */
 function HistoryModal({ open, onClose, history, postId }) {
   if (!open) return null;
@@ -1097,11 +1109,14 @@ function HistoryModal({ open, onClose, history, postId }) {
     if (!confirm("Bạn có chắc chắn muốn khôi phục phiên bản này?")) return;
 
     try {
+      const token = localStorage.getItem("authToken");
       const res = await fetch(
         `${API_URL}/api/posts/${postId}/restore/${versionId}`,
         {
           method: "POST",
-          headers: { Accept: "application/json" },
+          headers: { Accept: "application/json" ,
+            Authorization: token ? `Bearer ${token}` : "",
+          },
         }
       );
 
@@ -1154,7 +1169,7 @@ function HistoryModal({ open, onClose, history, postId }) {
             <tbody>
               {history.map((h, i) => (
                 <tr
-                  key={h.id}
+                  key={h.post_version_id}
                   className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                 >
                   <td className="px-4 py-2">{i + 1}</td>
@@ -1163,7 +1178,7 @@ function HistoryModal({ open, onClose, history, postId }) {
                   <td className="px-4 py-2">{formatDate(h.updated_at)}</td>
                   <td className="px-4 py-2 text-right">
                     <button
-                      onClick={() => handleRestore(h.id)}
+                      onClick={() => handleRestore(h.post_version_id)}
                       className="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 text-sm font-medium"
                     >
                       🔄 Khôi phục

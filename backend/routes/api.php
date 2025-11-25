@@ -50,6 +50,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/user', fn(Request $request) => $request->user());
 
+    // Activity logs for current user (or all if admin)
+    Route::get('/activity-logs', [ActivityLogController::class, 'index']);
+
     // Profile routes
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
@@ -67,19 +70,23 @@ Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost
 Route::get('/comments/export', [CommentController::class, 'export']);
 Route::apiResource('comments', CommentController::class);
 
-// Public routes
-Route::get('/posts', [PostController::class, 'index']);       // public
-Route::get('/posts/{id}', [PostController::class, 'show']);  // public
-Route::get('/post-statistics', [PostController::class, 'statistics']);
-Route::get('/posts/{id}/versions', [PostController::class, 'versions']); 
-Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']);
+// --------------------
+// Public routes (không cần đăng nhập)
+// --------------------
+Route::get('/posts', [PostController::class, 'index']);               // Danh sách bài viết
+Route::get('/posts/{id}', [PostController::class, 'show']);          // Chi tiết bài viết
+Route::get('/post-statistics', [PostController::class, 'statistics']); // Thống kê
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']);          // Lịch sử chỉnh sửa
+Route::get('/posts/{id}/versions/{versionId}', [PostController::class, 'showVersion']); // Xem chi tiết phiên bản
 
-// Protected routes (auth required)
+// --------------------
+// Protected routes (yêu cầu đăng nhập)
+// --------------------
 Route::middleware('auth:sanctum')->group(function () {
-    Route::post('/posts', [PostController::class, 'store']);
-    Route::put('/posts/{id}', [PostController::class, 'update']);
-    Route::delete('/posts/{id}', [PostController::class, 'destroy']);
-    Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
+    Route::post('/posts', [PostController::class, 'store']);                           // Tạo bài viết mới
+    Route::put('/posts/{id}', [PostController::class, 'update']);                     // Cập nhật bài viết
+    Route::delete('/posts/{id}', [PostController::class, 'destroy']);                 // Xóa bài viết
+    Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']); // Khôi phục từ phiên bản cũ
 });
 
 
@@ -91,6 +98,7 @@ Route::apiResource('postcategories', PostCategoryController::class);
 Route::controller(CategoryController::class)->group(function () {
     Route::get('/categories', 'index');
     Route::post('/categories', 'store');
+    Route::put('/categories/reorder', 'reorder');
     Route::post('/categories/import/preview', 'importPreview');
     Route::post('/categories/import', 'import');
     Route::put('/categories/{id}', 'update');
