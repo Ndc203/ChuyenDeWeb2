@@ -1,16 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { User, Lock, Save, MapPin, Phone, Mail, Calendar } from 'lucide-react';
+import { User, Lock, Save, MapPin, Phone, Mail, Calendar, Camera } from 'lucide-react';
 import ShopHeader from '../../components/shop/ShopHeader';
 import AddressSelector from '../../components/AddressSelector';
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+
+  // Helper lấy URL avatar
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    // Nối với đường dẫn storage (giống ProductDetail)
+    return `${API_URL.replace('/api', '')}/storage/${path}`; 
+};
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('info'); // 'info' hoặc 'password'
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [avatarFile, setAvatarFile] = useState(null); // Lưu file người dùng chọn
+  const [previewUrl, setPreviewUrl] = useState(null); // Để hiển thị xem trước
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -21,6 +32,7 @@ export default function ProfilePage() {
   const [passData, setPassData] = useState({
     current_password: '', new_password: '', new_password_confirmation: ''
   });
+
 
   // 1. Tải thông tin User
   useEffect(() => {
@@ -57,14 +69,44 @@ export default function ProfilePage() {
     setMessage({ type: '', text: '' });
     
     try {
-      const res = await axios.put(`${API_URL}/api/me/update`, formData);
+      // Tạo FormData
+      const data = new FormData();
       
-      // Cập nhật lại LocalStorage để Header hiển thị tên mới ngay
+      // Đưa dữ liệu chữ vào
+      data.append('full_name', formData.full_name);
+      data.append('email', formData.email);
+      data.append('phone', formData.phone || '');
+      data.append('address', formData.address || '');
+      data.append('date_of_birth', formData.date_of_birth || '');
+      data.append('gender', formData.gender || '');
+
+      // Đưa file ảnh vào (nếu có chọn)
+      if (avatarFile) {
+        data.append('avatar', avatarFile);
+      }
+
+      // Cần thêm dòng này để Laravel hiểu đây là PUT request với FormData
+      data.append('_method', 'PUT'); 
+
+      const res = await axios.post(`${API_URL}/api/me/update`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' } // Header bắt buộc cho file
+      });
+      
       localStorage.setItem('userInfo', JSON.stringify(res.data.user));
-      
+      setUser(res.data.user); // Cập nhật state user
       setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
+      
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Lỗi cập nhật.' });
+    }
+  };
+
+  // Hàm xử lý khi chọn file
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setPreviewUrl(URL.createObjectURL(file)); // Tạo link xem trước
     }
   };
 
@@ -101,10 +143,40 @@ export default function ProfilePage() {
             {/* Sidebar Menu */}
             <div className="bg-white rounded-xl shadow-sm p-4 h-fit">
                 <div className="flex items-center gap-3 mb-6 px-2">
-                    <img 
-                        src={`https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random`} 
-                        alt="Avatar" className="w-12 h-12 rounded-full"
-                    />
+                    <div className="relative group w-fit mx-auto">
+                        
+                        {/* 1. TẠO CÁI KHUNG TRÒN ĐỂ CẮT ẢNH */}
+                        {/* - w-24 h-24: Kích thước khung */}
+                        {/* - rounded-full: Làm tròn khung */}
+                        {/* - overflow-hidden: CỰC QUAN TRỌNG - Cắt bỏ mọi thứ lòi ra ngoài khung tròn */}
+                        {/* - border-4... shadow-md: Viền và bóng */}
+                        <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-white shadow-md bg-gray-100 relative">
+                            <img 
+                                // Ưu tiên hiển thị ảnh xem trước -> ảnh thật -> ảnh mặc định
+                                src={previewUrl || getAvatarUrl(user?.profile?.avatar) || `https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random`} 
+                                alt="Avatar" 
+                                // 2. ÉP ẢNH LẤP ĐẦY KHUNG */}
+                                // - w-full h-full: Chiếm hết diện tích khung
+                                // - object-cover: CỰC QUAN TRỌNG - Zoom ảnh lên để lấp đầy mà không bị méo
+                                className="w-full h-full object-cover"
+                            />
+                        </div>
+                        
+                        {/* Nút chọn ảnh (Icon Camera) - Nằm đè lên góc dưới phải của khung */}
+                        <label 
+                            htmlFor="avatar-upload" 
+                            className="absolute bottom-0 right-0 bg-gray-800 text-white p-2 rounded-full cursor-pointer hover:bg-blue-600 transition-colors shadow-sm z-10 transform translate-x-1 translate-y-1"
+                        >
+                            <Camera size={16} />
+                        </label>
+                        <input 
+                            id="avatar-upload" 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
+                    </div>
                     <div>
                         <p className="font-bold text-sm text-gray-900">{user?.profile?.full_name}</p>
                         <p className="text-xs text-gray-500">{user?.email}</p>
