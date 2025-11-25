@@ -3,8 +3,7 @@ import { Plus, Search, Edit, Trash2, Tag, Percent, BarChart, CheckCircle, XCircl
 import AdminSidebar from "../../layout/AdminSidebar.jsx";
 import AddCouponModal from "./AddCouponModal.jsx";
 import EditCouponModal from "./EditCouponModal.jsx";
-
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+import axiosClient from '../../../api/axiosClient.js'; // Import đúng
 
 // Helper function to format currency
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -12,16 +11,7 @@ const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', { style: 'curre
 // Helper function to format date
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
-  
-  const options = {
-    day: '2-digit', 
-    month: '2-digit', 
-    year: 'numeric',
-    hour: '2-digit', 
-    minute: '2-digit',
-    hour12: false // <-- Chìa khóa để bật 24h
-  };
-  
+  const options = { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false };
   return new Date(dateString).toLocaleString('vi-VN', options);
 };
 
@@ -45,9 +35,7 @@ const StatCard = ({ icon, title, value, color, loading }) => (
 // Badge Components
 const TypeBadge = ({ type }) => {
   const isPercent = type === 'percentage';
-  const style = isPercent
-    ? "bg-blue-100 text-blue-700"
-    : "bg-purple-100 text-purple-700";
+  const style = isPercent ? "bg-blue-100 text-blue-700" : "bg-purple-100 text-purple-700";
   return <span className={`px-2.5 py-1 text-xs font-medium rounded-full inline-flex items-center gap-1.5 ${style}`}>
     {isPercent ? <Percent size={12} /> : <Tag size={12} />}
     {isPercent ? 'Phần trăm' : 'Số tiền'}
@@ -78,7 +66,6 @@ const StatusBadge = ({ status }) => {
 
 const Pagination = ({ pagination, onPageChange }) => {
   if (!pagination || pagination.total <= pagination.per_page) return null;
-
   return (
     <div className="p-4 flex items-center justify-between flex-wrap gap-4">
       <p className="text-sm text-slate-600">
@@ -102,25 +89,20 @@ export default function AdminCouponsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false); //add coupon modal
-  // 'refreshTrigger' là một "mẹo" để làm mới bảng
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedCoupon, setSelectedCoupon] = useState(null); // <-- Để lưu coupon đang được sửa
-
-  // State mới để theo dõi thời gian
+  const [selectedCoupon, setSelectedCoupon] = useState(null);
   const [currentTime, setCurrentTime] = useState(() => new Date());
 
-  // useEffect để cập nhật 'currentTime' sau mỗi 30 giây
   useEffect(() => {
     const intervalId = setInterval(() => {
       setCurrentTime(new Date());
-    }, 5000); // 30,000 ms = 30 giây
-
-    // Dọn dẹp khi component bị gỡ
+    }, 5000);
     return () => clearInterval(intervalId);
-  }, []); // [] nghĩa là chỉ chạy 1 lần khi tải trang
+  }, []);
 
+  // 1. GET LIST - SỬA LẠI DÙNG AXIOS ĐÚNG CÁCH
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams({
@@ -130,33 +112,28 @@ export default function AdminCouponsPage() {
       type: typeFilter,
     });
 
-    fetch(`${API_URL}/api/coupons?${params.toString()}`,
-      { cache: 'no-store', headers: {
-    'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-    'Accept': 'application/json'
-} }) // tránh cache để luôn lấy dữ liệu mới nhất(nhất là sau khi thêm mới)
+    // axiosClient trả về response object, dữ liệu nằm trong .data
+    axiosClient.get(`/coupons?${params.toString()}`)
       .then((res) => {
-        if (!res.ok) {
-          throw new Error(`Lỗi HTTP! Trạng thái: ${res.status}`);
-        }
-        return res.json();
+        // Axios tự động check status code, nếu lỗi nó nhảy xuống catch
+        // Dữ liệu API trả về nằm trong res.data
+        setPaginationData(res.data); 
       })
-      .then((data) => setPaginationData(data))
       .catch((error) => {
-        console.error("Không thể tải dữ liệu mã giảm giá:", error);
+        console.error("Không thể tải dữ liệu:", error);
         setPaginationData(null);
       })
       .finally(() => setLoading(false));
   }, [currentPage, searchQuery, statusFilter, typeFilter, refreshTrigger]);
 
+  // 2. GET STATS - SỬA LẠI DÙNG AXIOS
   useEffect(() => {
     setLoadingStats(true);
-    fetch(`${API_URL}/api/coupons/statistics`)
-      .then(res => res.json())
-      .then(data => setStats(data))
+    axiosClient.get('/coupons/statistics') // Bỏ luôn API_URL vì axiosClient đã có baseURL
+      .then(res => setStats(res.data))
       .catch(error => console.error("Không thể tải thống kê:", error))
       .finally(() => setLoadingStats(false));
-  }, []);
+  }, [refreshTrigger]); // Thêm refreshTrigger để cập nhật thống kê khi xóa/sửa
 
   const getCouponStatus = useCallback((coupon) => {
     const now = currentTime;
@@ -175,73 +152,40 @@ export default function AdminCouponsPage() {
     return paginationData.data.map(c => ({ ...c, derived_status: getCouponStatus(c) }));
   }, [paginationData, getCouponStatus]);
 
-
-  //sửa coupon
   const handleOpenEditModal = (coupon) => {
-    setSelectedCoupon(coupon); // 1. Lưu coupon được chọn
-    setIsEditModalOpen(true);    // 2. Mở modal
+    setSelectedCoupon(coupon);
+    setIsEditModalOpen(true);
   };
 
-  //xóa coupon
+  // 3. DELETE - SỬA LẠI DÙNG AXIOS
   const handleDelete = async (id) => {
-    // 1. Xác nhận trước khi xóa
-    if (!confirm("Bạn có chắc muốn xoá mã giảm giá này? Thao tác này không thể hoàn tác.")) {
-      return; // Người dùng hủy
-    }
+    if (!confirm("Bạn có chắc muốn xoá mã giảm giá này? Thao tác này không thể hoàn tác.")) return;
 
     try {
-      // 2. Gọi API với method DELETE
-      const response = await fetch(`${API_URL}/api/coupons/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Accept': 'application/json',
-          // 'Authorization': 'Bearer ...' // Thêm nếu cần
-        },
-      });
+      // Dùng axiosClient.delete thay vì fetch
+      await axiosClient.delete(`/coupons/${id}`);
 
-      // 3. Xử lý kết quả
-      if (!response.ok) {
-        // Nếu server trả về lỗi (vd: 404, 500)
-        throw new Error('Xoá thất bại!');
-      }
-
-      // 4. Thành công -> Tải lại bảng
       alert('Đã xoá mã giảm giá thành công!');
-      setCurrentPage(1); // Đưa về trang 1
-      setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
+      setCurrentPage(1);
+      setRefreshTrigger(prev => prev + 1);
 
     } catch (error) {
-      console.error("Lỗi khi xoá mã giảm giá:", error);
+      console.error("Lỗi khi xoá:", error);
       alert('Đã xảy ra lỗi khi xoá mã giảm giá.');
     }
   };
 
-  //bật/tắt trạng thái của coupon
+  // 4. TOGGLE STATUS - SỬA LẠI DÙNG AXIOS
   const handleToggleStatus = async (coupon) => {
-    // 1. Hỏi xác nhận (nếu muốn)
     const action = coupon.is_active ? "Vô hiệu hóa" : "Kích hoạt";
-    if (!confirm(`Bạn có chắc muốn ${action} mã [${coupon.code}]?`)) {
-      return;
-    }
+    if (!confirm(`Bạn có chắc muốn ${action} mã [${coupon.code}]?`)) return;
 
     try {
-      // 2. Gửi request PATCH (cập nhật một phần)
-      // Chúng ta sẽ tạo API này ở back-end
-      const response = await fetch(`${API_URL}/api/coupons/${coupon.coupon_id}/toggle`, {
-        method: 'PATCH', // PATCH là chuẩn nhất để cập nhật 1 trường
-        headers: {
-          'Accept': 'application/json',
-          // 'Authorization': 'Bearer ...' // Thêm nếu cần
-        },
-      });
+      // Dùng axiosClient.patch thay vì fetch
+      await axiosClient.patch(`/coupons/${coupon.coupon_id}/toggle`);
 
-      if (!response.ok) {
-        throw new Error('Cập nhật trạng thái thất bại!');
-      }
-
-      // 3. Thành công -> Tải lại bảng
       alert(`Đã ${action} mã giảm giá!`);
-      setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
+      setRefreshTrigger(prev => prev + 1);
 
     } catch (error) {
       console.error("Lỗi khi đổi trạng thái:", error);
@@ -250,13 +194,11 @@ export default function AdminCouponsPage() {
   };
 
   return (
-    // Fragment cho phép return nhiều element
     <Fragment>
       <div className="min-h-screen flex bg-slate-50 text-slate-800">
         <AdminSidebar />
         <main className="flex-1 w-full min-w-0">
           <div className="w-full px-6 md:px-10 py-6">
-            {/* 1. Header */}
             <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý Mã giảm giá</h1>
@@ -267,7 +209,6 @@ export default function AdminCouponsPage() {
               </button>
             </div>
 
-            {/* 2. Dashboard */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-6">
               <StatCard icon={<BarChart size={24} className="text-slate-500" />} title="Tổng mã giảm giá" value={stats?.total ?? '0'} color="bg-slate-100" loading={loadingStats} />
               <StatCard icon={<CheckCircle size={24} className="text-green-600" />} title="Đang hoạt động" value={stats?.active ?? '0'} color="bg-green-100" loading={loadingStats} />
@@ -275,7 +216,7 @@ export default function AdminCouponsPage() {
               <StatCard icon={<Zap size={24} className="text-orange-600" />} title="Đã hết lượt" value={stats?.usedUp ?? '0'} color="bg-orange-100" loading={loadingStats} />
             </div>
 
-            {/* 3. Toolbar */}
+            {/* Toolbar - Giữ nguyên */}
             <div className="p-4 bg-white rounded-xl shadow-sm mb-6 flex flex-wrap items-center justify-between gap-4">
               <div className="relative flex-grow max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
@@ -288,11 +229,7 @@ export default function AdminCouponsPage() {
                 />
               </div>
               <div className="flex items-center gap-4">
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                   <option value="all">Tất cả trạng thái</option>
                   <option value="Hoạt động">Hoạt động</option>
                   <option value="Hết hạn">Hết hạn</option>
@@ -300,11 +237,7 @@ export default function AdminCouponsPage() {
                   <option value="Sắp diễn ra">Sắp diễn ra</option>
                   <option value="Vô hiệu hóa">Vô hiệu hóa</option>
                 </select>
-                <select
-                  value={typeFilter}
-                  onChange={e => setTypeFilter(e.target.value)}
-                  className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                >
+                <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} className="w-full md:w-auto border-slate-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm">
                   <option value="all">Tất cả loại</option>
                   <option value="percentage">Phần trăm</option>
                   <option value="fixed_amount">Số tiền</option>
@@ -312,7 +245,7 @@ export default function AdminCouponsPage() {
               </div>
             </div>
 
-            {/* 4. Data Table */}
+            {/* Data Table */}
             <div className="overflow-hidden shadow-sm rounded-xl bg-white">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -334,13 +267,10 @@ export default function AdminCouponsPage() {
                     ) : (
                       processedCoupons.map((coupon) => (
                         <tr key={coupon.coupon_id} className="hover:bg-slate-50">
-                          {/* Mã giảm giá */}
                           <td className="px-5 py-4 align-top">
                             <p className="font-semibold text-slate-800 font-mono">{coupon.code}</p>
                             <p className="text-slate-500 text-xs mt-1 truncate max-w-xs">{coupon.description}</p>
                           </td>
-
-                          {/* Loại & Giá trị */}
                           <td className="px-5 py-4 align-top">
                             <TypeBadge type={coupon.type} />
                             <p className="font-semibold text-slate-700 mt-1.5">
@@ -350,42 +280,25 @@ export default function AdminCouponsPage() {
                               <p className="text-xs text-slate-500">Tối đa: {formatCurrency(coupon.max_value)}</p>
                             )}
                           </td>
-
-                          {/* Điều kiện & Thời gian */}
                           <td className="px-5 py-4 align-top text-slate-600">
                             <p>Đơn tối thiểu: <span className="font-medium text-slate-700">{formatCurrency(coupon.min_order_value)}</span></p>
                             <p className="mt-1">Hiệu lực: <span className="font-medium text-slate-700">{formatDate(coupon.start_date)} - {formatDate(coupon.end_date)}</span></p>
                           </td>
-
-                          {/* Sử dụng */}
                           <td className="px-5 py-4 align-top">
                             <div className="flex items-center justify-between gap-2 mb-1">
                               <span className="font-semibold text-slate-700">{coupon.usage_count} / {coupon.max_usage}</span>
                               <span className="text-xs text-slate-500">{((coupon.usage_count / coupon.max_usage) * 100).toFixed(0)}%</span>
                             </div>
                             <div className="w-full bg-slate-200 rounded-full h-1.5">
-                              <div
-                                className="bg-indigo-600 h-1.5 rounded-full"
-                                style={{ width: `${(coupon.usage_count / coupon.max_usage) * 100}%` }}
-                              ></div>
+                              <div className="bg-indigo-600 h-1.5 rounded-full" style={{ width: `${(coupon.usage_count / coupon.max_usage) * 100}%` }}></div>
                             </div>
                           </td>
-
-                          {/* Trạng thái */}
                           <td className="px-5 py-4 align-top">
                             <StatusBadge status={coupon.derived_status} />
                           </td>
-
-                          {/* Thao tác */}
                           <td className="px-5 py-4 align-top text-right">
                             <div className="flex items-center justify-end gap-1">
-                              <button
-                                onClick={() => handleToggleStatus(coupon)}
-                                // Đổi màu dựa trên trạng thái
-                                className={`p-2 rounded-md hover:bg-slate-100 
-        ${coupon.is_active ? 'text-green-500 hover:text-green-600' : 'text-slate-400 hover:text-slate-600'}`}
-                                title={coupon.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}
-                              >
+                              <button onClick={() => handleToggleStatus(coupon)} className={`p-2 rounded-md hover:bg-slate-100 ${coupon.is_active ? 'text-green-500 hover:text-green-600' : 'text-slate-400 hover:text-slate-600'}`} title={coupon.is_active ? 'Vô hiệu hóa' : 'Kích hoạt'}>
                                 <Power size={16} />
                               </button>
                               <button onClick={() => handleOpenEditModal(coupon)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
@@ -403,26 +316,8 @@ export default function AdminCouponsPage() {
           </div>
         </main>
       </div>
-      {/* 5. MODAL THÊM MỚI */}
-      <AddCouponModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        // Thêm một prop để tải lại dữ liệu sau khi thêm thành công
-        onSuccess={() => {
-          setIsAddModalOpen(false);//đóng modal
-          setRefreshTrigger(prev => prev + 1); // Kích hoạt refresh
-        }}
-      />
-      {/* 6. MODAL SỬA */}
-      <EditCouponModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        onSuccess={() => {
-          setIsEditModalOpen(false); // 1. Đóng modal
-          setRefreshTrigger(prev => prev + 1); // 2. Kích hoạt refresh dữ liệu bảng
-        }}
-        coupon={selectedCoupon} // <-- Prop quan trọng để truyền dữ liệu
-      />
+      <AddCouponModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSuccess={() => { setIsAddModalOpen(false); setRefreshTrigger(prev => prev + 1); }} />
+      <EditCouponModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={() => { setIsEditModalOpen(false); setRefreshTrigger(prev => prev + 1); }} coupon={selectedCoupon} />
     </Fragment>
   );
 }

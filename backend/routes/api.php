@@ -40,9 +40,6 @@ Route::get('/test', function () {
 // ========================================================================
 //  PHẦN 1: PUBLIC ROUTES (Không cần đăng nhập)
 // ========================================================================
-Route::get('/login', function () {
-    return response()->json(['message' => 'Bạn chưa đăng nhập (Unauthorized)'], 401);
-})->name('login');
 
 // --- Authentication (Cổng vào) ---
 Route::controller(AuthController::class)->group(function () {
