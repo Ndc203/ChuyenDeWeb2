@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axiosClient from '../../api/axiosClient';
 import { useNavigate, Link, useLocation } from "react-router-dom";
-
-// Định nghĩa URL API (có thể đưa ra file config riêng sau này)
-const API_URL = "http://127.0.0.1:8000/api";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "", remember: false });
@@ -36,31 +33,35 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const res = await axios.post("http://127.0.0.1:8000/api/login", {
+      const res = await axiosClient.post("/login", {
         email: form.email,
         password: form.password,
       });
 
-      // Lấy dữ liệu từ API trả về
+      // Lấy dữ liệu (axiosClient trả về response object)
       const { access_token, role, user } = res.data;
 
       if (access_token) {
-        // 1. Lưu vào LocalStorage
+        // 1. Lưu vào LocalStorage (Token Key phải khớp với axiosClient)
         localStorage.setItem("authToken", access_token);
+        
+        // Lưu thêm thông tin phụ trợ nếu cần hiển thị UI
         localStorage.setItem("userRole", role);
         localStorage.setItem("userInfo", JSON.stringify(user));
 
         alert("Đăng nhập thành công!");
 
-        // 2. ĐIỀU HƯỚNG THÔNG MINH (Dựa trên role)
+        // 2. ĐIỀU HƯỚNG
         if (role === 'admin' || role === 'Admin') {
-            navigate("/admin/dashboard"); // Admin vào trang quản trị
+            navigate("/admin/dashboard");
         } else {
-            navigate("/"); // Khách hàng về trang chủ mua sắm
+            navigate("/"); 
         }
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Đăng nhập thất bại!");
+      console.error(err);
+      // Xử lý thông báo lỗi từ Backend trả về
+      setError(err.response?.data?.message || "Đăng nhập thất bại! Vui lòng kiểm tra lại.");
     } finally {
       setIsLoading(false);
     }
