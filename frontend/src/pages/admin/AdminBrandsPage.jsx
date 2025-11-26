@@ -24,7 +24,9 @@ import {
   X,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
+// Helper để tạo object rỗng
 const emptyBrandForm = () => ({
   name: "",
   description: "",
@@ -71,31 +73,26 @@ export default function AdminBrandsPage() {
 
   const isDeletedView = viewMode === "deleted";
 
-  const API_URL = useMemo(
-    () =>
-      (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(
-        /\/$/,
-        ""
-      ),
-    []
-  );
-
+  // --- 1. Load Brands ---
   const loadBrands = useCallback(() => {
     setLoading(true);
-    const endpoint =
-      viewMode === "deleted" ? "/api/brands/trashed" : "/api/brands";
+    const endpoint = viewMode === "deleted" ? "/brands/trashed" : "/brands";
 
-    return fetch(`${API_URL}${endpoint}`)
-      .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setRows(data) : setRows([])))
+    axiosClient.get(endpoint)
+      .then((res) => {
+        // Tùy backend trả về, giả sử là res.data hoặc res.data.data
+        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRows(data);
+      })
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
-  }, [API_URL, viewMode]);
+  }, [viewMode]);
 
   useEffect(() => {
     loadBrands();
   }, [loadBrands]);
 
+  // Click outside export dropdown
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (!exportRef.current || exportRef.current.contains(event.target)) {
@@ -108,14 +105,32 @@ export default function AdminBrandsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleExport = useCallback(
-    (format) => {
-      window.open(`${API_URL}/api/brands/export?format=${format}`, "_blank");
+  // --- 2. Handle Export (Dùng Axios Blob để bảo mật Token) ---
+  const handleExport = useCallback(async (format) => {
+    try {
       setExportOpen(false);
-    },
-    [API_URL]
-  );
+      // Gọi API lấy file blob
+      const response = await axiosClient.get(`/brands/export?format=${format}`, {
+        responseType: 'blob', // Quan trọng
+      });
 
+      // Tạo link tải xuống giả
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      // Đặt tên file (có thể lấy từ header content-disposition nếu muốn xịn hơn)
+      link.setAttribute('download', `brands_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Export failed:", error);
+      alert("Xuất file thất bại. Vui lòng thử lại.");
+    }
+  }, []);
+
+
+  // --- 3. Handle Import ---
   const resetImportState = useCallback(() => {
     setImportLoading(false);
     setImportError("");
@@ -132,7 +147,7 @@ export default function AdminBrandsPage() {
     if (importInputRef.current) {
       importInputRef.current.value = "";
     }
-  }, [resetImportState, importInputRef]);
+  }, [resetImportState]);
 
   const handleTriggerImport = useCallback(() => {
     importInputRef.current?.click();
@@ -142,49 +157,34 @@ export default function AdminBrandsPage() {
     async (event) => {
       const input = event.target;
       const file = input?.files?.[0];
-      if (!file) {
-        return;
-      }
+      if (!file) return;
 
       resetImportState();
       setImportFile(file);
       setImportOpen(true);
       setImportLoading(true);
-      setImportError("");
-      setImportPreview(null);
-      setImportSelected([]);
-      setImportResult(null);
 
       const formData = new FormData();
       formData.append("file", file);
 
       try {
-        const response = await fetch(`${API_URL}/api/brands/import/preview`, {
-          method: "POST",
-          body: formData,
+        // Dùng axiosClient post FormData
+        const response = await axiosClient.post("/brands/import/preview", formData, {
+          headers: { "Content-Type": "multipart/form-data" }, // Axios tự set nhưng ghi rõ cũng tốt
         });
 
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          const message =
-            data?.message ||
-            data?.errors?.file?.[0] ||
-            "Không thể đọc file. Vui lòng kiểm tra lại.";
-          setImportError(message);
-          setImportPreview(null);
-          setImportSelected([]);
-        } else {
-          const data = await response.json();
-          setImportPreview(data);
-          const validIndexes = Array.isArray(data?.rows)
-            ? data.rows
-                .filter((row) => row?.is_valid)
-                .map((row) => Number(row.index))
-            : [];
-          setImportSelected(validIndexes);
-        }
+        const data = response.data;
+        setImportPreview(data);
+        
+        // Auto select valid rows
+        const validIndexes = Array.isArray(data?.rows)
+          ? data.rows.filter((row) => row?.is_valid).map((row) => Number(row.index))
+          : [];
+        setImportSelected(validIndexes);
+
       } catch (error) {
-        setImportError("Không thể kết nối tới máy chủ. Vui lòng thử lại sau.");
+        const message = error.response?.data?.message || "Không thể đọc file. Vui lòng kiểm tra lại.";
+        setImportError(message);
         setImportPreview(null);
         setImportSelected([]);
       } finally {
@@ -194,7 +194,7 @@ export default function AdminBrandsPage() {
         }
       }
     },
-    [API_URL, resetImportState]
+    [resetImportState]
   );
 
   const handleToggleImportRow = useCallback((index) => {
@@ -202,9 +202,7 @@ export default function AdminBrandsPage() {
     setImportError("");
     setImportSelected((prev) => {
       const exists = prev.includes(index);
-      if (exists) {
-        return prev.filter((value) => value !== index);
-      }
+      if (exists) return prev.filter((value) => value !== index);
       return [...prev, index];
     });
   }, []);
@@ -235,7 +233,6 @@ export default function AdminBrandsPage() {
       setImportError("Vui lòng chọn file Excel trước.");
       return;
     }
-
     if (!importSelected.length) {
       setImportError("Vui lòng chọn ít nhất một dòng hợp lệ.");
       return;
@@ -252,30 +249,21 @@ export default function AdminBrandsPage() {
     });
 
     try {
-      const response = await fetch(`${API_URL}/api/brands/import`, {
-        method: "POST",
-        body: formData,
+      const response = await axiosClient.post("/brands/import", formData, {
+         headers: { "Content-Type": "multipart/form-data" },
       });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message || "Không thể nhập thương hiệu. Vui lòng thử lại.";
-        setImportError(message);
-        setImportResult(null);
-      } else {
-        setImportResult(data);
-        await loadBrands();
-      }
+      setImportResult(response.data);
+      await loadBrands(); // Reload bảng sau khi import thành công
     } catch (error) {
-      setImportError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
-      setImportResult(null);
+      const message = error.response?.data?.message || "Không thể nhập thương hiệu. Vui lòng thử lại.";
+      setImportError(message);
     } finally {
       setImportSubmitting(false);
     }
-  }, [API_URL, importFile, importSelected, loadBrands]);
+  }, [importFile, importSelected, loadBrands]);
 
+
+  // --- 4. Search Filter ---
   const filteredRows = useMemo(() => {
     const keyword = query.trim().toLowerCase();
     const byKeyword = keyword
@@ -286,17 +274,12 @@ export default function AdminBrandsPage() {
             brand.description || "",
             brand.deleted_at || "",
             brand.auto_delete_at || "",
-          ]
-            .join(" ")
-            .toLowerCase();
+          ].join(" ").toLowerCase();
           return haystack.includes(keyword);
         })
       : rows;
 
-    if (statusFilter === "all") {
-      return byKeyword;
-    }
-
+    if (statusFilter === "all") return byKeyword;
     return byKeyword.filter((brand) => brand.status === statusFilter);
   }, [rows, query, statusFilter]);
 
@@ -304,14 +287,13 @@ export default function AdminBrandsPage() {
     setStatusFilter("all");
   }, [viewMode]);
 
+
+  // --- 5. Slugify Logic ---
   useEffect(() => {
-    if (!formOpen) {
-      return;
-    }
+    if (!formOpen) return;
 
     const name = form.name.trim();
-    const ignoreId =
-      formMode === "edit" && editTarget ? String(editTarget.id) : null;
+    const ignoreId = formMode === "edit" && editTarget ? String(editTarget.id) : null;
 
     if (!name) {
       setSlugState(initialSlugState);
@@ -320,36 +302,35 @@ export default function AdminBrandsPage() {
     }
 
     let cancelled = false;
+    // Axios CancelToken source
     const controller = new AbortController();
+    
     setSlugState((prev) => ({ ...prev, loading: true }));
     setSlugError("");
 
     const timer = setTimeout(() => {
       const params = new URLSearchParams({ text: name });
-      if (ignoreId) {
-        params.set("ignore", ignoreId);
-      }
+      if (ignoreId) params.set("ignore", ignoreId);
 
-      fetch(`${API_URL}/api/brands/slugify?${params.toString()}`, {
-        signal: controller.signal,
+      axiosClient.get(`/brands/slugify?${params.toString()}`, {
+        signal: controller.signal
       })
-        .then((res) => res.json())
-        .then((data) => {
+      .then((res) => {
           if (cancelled) return;
+          const data = res.data;
           setSlugState({
             slug: data?.slug || "",
             base: data?.base || "",
-            available:
-              typeof data?.available === "boolean" ? data.available : true,
+            available: typeof data?.available === "boolean" ? data.available : true,
             modified: Boolean(data?.modified),
             loading: false,
           });
-        })
-        .catch(() => {
-          if (cancelled) return;
-          setSlugError("Khong the sinh slug tu dong. Vui long thu lai.");
+      })
+      .catch((err) => {
+          if (axiosClient.isCancel(err) || cancelled) return;
+          setSlugError("Không thể sinh slug tự động.");
           setSlugState(initialSlugState);
-        });
+      });
     }, 350);
 
     return () => {
@@ -357,12 +338,12 @@ export default function AdminBrandsPage() {
       controller.abort();
       clearTimeout(timer);
     };
-  }, [API_URL, editTarget, form.name, formMode, formOpen]);
+  }, [editTarget, form.name, formMode, formOpen]);
 
+
+  // --- 6. Form Handlers ---
   const handleOpenCreate = () => {
-    if (isDeletedView) {
-      setViewMode("active");
-    }
+    if (isDeletedView) setViewMode("active");
     setFormMode("create");
     setForm(emptyBrandForm());
     setFormError("");
@@ -403,17 +384,14 @@ export default function AdminBrandsPage() {
   };
 
   const updateFormValue = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmitForm = async (event) => {
     event.preventDefault();
     const name = form.name.trim();
     if (!name) {
-      setFormError("Vui long nhap ten thuong hieu.");
+      setFormError("Vui lòng nhập tên thương hiệu.");
       return;
     }
 
@@ -427,71 +405,35 @@ export default function AdminBrandsPage() {
     setFormError("");
 
     try {
-      const endpoint =
-        formMode === "edit" && editTarget
-          ? `${API_URL}/api/brands/${editTarget.id}`
-          : `${API_URL}/api/brands`;
-      const method = formMode === "edit" && editTarget ? "PUT" : "POST";
-
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Khong the luu thuong hieu.");
-        setFormError(message);
-        return;
+      if (formMode === "edit" && editTarget) {
+         await axiosClient.put(`/brands/${editTarget.id}`, payload);
+      } else {
+         await axiosClient.post("/brands", payload);
       }
-
+      
       await loadBrands();
       handleCloseForm();
     } catch (error) {
-      setFormError("Khong the ket noi toi may chu. Vui long thu lai.");
+      const message = error.response?.data?.message || 
+        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Lỗi hệ thống.");
+      setFormError(message);
     } finally {
       setFormLoading(false);
     }
   };
 
-  const handleDelete = async (brand) => {
-    if (isDeletedView) {
-      return;
-    }
 
-    if (
-      !window.confirm(
-        `Xoa thuong hieu "${brand.name}"?\nThuong hieu se duoc dua vao thung rac va tu dong xoa vinh vien sau 30 ngay.`
-      )
-    ) {
-      return;
-    }
+  // --- 7. Action Handlers (Delete, Restore, Toggle) ---
+  const handleDelete = async (brand) => {
+    if (isDeletedView) return;
+    if (!window.confirm(`Xóa thương hiệu "${brand.name}"?\nThương hiệu sẽ được đưa vào thùng rác.`)) return;
 
     setDeletingId(brand.id);
     try {
-      const response = await fetch(`${API_URL}/api/brands/${brand.id}`, {
-        method: "DELETE",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error();
-      }
-
+      await axiosClient.delete(`/brands/${brand.id}`);
       setRows((prev) => prev.filter((row) => row.id !== brand.id));
     } catch (error) {
-      alert("Khong the xoa thuong hieu. Vui long thu lai.");
+      alert("Không thể xóa thương hiệu.");
     } finally {
       setDeletingId(null);
     }
@@ -499,74 +441,35 @@ export default function AdminBrandsPage() {
 
   const handleToggleStatus = async (brand) => {
     if (isDeletedView) return;
-
     setTogglingId(brand.id);
     try {
-      const response = await fetch(`${API_URL}/api/brands/${brand.id}/toggle`, {
-        method: "PATCH",
-        headers: {
-          Accept: "application/json",
-        },
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message || "Khong the cap nhat trang thai thuong hieu.";
-        throw new Error(message);
-      }
-
+      const response = await axiosClient.patch(`/brands/${brand.id}/toggle`);
       setRows((prev) =>
-        prev.map((row) =>
-          row.id === brand.id ? { ...row, status: data.status } : row
-        )
+        prev.map((row) => row.id === brand.id ? { ...row, status: response.data.status } : row)
       );
     } catch (error) {
-      alert(
-        error.message || "Khong the cap nhat trang thai. Vui long thu lai."
-      );
+      alert("Không thể cập nhật trạng thái.");
     } finally {
       setTogglingId(null);
     }
   };
 
-  const handleOpenView = (brand) => {
-    setViewTarget(brand);
-  };
-
-  const handleCloseView = () => {
-    setViewTarget(null);
-  };
-
   const handleRestore = async (brand) => {
     setRestoringId(brand.id);
     try {
-      const response = await fetch(
-        `${API_URL}/api/brands/${brand.id}/restore`,
-        {
-          method: "PATCH",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.message || "Khong the khoi phuc thuong hieu.");
-      }
-
+      await axiosClient.patch(`/brands/${brand.id}/restore`);
       setRows((prev) => prev.filter((row) => row.id !== brand.id));
     } catch (error) {
-      alert(
-        error.message || "Khong the khoi phuc thuong hieu. Vui long thu lai."
-      );
+      alert("Không thể khôi phục thương hiệu.");
     } finally {
       setRestoringId(null);
     }
   };
 
+  const handleOpenView = (brand) => setViewTarget(brand);
+  const handleCloseView = () => setViewTarget(null);
+
+  // --- RENDER ---
   return (
     <div className="min-h-screen bg-slate-50">
       <div className="flex min-h-screen">
@@ -651,7 +554,7 @@ export default function AdminBrandsPage() {
                         : "bg-indigo-600 text-white shadow"
                     }`}
                   >
-                    hoat dong
+                    Hoạt động
                   </button>
                   <button
                     type="button"
@@ -662,7 +565,7 @@ export default function AdminBrandsPage() {
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    Da xoa
+                    Đã xóa
                   </button>
                 </div>
               </div>
@@ -676,7 +579,7 @@ export default function AdminBrandsPage() {
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Tim kiem thuong hieu..."
+                    placeholder="Tìm kiếm thương hiệu..."
                     className="w-full rounded-xl border bg-white pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                   />
                 </div>
@@ -686,9 +589,9 @@ export default function AdminBrandsPage() {
                   disabled={isDeletedView}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 pr-8 py-2 text-sm text-slate-600 outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="all">Tat ca trang thai</option>
-                  <option value="active">Hoat dong</option>
-                  <option value="inactive">Tam dung</option>
+                  <option value="all">Tất cả trạng thái</option>
+                  <option value="active">Hoạt động</option>
+                  <option value="inactive">Tạm dừng</option>
                 </select>
               </div>
             </div>
@@ -699,14 +602,14 @@ export default function AdminBrandsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
                   <tr className="text-left text-slate-600">
-                    <Th>Ten thuong hieu</Th>
+                    <Th>Tên thương hiệu</Th>
                     <Th>Slug</Th>
-                    <Th className="w-1/3">Mo ta</Th>
-                    <Th className="w-32">Trang thai</Th>
+                    <Th className="w-1/3">Mô tả</Th>
+                    <Th className="w-32">Trạng thái</Th>
                     <Th className="w-40">
-                      {isDeletedView ? "Ngay xoa" : "Ngay tao"}
+                      {isDeletedView ? "Ngày xóa" : "Ngày tạo"}
                     </Th>
-                    <Th className="w-40 text-right pr-4">Thao tac</Th>
+                    <Th className="w-40 text-right pr-4">Thao tác</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -716,7 +619,7 @@ export default function AdminBrandsPage() {
                         colSpan={6}
                         className="p-6 text-center text-slate-500"
                       >
-                        Dang tai du lieu...
+                        Đang tải dữ liệu...
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
@@ -726,8 +629,8 @@ export default function AdminBrandsPage() {
                         className="p-6 text-center text-slate-400"
                       >
                         {isDeletedView
-                          ? "Khong co thuong hieu nao trong thung rac."
-                          : "Chua co thuong hieu nao."}
+                          ? "Không có thương hiệu nào trong thùng rác."
+                          : "Chưa có thương hiệu nào."}
                       </td>
                     </tr>
                   ) : filteredRows.length === 0 ? (
@@ -736,7 +639,7 @@ export default function AdminBrandsPage() {
                         colSpan={6}
                         className="p-6 text-center text-slate-400"
                       >
-                        Khong tim thay thuong hieu phu hop.
+                        Không tìm thấy thương hiệu phù hợp.
                       </td>
                     </tr>
                   ) : (
@@ -757,13 +660,13 @@ export default function AdminBrandsPage() {
                             <div className="flex flex-col gap-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
-                                  Da xoa
+                                  Đã xóa
                                 </span>
                                 <StatusBadge status={brand.status} />
                               </div>
                               {brand.auto_delete_at && (
                                 <p className="text-xs text-slate-500">
-                                  Tu dong xoa vinh vien vao{" "}
+                                  Tự động xóa vĩnh viễn vào{" "}
                                   {formatDate(brand.auto_delete_at)}
                                 </p>
                               )}
@@ -782,14 +685,14 @@ export default function AdminBrandsPage() {
                             {isDeletedView ? (
                               <>
                                 <IconBtn
-                                  title="Xem chi tiet"
+                                  title="Xem chi tiết"
                                   intent="neutral"
                                   onClick={() => handleOpenView(brand)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Khoi phuc"
+                                  title="Khôi phục"
                                   intent="primary"
                                   onClick={() => handleRestore(brand)}
                                   disabled={restoringId === brand.id}
@@ -809,8 +712,8 @@ export default function AdminBrandsPage() {
                                 <IconBtn
                                   title={
                                     brand.status === "active"
-                                      ? "Chuyen sang tam dung"
-                                      : "Kich hoat thuong hieu"
+                                      ? "Chuyển sang tạm dừng"
+                                      : "Kích hoạt thương hiệu"
                                   }
                                   intent={
                                     brand.status === "active"
@@ -830,21 +733,21 @@ export default function AdminBrandsPage() {
                                   )}
                                 </IconBtn>
                                 <IconBtn
-                                  title="Xem chi tiet"
+                                  title="Xem chi tiết"
                                   intent="neutral"
                                   onClick={() => handleOpenView(brand)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Sua"
+                                  title="Sửa"
                                   intent="primary"
                                   onClick={() => handleOpenEdit(brand)}
                                 >
                                   <Edit size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Xoa"
+                                  title="Xóa"
                                   intent="danger"
                                   onClick={() => handleDelete(brand)}
                                   disabled={deletingId === brand.id}
@@ -905,6 +808,10 @@ export default function AdminBrandsPage() {
     </div>
   );
 }
+
+// --- Các Component con ImportBrandsModal, BrandFormModal... giữ nguyên logic UI ---
+// (Mình chỉ paste lại phần ImportBrandsModal để đảm bảo file chạy,
+// các component nhỏ khác như Th, StatusBadge... giữ nguyên như file cũ của bạn)
 
 function ImportBrandsModal({
   open,
@@ -1288,20 +1195,20 @@ function BrandViewModal({ brand, onClose }) {
       >
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-slate-800">
-            Thong tin thuong hieu
+            Thông tin thương hiệu
           </h3>
           <button
             type="button"
             onClick={onClose}
             className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
           >
-            Dong
+            Đóng
           </button>
         </div>
 
         <div className="space-y-3 text-sm text-slate-600">
           <div>
-            <p className="text-xs uppercase text-slate-500">Ten thuong hieu</p>
+            <p className="text-xs uppercase text-slate-500">Tên thương hiệu</p>
             <p className="font-medium text-slate-800">{name}</p>
           </div>
           <div>
@@ -1311,29 +1218,29 @@ function BrandViewModal({ brand, onClose }) {
             </code>
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500">Trang thai</p>
+            <p className="text-xs uppercase text-slate-500">Trạng thái</p>
             <StatusBadge status={status} />
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500">Mo ta</p>
+            <p className="text-xs uppercase text-slate-500">Mô tả</p>
             <p className="whitespace-pre-line text-slate-700">
-              {description?.trim() ? description : "Chua co mo ta"}
+              {description?.trim() ? description : "Chưa có mô tả"}
             </p>
           </div>
           <div>
-            <p className="text-xs uppercase text-slate-500">Ngay tao</p>
+            <p className="text-xs uppercase text-slate-500">Ngày tạo</p>
             <p>{formatDate(created_at)}</p>
           </div>
           {deleted_at && (
             <div>
-              <p className="text-xs uppercase text-slate-500">Ngay xoa</p>
+              <p className="text-xs uppercase text-slate-500">Ngày xóa</p>
               <p>{formatDate(deleted_at)}</p>
             </div>
           )}
           {auto_delete_at && (
             <div>
               <p className="text-xs uppercase text-slate-500">
-                Tu dong xoa vinh vien
+                Tự động xóa vĩnh viễn
               </p>
               <p>{formatDate(auto_delete_at)}</p>
             </div>
@@ -1363,24 +1270,24 @@ function BrandFormModal({
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-slate-800">
-            {mode === "edit" ? "Chinh sua thuong hieu" : "Them thuong hieu"}
+            {mode === "edit" ? "Chỉnh sửa thương hiệu" : "Thêm thương hiệu"}
           </h3>
           <p className="text-sm text-slate-500">
-            Slug se duoc sinh tu dong dua tren ten.
+            Slug sẽ được sinh tự động dựa trên tên.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Ten thuong hieu
+              Tên thương hiệu
             </label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => onChange("name", e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              placeholder="Nhap ten thuong hieu"
+              placeholder="Nhập tên thương hiệu"
             />
           </div>
 
@@ -1388,26 +1295,26 @@ function BrandFormModal({
             {slugState.loading ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin text-indigo-500" />
-                Dang sinh slug...
+                Đang sinh slug...
               </span>
             ) : slugError ? (
               <span className="text-rose-500">{slugError}</span>
             ) : (
               <>
                 <span className="font-medium text-slate-700">
-                  Slug du kien:
+                  Slug dự kiến:
                 </span>{" "}
                 <code className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px]">
-                  {slugState.slug || "(Chua xac dinh)"}
+                  {slugState.slug || "(Chưa xác định)"}
                 </code>
                 {slugState.modified && (
                   <p className="mt-1 text-amber-600">
-                    Da dieu chinh slug de tranh trung lap.
+                    Đã điều chỉnh slug để tránh trùng lặp.
                   </p>
                 )}
                 {!slugState.available && !slugState.modified && (
                   <p className="mt-1 text-rose-500">
-                    Slug da ton tai. Vui long doi ten thuong hieu.
+                    Slug đã tồn tại. Vui lòng đổi tên thương hiệu.
                   </p>
                 )}
               </>
@@ -1416,28 +1323,28 @@ function BrandFormModal({
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Mo ta (khong bat buoc)
+              Mô tả (không bắt buộc)
             </label>
             <textarea
               value={form.description}
               onChange={(e) => onChange("description", e.target.value)}
               rows={4}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              placeholder="Mo ta ngan gon ve thuong hieu"
+              placeholder="Mô tả ngắn gọn về thương hiệu"
             />
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Trang thai
+              Trạng thái
             </label>
             <select
               value={form.status || "active"}
               onChange={(e) => onChange("status", e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             >
-              <option value="active">hoat dong</option>
-              <option value="inactive">Tam dung</option>
+              <option value="active">Hoạt động</option>
+              <option value="inactive">Tạm dừng</option>
             </select>
           </div>
 
@@ -1453,7 +1360,7 @@ function BrandFormModal({
               onClick={onClose}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
             >
-              Huy
+              Hủy
             </button>
             <button
               type="submit"
@@ -1461,7 +1368,7 @@ function BrandFormModal({
               className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              {mode === "edit" ? "Luu thay doi" : "Them thuong hieu"}
+              {mode === "edit" ? "Lưu thay đổi" : "Thêm thương hiệu"}
             </button>
           </div>
         </form>

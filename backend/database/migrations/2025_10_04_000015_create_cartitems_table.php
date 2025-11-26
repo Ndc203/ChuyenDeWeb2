@@ -8,7 +8,7 @@ class CreateCartitemsTable extends Migration
 {
     public function up()
     {
-        Schema::create('cartitems', function (Blueprint $table) {
+        Schema::create('cart_items', function (Blueprint $table) {
             $table->id('cartitem_id');
             $table->foreignId('cart_id')
                 ->constrained(
@@ -24,12 +24,12 @@ class CreateCartitemsTable extends Migration
                 ->cascadeOnDelete();
             $table->unsignedInteger('quantity')->default(1);
             $table->decimal('price', 10, 2)->nullable();
-
+            $table->timestamps();
         });
     }
 
     public function down()
     {
-        Schema::dropIfExists('cartitems');
+        Schema::dropIfExists('cart_items');
     }
 }

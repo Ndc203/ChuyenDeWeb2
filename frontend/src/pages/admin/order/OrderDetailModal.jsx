@@ -5,8 +5,10 @@ import { X, User, MapPin, Mail, Phone, Calendar, Printer, CheckCircle, AlertCirc
 // Lấy API URL từ biến môi trường
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
+// *** QUAN TRỌNG: Phải trùng tên với key bên AdminOrdersPage ***
+const TOKEN_KEY = 'authToken'; 
+
 // --- Helper Functions ---
-// Sao chép các hàm helper từ trang chính
 const formatCurrency = (value) => {
   if (isNaN(value)) return "N/A";
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -21,7 +23,7 @@ const formatSimpleDate = (dateString) => {
 
 
 export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusChange }) {
-  const [fullOrder, setFullOrder] = useState(null); // Sẽ lưu chi tiết đơn hàng (gồm items)
+  const [fullOrder, setFullOrder] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentStatus, setCurrentStatus] = useState("");
@@ -32,16 +34,27 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
     if (isOpen && orderId) {
       setIsLoading(true);
       setError(null);
-      setFullOrder(null); // Xóa dữ liệu cũ
+      setFullOrder(null); 
+      
+      const token = localStorage.getItem(TOKEN_KEY);
 
-      fetch(`${API_URL}/api/orders/${orderId}`)
+      // Thêm headers chứa Authorization vào fetch
+      fetch(`${API_URL}/api/orders/${orderId}`, {
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` // <--- SỬA QUAN TRỌNG TẠI ĐÂY
+        }
+      })
         .then(res => {
+          if (res.status === 401) {
+             throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
+          }
           if (!res.ok) throw new Error('Không thể tải chi tiết đơn hàng.');
           return res.json();
         })
         .then(data => {
           setFullOrder(data);
-          setCurrentStatus(data.status); // Set trạng thái cho <select>
+          setCurrentStatus(data.status); 
         })
         .catch(err => {
           console.error("Lỗi fetch chi tiết đơn hàng:", err);
@@ -51,24 +64,25 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
           setIsLoading(false);
         });
     }
-  }, [isOpen, orderId]); // Phụ thuộc vào `isOpen` và `orderId`
+  }, [isOpen, orderId]); 
 
   const handleClose = () => {
     onClose();
   };
 
   const handleSaveStatus = () => {
-    // Gọi hàm onStatusChange được truyền từ component cha
-    // Nó đã bao gồm logic (gọi API, refresh, đóng modal)
+    // Gọi hàm onStatusChange từ cha (đã bao gồm logic gọi API update)
     onStatusChange(orderId, currentStatus);
-    onClose(); // Tự động đóng sau khi gọi
+    onClose(); 
   };
   
   const handlePrint = () => {
+    // Lưu ý: Nếu route in ấn cũng bảo mật, window.open có thể bị chặn.
+    // Tạm thời giữ nguyên, nếu lỗi thì cần dùng axios tải blob về.
     window.open(`${API_URL}/api/orders/${orderId}/print`, '_blank');
   };
   
-  // Tính toán tổng phụ (giá trị thực của các sản phẩm)
+  // Tính toán tổng phụ
   const subtotal = fullOrder?.items?.reduce((acc, item) => acc + (item.unit_price * item.quantity), 0) || 0;
 
   return (
@@ -153,7 +167,7 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                         {/* Cột Trạng thái & Ngày */}
                         <div className="space-y-4 p-4 bg-slate-50 rounded-lg border">
                           <h4 className="font-semibold text-slate-700">Trạng thái & Thao tác</h4>
-                          {/* A. Ngày Đặt Hàng (Luôn hiển thị) */}
+                          {/* A. Ngày Đặt Hàng */}
                            <div className="flex items-start gap-3">
                             <Calendar size={16} className="text-slate-500 flex-shrink-0 mt-1" />
                             <div>
@@ -162,13 +176,12 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                             </div>
                           </div>
 
-                          {/* B. Ngày Hoàn Thành (Chỉ hiển thị khi đã hoàn thành) */}
+                          {/* B. Ngày Hoàn Thành */}
                            {fullOrder.status === 'Hoàn thành' && (
                              <div className="flex items-start gap-3">
                               <CheckCircle size={16} className="text-green-600 flex-shrink-0 mt-1" />
                               <div>
                                 <p className="font-medium text-sm text-green-700">Ngày hoàn thành</p>
-                                {/* Dùng 'updated_at' vì đây là ngày đơn hàng được cập nhật status lần cuối */}
                                 {formatSimpleDate(fullOrder.updated_at)}
                               </div>
                             </div>
@@ -207,7 +220,7 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-200">
-                              {fullOrder.items.map(item => (
+                              {fullOrder.items && fullOrder.items.map(item => (
                                 <tr key={item.order_item_id}>
                                   <td className="px-4 py-3 font-medium text-slate-800">{item.product_name}</td>
                                   <td className="px-4 py-3 text-center text-slate-600">{item.quantity}</td>
@@ -231,7 +244,6 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                             <span className="text-slate-600">Giảm giá ({fullOrder.coupon_code || 'Không'}):</span>
                             <span className="font-medium text-red-600">- {formatCurrency(fullOrder.discount_amount)}</span>
                           </div>
-                          {/* Bạn có thể thêm Phí vận chuyển ở đây nếu có */}
                           <div className="flex justify-between pt-2 border-t text-base">
                             <span className="font-bold text-slate-900">Tổng cộng:</span>
                             <span className="font-bold text-slate-900">{formatCurrency(fullOrder.final_amount)}</span>
@@ -265,7 +277,6 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
                       type="button"
                       className="inline-flex justify-center rounded-lg border border-transparent bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 shadow-sm disabled:opacity-50"
                       onClick={handleSaveStatus}
-                      // Disable nếu không có gì thay đổi, hoặc đang tải, hoặc đơn đã kết thúc
                       disabled={!fullOrder || isLoading || currentStatus === fullOrder.status || fullOrder.status === 'Hoàn thành' || fullOrder.status === 'Đã hủy'}
                     >
                       Lưu thay đổi

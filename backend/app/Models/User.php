@@ -13,7 +13,7 @@ class User extends Authenticatable
 
     // KHÓA CHÍNH LÀ user_id
     protected $primaryKey = 'user_id';
-    
+
     // SỬA: Xóa các trường profile khỏi $fillable
     protected $fillable = [
         'username',
@@ -51,13 +51,23 @@ class User extends Authenticatable
             'password' => 'hashed',
             'status' => 'string',
             'role' => 'string',
-            // Xóa: social_links, date_of_birth (đã chuyển sang profile)
             'last_login_at' => 'datetime',
         ];
     }
 
+    /**
+     * Quan hệ 1-N với Order
+     */
     public function orders() {
         return $this->hasMany(Order::class);
     }
 
+
+    /**
+     * Quan hệ 1-1 với Cart
+     */
+    public function cart()
+    {
+        return $this->hasOne(Cart::class, 'user_id', 'user_id');
+    }
 }

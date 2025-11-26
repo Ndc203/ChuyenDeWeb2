@@ -24,7 +24,7 @@
     <tbody>
       @foreach($categories as $cat)
         <tr>
-          <td>{{ $cat->id }}</td>
+          <td>{{ $cat->post_category_id }}</td>
           <td>{{ $cat->name }}</td>
           <td>{{ $cat->description }}</td>
           <td>{{ $cat->created_at->format('d/m/Y') }}</td>

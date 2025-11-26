@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Upload } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
 export default function AdminProductAddPage() {
   const navigate = useNavigate();
@@ -26,32 +27,30 @@ export default function AdminProductAddPage() {
 
   const [imagePreview, setImagePreview] = useState(null);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
-
-  // Load categories và brands
+  // === 1. Load Categories & Brands (Dùng Promise.all cho nhanh) ===
   useEffect(() => {
-    // Load categories
-    fetch(`${API_URL}/api/categories`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
-        }
-      })
-      .catch((error) => console.error("Error loading categories:", error));
+    const fetchData = async () => {
+      try {
+        const [categoriesRes, brandsRes] = await Promise.all([
+          axiosClient.get('/categories'),
+          axiosClient.get('/brands')
+        ]);
 
-    // Load brands
-    fetch(`${API_URL}/api/brands`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setBrands(data);
-        }
-      })
-      .catch((error) => console.error("Error loading brands:", error));
-  }, [API_URL]);
+        // Xử lý dữ liệu categories
+        const catData = categoriesRes.data;
+        setCategories(Array.isArray(catData) ? catData : catData.data || []);
+
+        // Xử lý dữ liệu brands
+        const brandData = brandsRes.data;
+        setBrands(Array.isArray(brandData) ? brandData : brandData.data || []);
+
+      } catch (error) {
+        console.error("Lỗi khi tải dữ liệu:", error);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -83,6 +82,7 @@ export default function AdminProductAddPage() {
     }));
   };
 
+  // === 2. Submit Form (Dùng axiosClient + FormData) ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -101,7 +101,7 @@ export default function AdminProductAddPage() {
       return;
     }
 
-    // Prepare FormData for file upload
+    // Prepare FormData
     const formPayload = new FormData();
     formPayload.append("name", formData.name.trim());
     formPayload.append("description", formData.description.trim());
@@ -115,36 +115,21 @@ export default function AdminProductAddPage() {
     formPayload.append("tags", formData.tags.join(","));
     formPayload.append("status", "active");
     
-    // Append image file if exists
     if (formData.image) {
       formPayload.append("image", formData.image);
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/products`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-        body: formPayload,
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Không thể tạo sản phẩm mới.");
-        setError(message);
-        return;
-      }
+      // axiosClient tự động xử lý Content-Type: multipart/form-data
+      await axiosClient.post('/products', formPayload);
 
       // Thành công - chuyển về trang danh sách
       navigate("/admin/products");
     } catch (error) {
-      setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+      // Xử lý lỗi chuẩn từ Laravel (message hoặc errors array)
+      const message = error.response?.data?.message || 
+        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Không thể tạo sản phẩm mới.");
+      setError(message);
     } finally {
       setLoading(false);
     }

@@ -21,6 +21,7 @@ import {
   Power,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient";
 
 const emptyCategoryForm = () => ({
   name: "",
@@ -28,8 +29,8 @@ const emptyCategoryForm = () => ({
   parentId: "",
   status: "active",
 });
-const ROOT_PARENT_LABEL = "Danh muc goc";
-const ALL_PARENT_FILTER = "Tat ca danh muc cha";
+const ROOT_PARENT_LABEL = "Danh mục gốc";
+const ALL_PARENT_FILTER = "Tất cả danh mục cha";
 
 
 export default function AdminCategoriesPage() {
@@ -72,9 +73,6 @@ export default function AdminCategoriesPage() {
   const treeNoticeTimeout = useRef(null);
   const importInputRef = useRef(null);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
   const isDeletedView = viewMode === "deleted";
 
   const buildFormFromCategory = useCallback((category) => {
@@ -89,17 +87,14 @@ export default function AdminCategoriesPage() {
     };
   }, []);
 
-  // === Fetch danh muc thuc te ===
+  // === 1. Load Categories (Dùng axiosClient) ===
   const loadCategories = useCallback(() => {
     setLoading(true);
-    const endpoint =
-      viewMode === "deleted"
-        ? `${API_URL}/api/categories/trashed`
-        : `${API_URL}/api/categories`;
-    return fetch(endpoint)
-      .then((res) => res.json())
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
+    const endpoint = isDeletedView ? "/categories/trashed" : "/categories";
+    
+    axiosClient.get(endpoint)
+      .then((res) => {
+        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
         setRows(list);
         if (!isDeletedView) {
           setTreeData(buildCategoryTree(list));
@@ -108,14 +103,13 @@ export default function AdminCategoriesPage() {
           setTreeData([]);
           setBulkSelected(new Set());
         }
-        return list;
       })
       .catch(() => {
         setRows([]);
         setTreeData([]);
       })
       .finally(() => setLoading(false));
-  }, [API_URL, viewMode, isDeletedView]);
+  }, [isDeletedView]);
 
   useEffect(() => {
     loadCategories();
@@ -128,7 +122,7 @@ export default function AdminCategoriesPage() {
     }
   }, [isDeletedView]);
 
-  // === Đổi trạng thái khi click con mắt ===
+  // === 2. Create Category ===
   const handleOpenCreate = () => {
     setForm(emptyCategoryForm());
     setFormError("");
@@ -144,17 +138,14 @@ export default function AdminCategoriesPage() {
   };
 
   const updateFormValue = (key, value) => {
-    setForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleSubmitCreate = async (event) => {
     event.preventDefault();
     const name = form.name.trim();
     if (!name) {
-      setFormError("Vui long nhap ten danh muc.");
+      setFormError("Vui lòng nhập tên danh mục.");
       return;
     }
 
@@ -169,41 +160,21 @@ export default function AdminCategoriesPage() {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/categories`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Khong the tao danh muc moi.");
-        setFormError(message);
-        return;
-      }
-
+      await axiosClient.post("/categories", payload);
       await loadCategories();
       handleCloseCreate();
     } catch (error) {
-      setFormError("Khong the ket noi toi may chu.");
+      const message = error.response?.data?.message || 
+        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Không thể tạo danh mục.");
+      setFormError(message);
     } finally {
       setCreateLoading(false);
     }
   };
 
+  // === 3. Edit Category ===
   const updateEditFormValue = (key, value) => {
-    setEditForm((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setEditForm((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleOpenEdit = (category) => {
@@ -216,9 +187,7 @@ export default function AdminCategoriesPage() {
   };
 
   const handleCloseEdit = () => {
-    if (editLoading) {
-      return;
-    }
+    if (editLoading) return;
     setEditOpen(false);
     setEditTarget(null);
     setEditForm(emptyCategoryForm());
@@ -230,7 +199,7 @@ export default function AdminCategoriesPage() {
     if (!editTarget) return;
     const name = editForm.name.trim();
     if (!name) {
-      setEditError("Vui long nhap ten danh muc.");
+      setEditError("Vui lòng nhập tên danh mục.");
       return;
     }
 
@@ -239,42 +208,18 @@ export default function AdminCategoriesPage() {
 
     const payload = {
       name,
-      description: editForm.description?.trim()
-        ? editForm.description.trim()
-        : null,
+      description: editForm.description?.trim() ? editForm.description.trim() : null,
       parent_id: editForm.parentId ? Number(editForm.parentId) : null,
       status: editForm.status || "active",
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/categories/${editTarget.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Khong the cap nhat danh muc.");
-        setEditError(message);
-        return;
-      }
-
+      await axiosClient.put(`/categories/${editTarget.id}`, payload);
       await loadCategories();
-      setEditOpen(false);
-      setEditTarget(null);
-      setEditForm(emptyCategoryForm());
-      setEditError("");
+      handleCloseEdit();
     } catch (error) {
-      setEditError("Khong the ket noi toi may chu.");
+      const message = error.response?.data?.message || "Không thể cập nhật danh mục.";
+      setEditError(message);
     } finally {
       setEditLoading(false);
     }
@@ -289,6 +234,7 @@ export default function AdminCategoriesPage() {
     setViewTarget(null);
   };
 
+  // === 4. Import Logic (Axios Multipart) ===
   const resetImportState = useCallback(() => {
     setImportLoading(false);
     setImportError("");
@@ -322,48 +268,26 @@ export default function AdminCategoriesPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(
-        `${API_URL}/api/categories/import/preview`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-          },
-          body: formData,
-        }
-      );
+      const response = await axiosClient.post("/categories/import/preview", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Khong the doc file da tai len.");
-        setImportPreview(null);
-        setImportSelected([]);
-        setImportError(message);
-        return;
-      }
-
+      const data = response.data;
       setImportPreview(data);
+      
       const validIndexes = Array.isArray(data?.rows)
-        ? data.rows
-            .filter((row) => row?.is_valid)
-            .map((row) => Number(row.index))
+        ? data.rows.filter((row) => row?.is_valid).map((row) => Number(row.index))
         : [];
       setImportSelected(validIndexes);
       setImportError("");
     } catch (error) {
-      setImportError("Khong the ket noi toi may chu.");
+      const message = error.response?.data?.message || "Không thể đọc file.";
+      setImportError(message);
+      setImportPreview(null);
+      setImportSelected([]);
     } finally {
       setImportLoading(false);
-      setImportResult(null);
-      setImportSubmitting(false);
-      if (input) {
-        input.value = "";
-      }
+      if (input) input.value = "";
     }
   };
 
@@ -371,9 +295,7 @@ export default function AdminCategoriesPage() {
     setImportResult(null);
     setImportError("");
     setImportSelected((prev) =>
-      prev.includes(index)
-        ? prev.filter((item) => item !== index)
-        : [...prev, index]
+      prev.includes(index) ? prev.filter((item) => item !== index) : [...prev, index]
     );
   };
 
@@ -396,11 +318,11 @@ export default function AdminCategoriesPage() {
 
   const handleConfirmImport = async () => {
     if (!importFile) {
-      setImportError("Vui long chon file Excel truoc.");
+      setImportError("Vui lòng chọn file Excel.");
       return;
     }
     if (!importSelected.length) {
-      setImportError("Vui long chon it nhat 1 dong hop le.");
+      setImportError("Vui lòng chọn ít nhất 1 dòng hợp lệ.");
       return;
     }
 
@@ -415,102 +337,52 @@ export default function AdminCategoriesPage() {
     );
 
     try {
-      const response = await fetch(`${API_URL}/api/categories/import`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-        body: formData,
+      const response = await axiosClient.post("/categories/import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
       });
-
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Khong the nhap danh muc.");
-        setImportError(message);
-        return;
-      }
-
-      setImportResult(data);
+      setImportResult(response.data);
       await loadCategories();
     } catch (error) {
-      setImportError("Khong the ket noi toi may chu.");
+      const message = error.response?.data?.message || "Không thể nhập danh mục.";
+      setImportError(message);
     } finally {
       setImportSubmitting(false);
     }
   };
 
+  // === 5. Toggle Status & Restore ===
   async function handleToggleStatus(id) {
-    setRows((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, _updating: true } : it))
-    );
+    setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _updating: true } : it)));
     try {
-      const res = await fetch(`${API_URL}/api/categories/${id}/toggle`, {
-        method: "PATCH",
-        headers: { Accept: "application/json" },
-      });
-      const data = await res.json();
+      const res = await axiosClient.patch(`/categories/${id}/toggle`);
+      const data = res.data;
       setRows((prev) =>
         prev.map((it) =>
           it.id === id
-            ? {
-                ...it,
-                status:
-                  data?.status ||
-                  (it.status === "active" ? "inactive" : "active"),
-                _updating: false,
-              }
+            ? { ...it, status: data?.status || (it.status === "active" ? "inactive" : "active"), _updating: false }
             : it
         )
       );
     } catch {
       alert("Không thể đổi trạng thái");
-      setRows((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, _updating: false } : it))
-      );
+      setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _updating: false } : it)));
     }
   }
 
   async function handleRestore(id) {
-    setRows((prev) =>
-      prev.map((it) => (it.id === id ? { ...it, _restoring: true } : it))
-    );
-
+    setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _restoring: true } : it)));
     try {
-      const res = await fetch(`${API_URL}/api/categories/${id}/restore`, {
-        method: "PATCH",
-        headers: { Accept: "application/json" },
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        alert(data?.message || "Khong the khoi phuc danh muc.");
-        setRows((prev) =>
-          prev.map((it) =>
-            it.id === id ? { ...it, _restoring: false } : it
-          )
-        );
-        return;
-      }
-
-      await loadCategories();
+      await axiosClient.patch(`/categories/${id}/restore`);
+      await loadCategories(); // Reload lại list vì item sẽ biến mất khỏi list trash
     } catch (error) {
-      alert("Khong the ket noi toi may chu.");
-      setRows((prev) =>
-        prev.map((it) => (it.id === id ? { ...it, _restoring: false } : it))
-      );
+      alert("Không thể khôi phục danh mục.");
+      setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _restoring: false } : it)));
     }
   }
 
-  // === Xoa danh muc ===
+  // === 6. Delete Category ===
   const handleAskDelete = (category) => {
-    if (!category || deleteLoading) {
-      return;
-    }
+    if (!category || deleteLoading) return;
     setDeleteError("");
     setDeleteTarget({
       id: category.id,
@@ -520,50 +392,29 @@ export default function AdminCategoriesPage() {
   };
 
   const handleCloseDelete = () => {
-    if (deleteLoading) {
-      return;
-    }
+    if (deleteLoading) return;
     setDeleteError("");
     setDeleteTarget(null);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deleteTarget) {
-      return;
-    }
-
+    if (!deleteTarget) return;
     setDeleteLoading(true);
     setDeleteError("");
 
     try {
-      const response = await fetch(
-        `${API_URL}/api/categories/${deleteTarget.id}`,
-        {
-          method: "DELETE",
-          headers: {
-            Accept: "application/json",
-          },
-        }
-      );
-      const data = await response.json().catch(() => ({}));
-
-      if (!response.ok) {
-        setDeleteError(
-          data?.message || "Khong the xoa danh muc."
-        );
-        return;
-      }
-
+      await axiosClient.delete(`/categories/${deleteTarget.id}`);
       await loadCategories();
       setDeleteTarget(null);
     } catch (error) {
-      setDeleteError("Khong the ket noi toi may chu.");
+      const message = error.response?.data?.message || "Không thể xóa danh mục.";
+      setDeleteError(message);
     } finally {
       setDeleteLoading(false);
     }
   };
 
-  // === Xuất file ===
+  // === 7. Export File (Blob Download) ===
   const [openExport, setOpenExport] = useState(false);
   const exportRef = useRef(null);
   useEffect(() => {
@@ -572,35 +423,46 @@ export default function AdminCategoriesPage() {
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
-  const handleExport = (format) => {
-    window.open(`${API_URL}/api/categories/export?format=${format}`, "_blank");
+
+  const handleExport = async (format) => {
+    try {
+      setOpenExport(false);
+      const response = await axiosClient.get(`/categories/export?format=${format}`, {
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `categories_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Export failed", error);
+      alert("Xuất file thất bại.");
+    }
   };
 
+  // === 8. Tree Drag & Drop Logic ===
   const uniqueParents = useMemo(() => {
-    if (isDeletedView) {
-      return [];
-    }
+    if (isDeletedView) return [];
     const set = new Set(rows.map((r) => r.parent || ROOT_PARENT_LABEL));
     return [ALL_PARENT_FILTER, ...Array.from(set)];
   }, [rows, isDeletedView]);
 
   const parentOptions = useMemo(() => {
-    if (isDeletedView) {
-      return [{ value: "", label: "Khong co danh muc cha" }];
-    }
+    if (isDeletedView) return [{ value: "", label: "Không có danh mục cha" }];
     return [
-      { value: "", label: "Khong co danh muc cha" },
+      { value: "", label: "Không có danh mục cha" },
       ...rows.map((r) => ({
         value: String(r.id),
-        label: r.name || `Danh muc #${r.id}`,
+        label: r.name || `Danh mục #${r.id}`,
       })),
     ];
   }, [rows, isDeletedView]);
 
   const editParentOptions = useMemo(() => {
-    if (!editTarget) {
-      return parentOptions;
-    }
+    if (!editTarget) return parentOptions;
     const excludeId = String(editTarget.id);
     return parentOptions.filter(
       (option) => option.value === "" || option.value !== excludeId
@@ -618,35 +480,22 @@ export default function AdminCategoriesPage() {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      const matchQuery = (r.name || "")
-        .toLowerCase()
-        .includes(query.toLowerCase());
-      if (isDeletedView) {
-        return matchQuery;
-      }
+      const matchQuery = (r.name || "").toLowerCase().includes(query.toLowerCase());
+      if (isDeletedView) return matchQuery;
       const matchParent =
         parentFilter === "all" ||
-        (parentFilter === ROOT_PARENT_LABEL
-          ? !r.parent
-          : r.parent === parentFilter);
+        (parentFilter === ROOT_PARENT_LABEL ? !r.parent : r.parent === parentFilter);
       const matchStatus = statusFilter === "all" || r.status === statusFilter;
       return matchQuery && matchParent && matchStatus;
     });
   }, [rows, query, parentFilter, statusFilter, isDeletedView]);
 
-  useEffect(
-    () => () => {
-      if (treeNoticeTimeout.current) {
-        clearTimeout(treeNoticeTimeout.current);
-      }
-    },
-    []
-  );
+  useEffect(() => () => {
+      if (treeNoticeTimeout.current) clearTimeout(treeNoticeTimeout.current);
+  }, []);
 
   const emitTreeMessage = useCallback((msg) => {
-    if (treeNoticeTimeout.current) {
-      clearTimeout(treeNoticeTimeout.current);
-    }
+    if (treeNoticeTimeout.current) clearTimeout(treeNoticeTimeout.current);
     setTreeMessage(msg);
     treeNoticeTimeout.current = setTimeout(() => setTreeMessage(""), 2500);
   }, []);
@@ -677,26 +526,9 @@ export default function AdminCategoriesPage() {
 
   const persistMoves = useCallback(
     async (moves) => {
-      const response = await fetch(`${API_URL}/api/categories/reorder`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ moves }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(
-          data?.message ||
-            (data?.errors
-              ? Object.values(data.errors).flat().join(", ")
-              : "Khong the cap nhat cay danh muc.")
-        );
-      }
-      return data;
-    },
-    [API_URL]
+      // Dùng axiosClient.put để lưu thứ tự mới
+      await axiosClient.put("/categories/reorder", { moves });
+    }, []
   );
 
   const applyMove = useCallback(
@@ -705,13 +537,14 @@ export default function AdminCategoriesPage() {
       const prevRows = rows;
       const movedTree = moveNodeInTree(treeData, nodeId, newParentId, position);
       if (!movedTree) {
-        emitTreeMessage("Khong the di chuyen nut nay.");
+        emitTreeMessage("Không thể di chuyển nút này.");
         return;
       }
       setTreeData(movedTree);
       setRows(updateRowsForMove(rows, nodeId, newParentId));
       setTreeLock(true);
       setDragOver({ id: null, type: null });
+      
       try {
         await persistMoves([
           {
@@ -723,26 +556,18 @@ export default function AdminCategoriesPage() {
       } catch (error) {
         setTreeData(prevTree);
         setRows(prevRows);
-        emitTreeMessage(error.message || "Khong the cap nhat cay.");
+        emitTreeMessage("Không thể cập nhật cây.");
       } finally {
         setTreeLock(false);
         handleDragEnd();
       }
     },
-    [
-      treeData,
-      rows,
-      emitTreeMessage,
-      persistMoves,
-      handleDragEnd,
-    ]
+    [treeData, rows, emitTreeMessage, persistMoves, handleDragEnd]
   );
 
   const handleDropNode = useCallback(
     (targetId, dropType) => {
-      if (!draggingId || treeLock) {
-        return;
-      }
+      if (!draggingId || treeLock) return;
       const found = findNodeWithParent(treeData, targetId);
       if (!found) return;
       const { node: target, parent } = found;
@@ -756,20 +581,17 @@ export default function AdminCategoriesPage() {
         parentId = parent ? parent.id : null;
         const siblings = parent ? parent.children : treeData;
         const targetIndex = siblings.findIndex((x) => x.id === target.id);
-        position =
-          dropType === "before"
-            ? targetIndex
-            : Math.min(siblings.length, targetIndex + 1);
+        position = dropType === "before" ? targetIndex : Math.min(siblings.length, targetIndex + 1);
       }
 
       if (draggingId === parentId) {
-        emitTreeMessage("Khong the di chuyen vao chinh no.");
+        emitTreeMessage("Không thể di chuyển vào chính nó.");
         handleDragEnd();
         return;
       }
 
       if (parentId && isDescendant(treeData, draggingId, parentId)) {
-        emitTreeMessage("Khong the tao vong lap (node con cua chinh no).");
+        emitTreeMessage("Không thể tạo vòng lặp (node con của chính nó).");
         handleDragEnd();
         return;
       }
@@ -782,11 +604,8 @@ export default function AdminCategoriesPage() {
   const toggleBulk = useCallback((id) => {
     setBulkSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
@@ -797,7 +616,7 @@ export default function AdminCategoriesPage() {
 
   const handleBulkMove = useCallback(async () => {
     if (!bulkSelected.size) {
-      emitTreeMessage("Chua chon danh muc de di chuyen.");
+      emitTreeMessage("Chưa chọn danh mục để di chuyển.");
       return;
     }
     const targetParentId = bulkTarget ? Number(bulkTarget) : null;
@@ -807,7 +626,7 @@ export default function AdminCategoriesPage() {
       (id) => id === targetParentId || isDescendant(treeData, id, targetParentId)
     );
     if (invalid) {
-      emitTreeMessage("Khong the di chuyen vao chinh no hoac nhanh con.");
+      emitTreeMessage("Không thể di chuyển vào chính nó hoặc nhánh con.");
       return;
     }
 
@@ -836,12 +655,12 @@ export default function AdminCategoriesPage() {
           position: idx,
         }))
       );
-      emitTreeMessage("Da di chuyen nhom thanh cong.");
+      emitTreeMessage("Đã di chuyển nhóm thành công.");
       clearBulk();
     } catch (error) {
       setTreeData(treeSnapshotRef.current || treeData);
       setRows(rowsSnapshotRef.current || rows);
-      emitTreeMessage(error.message || "Khong the di chuyen nhom.");
+      emitTreeMessage("Không thể di chuyển nhóm.");
     } finally {
       setTreeLock(false);
     }
@@ -864,10 +683,8 @@ export default function AdminCategoriesPage() {
         className="hidden"
         onChange={handleSelectImportFile}
       />
-      {/* Sidebar */}
       <AdminSidebar />
 
-      {/* Main content */}
       <main className="flex-1 w-full min-w-0 overflow-x-hidden">
         {/* Header */}
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
@@ -911,19 +728,19 @@ export default function AdminCategoriesPage() {
                 disabled={importLoading || importSubmitting}
                 className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm hover:bg-slate-50 disabled:opacity-50"
               >
-                <Upload size={16} /> Nhap Excel
+                <Upload size={16} /> Nhập Excel
               </button>
               <button
                 onClick={handleOpenCreate}
                 className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700"
               >
-                <Plus size={16} /> Them danh muc
+                <Plus size={16} /> Thêm danh mục
               </button>
             </div>
           </div>
 
           <div className="w-full px-10 pb-3 flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Che do hien thi</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chế độ hiển thị</span>
             <div className="inline-flex rounded-full border bg-white p-1 text-xs shadow-sm">
               <button
                 type="button"
@@ -934,7 +751,7 @@ export default function AdminCategoriesPage() {
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                Dang hoat dong
+                Đang hoạt động
               </button>
               <button
                 type="button"
@@ -945,7 +762,7 @@ export default function AdminCategoriesPage() {
                     : "text-slate-600 hover:bg-slate-100"
                 }`}
               >
-                Da xoa
+                Đã xóa
               </button>
             </div>
           </div>
@@ -986,10 +803,10 @@ export default function AdminCategoriesPage() {
               options={["all", "active", "inactive"]}
               mapLabel={(v) =>
                 v === "all"
-                  ? "Tat ca trang thai"
+                  ? "Tất cả trạng thái"
                   : v === "active"
-                  ? "Hoat dong"
-                  : "Tam dung"
+                  ? "Hoạt động"
+                  : "Tạm dừng"
               }
               disabled={isDeletedView}
             />
@@ -1009,15 +826,15 @@ export default function AdminCategoriesPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-600">
-                        Cay danh muc nang cao
+                        Cây danh mục nâng cao
                       </h3>
                       <p className="mt-1 text-xs text-slate-500">
-                        Keo tha de doi thu tu/cha-con. Chon nhieu de di chuyen nhom.
+                        Kéo thả để đổi thứ tự/cha-con. Chọn nhiều để di chuyển nhóm.
                       </p>
                     </div>
                     {treeLock && (
                       <span className="text-[11px] font-medium text-indigo-600">
-                        Dang cap nhat...
+                        Đang cập nhật...
                       </span>
                     )}
                   </div>
@@ -1027,7 +844,7 @@ export default function AdminCategoriesPage() {
                       value={bulkTarget}
                       onChange={(e) => setBulkTarget(e.target.value)}
                     >
-                      <option value="">Chon goc</option>
+                      <option value="">Chọn gốc</option>
                       {rows.map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.name}
@@ -1040,7 +857,7 @@ export default function AdminCategoriesPage() {
                       disabled={treeLock || !bulkSelected.size}
                       className="rounded-lg bg-indigo-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-50"
                     >
-                      Di chuyen nhom ({bulkSelected.size || 0})
+                      Di chuyển nhóm ({bulkSelected.size || 0})
                     </button>
                     <button
                       type="button"
@@ -1048,7 +865,7 @@ export default function AdminCategoriesPage() {
                       disabled={!bulkSelected.size || treeLock}
                       className="rounded-lg border px-3 py-1 text-xs font-semibold text-slate-600 disabled:opacity-50"
                     >
-                      Bo chon
+                      Bỏ chọn
                     </button>
                     {treeMessage && (
                       <span className="text-[11px] text-amber-600">
@@ -1078,12 +895,12 @@ export default function AdminCategoriesPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
                   <tr className="text-left text-slate-600">
-                    <Th>Ten danh muc</Th>
+                    <Th>Tên danh mục</Th>
                     <Th>Slug</Th>
-                    <Th>Danh muc cha</Th>
-                    <Th className="w-48">Trang thai</Th>
-                    <Th className="w-40">{isDeletedView ? "Ngay xoa" : "Ngay tao"}</Th>
-                    <Th className="w-40 text-right pr-4">Thao tac</Th>
+                    <Th>Danh mục cha</Th>
+                    <Th className="w-48">Trạng thái</Th>
+                    <Th className="w-40">{isDeletedView ? "Ngày xóa" : "Ngày tạo"}</Th>
+                    <Th className="w-40 text-right pr-4">Thao tác</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1109,19 +926,19 @@ export default function AdminCategoriesPage() {
                           {r.parent || ROOT_PARENT_LABEL}
                         </td>
 
-                        {/* === Trạng thái nằm giữa các cột === */}
+                        {/* === Trạng thái === */}
                         <td className="px-4 py-3">
                           {isDeletedView ? (
                             <div className="flex flex-col gap-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
-                                  Da xoa
+                                  Đã xóa
                                 </span>
                                 <StatusBadge status={r.status} />
                               </div>
                               {r.auto_delete_at && (
                                 <p className="text-xs text-slate-500">
-                                  Tu dong xoa vinh vien vao{" "}
+                                  Tự động xóa vĩnh viễn vào{" "}
                                   {formatDate(r.auto_delete_at)}
                                 </p>
                               )}
@@ -1135,20 +952,20 @@ export default function AdminCategoriesPage() {
                           {formatDate(isDeletedView ? r.deleted_at : r.created_at)}
                         </td>
 
-                        {/* === Cột thao tác === */}
+                        {/* === Thao tác === */}
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-2">
                             {isDeletedView ? (
                               <>
                                 <IconBtn
-                                  title="Xem chi tiet"
+                                  title="Xem chi tiết"
                                   intent="neutral"
                                   onClick={() => handleOpenView(r)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Khoi phuc"
+                                  title="Khôi phục"
                                   intent="primary"
                                   onClick={() => handleRestore(r.id)}
                                   disabled={r._restoring}
@@ -1161,8 +978,8 @@ export default function AdminCategoriesPage() {
                                 <IconBtn
                                   title={
                                     r.status === "active"
-                                      ? "Chuyen sang tam dung"
-                                      : "Kich hoat danh muc"
+                                      ? "Chuyển sang tạm dừng"
+                                      : "Kích hoạt danh mục"
                                   }
                                   intent={r.status === "active" ? "danger" : "primary"}
                                   disabled={r._updating}
@@ -1171,14 +988,14 @@ export default function AdminCategoriesPage() {
                                   <Power size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Xem chi tiet"
+                                  title="Xem chi tiết"
                                   intent="neutral"
                                   onClick={() => handleOpenView(r)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Sua"
+                                  title="Sửa"
                                   intent="primary"
                                   onClick={() => handleOpenEdit(r)}
                                   disabled={r._updating}
@@ -1186,7 +1003,7 @@ export default function AdminCategoriesPage() {
                                   <Edit size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Xoa"
+                                  title="Xóa"
                                   intent="danger"
                                   onClick={() => handleAskDelete(r)}
                                   disabled={
@@ -1258,76 +1075,29 @@ export default function AdminCategoriesPage() {
   );
 }
 
-function DeleteCategoryModal({
-  open,
-  category,
-  onClose,
-  onConfirm,
-  loading,
-  error,
-}) {
+function DeleteCategoryModal({ open, category, onClose, onConfirm, loading, error }) {
   if (!open || !category) return null;
-
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">
-              Xoa danh muc
-            </h2>
-            <p className="text-sm text-slate-500">
-              Danh muc se duoc xoa mem va an khoi danh sach hien thi.
-            </p>
+            <h2 className="text-lg font-semibold text-slate-800">Xóa danh mục</h2>
+            <p className="text-sm text-slate-500">Danh mục sẽ được xóa mềm và ẩn khỏi danh sách hiển thị.</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
-          >
+          <button type="button" onClick={onClose} disabled={loading} className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
             <X size={18} />
           </button>
         </div>
-
         <div className="mt-4 space-y-3 text-sm text-slate-600">
-          <p>
-            Ban co chac muon xoa danh muc{" "}
-            <span className="font-semibold text-slate-800">
-              {category.name || `Danh muc #${category.id}`}
-            </span>
-            ?
-          </p>
-          {category.slug && (
-            <p className="text-xs text-slate-400">Slug: {category.slug}</p>
-          )}
-          <p className="text-xs text-amber-600">
-            Luu y: Khong the xoa khi danh muc con dang ton tai.
-          </p>
+          <p>Bạn có chắc muốn xóa danh mục <span className="font-semibold text-slate-800">{category.name}</span>?</p>
+          <p className="text-xs text-amber-600">Lưu ý: Không thể xóa khi danh mục con đang tồn tại.</p>
         </div>
-
-        {error && (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
-            {error}
-          </div>
-        )}
-
+        {error && <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>}
         <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-          >
-            Huy
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700 disabled:opacity-50"
-          >
-            {loading ? "Dang xoa..." : "Xac nhan xoa"}
+          <button type="button" onClick={onClose} disabled={loading} className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
+          <button type="button" onClick={onConfirm} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700">
+            {loading ? "Đang xóa..." : "Xác nhận xóa"}
           </button>
         </div>
       </div>
@@ -1335,125 +1105,48 @@ function DeleteCategoryModal({
   );
 }
 
-function CategoryFormModal({
-  mode = "create",
-  open,
-  onClose,
-  form,
-  onChange,
-  onSubmit,
-  parentOptions,
-  loading,
-  error,
-}) {
+function CategoryFormModal({ mode = "create", open, onClose, form, onChange, onSubmit, parentOptions, loading, error }) {
   if (!open) return null;
-
   const isEdit = mode === "edit";
-  const title = isEdit ? "Sua danh muc" : "Them danh muc";
-  const subtitle = isEdit
-    ? "Cap nhat thong tin danh muc."
-    : "Nhap thong tin danh muc moi.";
-  const submitLabel = isEdit ? "Luu danh muc" : "Tao danh muc";
-  const processingLabel = isEdit ? "Dang luu..." : "Dang tao...";
-
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">
-              {title}
-            </h2>
-            <p className="text-sm text-slate-500">
-              {subtitle}
-            </p>
+            <h2 className="text-lg font-semibold text-slate-800">{isEdit ? "Sửa danh mục" : "Thêm danh mục"}</h2>
+            <p className="text-sm text-slate-500">{isEdit ? "Cập nhật thông tin danh mục." : "Nhập thông tin danh mục mới."}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="rounded-full p-2 text-slate-500 hover:bg-slate-100 disabled:opacity-50"
-          >
-            <X size={18} />
-          </button>
+          <button type="button" onClick={onClose} disabled={loading} className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
         </div>
-
-        {error && (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
-            {error}
-          </div>
-        )}
-
+        {error && <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>}
         <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Ten danh muc
-            </label>
-            <input
-              value={form.name}
-              onChange={(e) => onChange("name", e.target.value)}
-              className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              placeholder="Vi du: Do dien tu"
-              required
-            />
+            <label className="mb-1 block text-sm font-medium text-slate-700">Tên danh mục</label>
+            <input value={form.name} onChange={(e) => onChange("name", e.target.value)} className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" required />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">
-              Mo ta
-            </label>
-            <textarea
-              value={form.description}
-              onChange={(e) => onChange("description", e.target.value)}
-              className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              placeholder="Thong tin mo ta nganh hang"
-            />
+            <label className="mb-1 block text-sm font-medium text-slate-700">Mô tả</label>
+            <textarea value={form.description} onChange={(e) => onChange("description", e.target.value)} className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" />
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Danh muc cha
-              </label>
-              <select
-                value={form.parentId}
-                onChange={(e) => onChange("parentId", e.target.value)}
-                className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                {parentOptions.map((op) => (
-                  <option key={op.value} value={op.value}>
-                    {op.label}
-                  </option>
-                ))}
+              <label className="mb-1 block text-sm font-medium text-slate-700">Danh mục cha</label>
+              <select value={form.parentId} onChange={(e) => onChange("parentId", e.target.value)} className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
+                {parentOptions.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">
-                Trang thai
-              </label>
-              <select
-                value={form.status}
-                onChange={(e) => onChange("status", e.target.value)}
-                className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              >
-                <option value="active">Dang hoat dong</option>
-                <option value="inactive">Tam dung</option>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Trạng thái</label>
+              <select value={form.status} onChange={(e) => onChange("status", e.target.value)} className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
+                <option value="active">Đang hoạt động</option>
+                <option value="inactive">Tạm dừng</option>
               </select>
             </div>
           </div>
           <div className="flex items-center justify-end gap-2 pt-2">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={loading}
-              className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-            >
-              Huy
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {loading ? processingLabel : submitLabel}
+            <button type="button" onClick={onClose} disabled={loading} className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
+            <button type="submit" disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+              {loading ? (isEdit ? "Đang lưu..." : "Đang tạo...") : (isEdit ? "Lưu danh mục" : "Tạo danh mục")}
             </button>
           </div>
         </form>
@@ -1962,56 +1655,6 @@ function Select({ value, onChange, options, mapLabel, disabled = false }) {
   );
 }
 
-function buildCategoryTree(items) {
-  if (!Array.isArray(items)) {
-    return [];
-  }
-
-  const nodeMap = new Map();
-
-  items.forEach((item) => {
-    if (!item || typeof item.id === "undefined") {
-      return;
-    }
-    nodeMap.set(item.id, {
-      id: item.id,
-      name: item.name,
-      slug: item.slug,
-      status: item.status,
-      parent_id: item.parent_id ?? null,
-      parent: item.parent,
-      created_at: item.created_at,
-      children: [],
-    });
-  });
-
-  const roots = [];
-
-  nodeMap.forEach((node) => {
-    if (node.parent_id && nodeMap.has(node.parent_id)) {
-      nodeMap.get(node.parent_id).children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  const sortNodes = (list) => {
-    list.sort((a, b) =>
-      String(a.name || "").localeCompare(String(b.name || ""), "vi", {
-        sensitivity: "base",
-      })
-    );
-    list.forEach((child) => {
-      if (child.children.length) {
-        sortNodes(child.children);
-      }
-    });
-  };
-
-  sortNodes(roots);
-  return roots;
-}
-
 function formatDate(s) {
   const d = new Date(s);
   if (Number.isNaN(+d)) return "";
@@ -2250,6 +1893,55 @@ function CategoryTreeNode({
   );
 }
 
+// ==========================================
+// HELPER FUNCTIONS CHO CÂY DANH MỤC (DRAG & DROP)
+// Dán đoạn này vào cuối file AdminCategoriesPage.jsx
+// ==========================================
+
+// 1. Xây dựng cây từ mảng phẳng (API trả về)
+function buildCategoryTree(items) {
+  if (!Array.isArray(items)) return [];
+  const nodeMap = new Map();
+  
+  // Tạo map và khởi tạo children
+  items.forEach((item) => {
+    if (!item || typeof item.id === "undefined") return;
+    nodeMap.set(item.id, { 
+      ...item, 
+      children: [] // Khởi tạo mảng con rỗng
+    });
+  });
+
+  const roots = [];
+  nodeMap.forEach((node) => {
+    // Nếu có parent_id và parent đó tồn tại trong map -> đẩy vào con của parent đó
+    if (node.parent_id && nodeMap.has(node.parent_id)) {
+      nodeMap.get(node.parent_id).children.push(node);
+    } else {
+      // Ngược lại thì nó là node gốc
+      roots.push(node);
+    }
+  });
+
+  // Hàm sắp xếp theo tên để hiển thị đẹp hơn (tùy chọn)
+  const sortNodes = (list) => {
+    list.sort((a, b) =>
+      String(a.name || "").localeCompare(String(b.name || ""), "vi", {
+        sensitivity: "base",
+      })
+    );
+    list.forEach((child) => {
+      if (child.children.length) {
+        sortNodes(child.children);
+      }
+    });
+  };
+
+  sortNodes(roots);
+  return roots;
+}
+
+// 2. Tạo bản sao sâu của cây (Quan trọng để không sửa trực tiếp State)
 function cloneTree(nodes) {
   return nodes.map((node) => ({
     ...node,
@@ -2257,17 +1949,21 @@ function cloneTree(nodes) {
   }));
 }
 
+// 3. Tìm node và parent của nó
 function findNodeWithParent(nodes, id, parent = null) {
   for (const node of nodes) {
     if (node.id === id) {
       return { node, parent };
     }
-    const found = findNodeWithParent(node.children || [], id, node);
-    if (found) return found;
+    if (node.children) {
+      const found = findNodeWithParent(node.children, id, node);
+      if (found) return found;
+    }
   }
   return null;
 }
 
+// 4. Kiểm tra xem targetId có nằm trong node con của node cha không (để tránh vòng lặp)
 function nodeContains(node, targetId) {
   if (!node) return false;
   if (node.id === targetId) return true;
@@ -2281,22 +1977,25 @@ function isDescendant(nodes, ancestorId, childId) {
   return nodeContains(ancestor, childId);
 }
 
+// 5. Xóa node khỏi cây cũ
 function removeNodeFromTree(nodes, id) {
   const result = [];
   let removed = null;
 
   nodes.forEach((node) => {
     if (node.id === id) {
-      removed = { ...node };
-      return;
+      removed = { ...node }; // Tìm thấy node cần xóa
+      return; 
     }
+    
+    // Đệ quy tìm trong con
     const { tree: childTree, removed: childRemoved } = removeNodeFromTree(
       node.children || [],
       id
     );
-    const newNode = childRemoved
-      ? { ...node, children: childTree }
-      : { ...node, children: cloneTree(node.children || []) };
+    
+    const newNode = { ...node, children: childTree }; // Tạo node mới với children đã cập nhật
+    
     if (childRemoved) {
       removed = childRemoved;
     }
@@ -2306,53 +2005,70 @@ function removeNodeFromTree(nodes, id) {
   return { tree: result, removed };
 }
 
+// 6. Chèn node vào vị trí mới
 function insertNodeIntoTree(nodes, node, parentId, position = null) {
+  // Trường hợp chèn vào gốc (parentId = null)
   if (!parentId) {
     const roots = [...nodes];
-    const insertPos =
-      position !== null ? Math.min(position, roots.length) : roots.length;
+    const insertPos = position !== null ? Math.min(position, roots.length) : roots.length;
     roots.splice(insertPos, 0, node);
     return roots;
   }
 
+  // Trường hợp chèn vào một node cha cụ thể
   return nodes.map((n) => {
     if (n.id === parentId) {
       const children = [...(n.children || [])];
-      const insertPos =
-        position !== null ? Math.min(position, children.length) : children.length;
+      const insertPos = position !== null ? Math.min(position, children.length) : children.length;
       children.splice(insertPos, 0, node);
       return { ...n, children };
     }
-    const updatedChildren = insertNodeIntoTree(
-      n.children || [],
-      node,
-      parentId,
-      position
-    );
-    if (updatedChildren !== n.children) {
-      return { ...n, children: updatedChildren };
+    
+    // Đệ quy tìm parentId ở các cấp sâu hơn
+    if (n.children && n.children.length > 0) {
+      const updatedChildren = insertNodeIntoTree(
+        n.children,
+        node,
+        parentId,
+        position
+      );
+      if (updatedChildren !== n.children) {
+        return { ...n, children: updatedChildren };
+      }
     }
     return n;
   });
 }
 
+// 7. Hàm chính: Di chuyển Node (Kết hợp Xóa + Chèn)
 function moveNodeInTree(tree, nodeId, newParentId, position) {
+  // Bước 1: Xóa node khỏi vị trí cũ
   const { tree: withoutNode, removed } = removeNodeFromTree(tree, nodeId);
-  if (!removed) return null;
-  const movedNode = { ...removed, parent_id: newParentId ?? null };
+  
+  if (!removed) return null; // Không tìm thấy node để di chuyển
+
+  // Bước 2: Cập nhật parent_id cho node đó
+  const movedNode = { 
+    ...removed, 
+    parent_id: newParentId ?? null 
+  };
+
+  // Bước 3: Chèn vào vị trí mới
   return insertNodeIntoTree(withoutNode, movedNode, newParentId, position);
 }
 
+// 8. Cập nhật danh sách phẳng (rows) để Table hiển thị đúng ngay lập tức
 function updateRowsForMove(rows, id, parentId) {
   const parentName = parentId
     ? rows.find((r) => r.id === parentId)?.name || null
     : null;
+    
   return rows.map((r) =>
     r.id === id
       ? {
           ...r,
           parent_id: parentId ?? null,
-          parent: parentId ? parentName : null,
+          parent: parentId ? parentName : null, // Cập nhật tên parent để hiển thị trên bảng
         }
       : r
   );

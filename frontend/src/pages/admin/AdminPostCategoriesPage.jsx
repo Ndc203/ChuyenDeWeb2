@@ -8,6 +8,7 @@ import {
   X,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
 export default function AdminPostCategoriesPage() {
   const [rows, setRows] = useState([]);
@@ -19,34 +20,30 @@ export default function AdminPostCategoriesPage() {
   const [form, setForm] = useState({ name: "", description: "" });
   const [formError, setFormError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  const [openExport, setOpenExport] = useState(false);
-
-  const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-  const exportRef = useRef(null);
-
-  useEffect(() => {
-    const close = (e) => !exportRef.current?.contains(e.target) && setOpenExport(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
+  
+  // === 1. Load Danh sách (Dùng axiosClient) ===
   const loadCategories = useCallback(() => {
     setLoading(true);
-    fetch(`${API_URL}/api/postcategories`)
-      .then((res) => res.json())
-      .then((data) => setRows(Array.isArray(data) ? data : []))
+    axiosClient.get('/postcategories')
+      .then((res) => {
+        // Xử lý dữ liệu (array hoặc object wrap)
+        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRows(data);
+      })
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
-  }, [API_URL]);
+  }, []);
 
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
 
+  // === Filter (Giữ nguyên) ===
   const filtered = useMemo(() => {
     return rows.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()));
   }, [rows, query]);
 
+  // === Các hàm mở/đóng Modal (Giữ nguyên) ===
   function handleOpenCreate() {
     setForm({ name: "", description: "" });
     setFormError("");
@@ -57,6 +54,7 @@ export default function AdminPostCategoriesPage() {
     setFormError("");
   }
 
+  // === 2. Tạo mới (Dùng axiosClient) ===
   async function handleSubmitCreate(e) {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -66,57 +64,39 @@ export default function AdminPostCategoriesPage() {
 
     setCreateLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/postcategories`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        setFormError(data.message || "Không thể tạo danh mục mới.");
-        return;
-      }
-
+      await axiosClient.post('/postcategories', form);
       await loadCategories();
       handleCloseCreate();
     } catch (err) {
-      setFormError("Không thể kết nối tới máy chủ.");
+      const message = err.response?.data?.message || "Không thể tạo danh mục mới.";
+      setFormError(message);
     } finally {
       setCreateLoading(false);
     }
   }
 
+  // === 3. Xóa (Dùng axiosClient) ===
   async function handleDelete(post_category_id) {
     if (!confirm("Bạn có chắc muốn xoá danh mục này?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/postcategories/${post_category_id}`, {
-        method: "DELETE",
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.message || "Không thể xoá danh mục.");
-        return;
-      }
-
+      await axiosClient.delete(`/postcategories/${post_category_id}`);
       setRows((prev) => prev.filter((it) => it.post_category_id !== post_category_id));
       alert("Đã xoá danh mục thành công!");
-    } catch {
-      alert("Không thể kết nối tới máy chủ.");
+    } catch (err) {
+      const message = err.response?.data?.message || "Không thể xóa danh mục.";
+      alert(message);
     }
   }
 
+  // === 4. Lấy chi tiết để sửa (Dùng axiosClient) ===
   async function handleEdit(post_category_id) {
     try {
-      const res = await fetch(`${API_URL}/api/postcategories/${post_category_id}`);
-      if (!res.ok) throw new Error("Không thể tải thông tin danh mục.");
-      const data = await res.json();
-      setEditCategory(data);
+      const res = await axiosClient.get(`/postcategories/${post_category_id}`);
+      setEditCategory(res.data);
       setOpenEdit(true);
     } catch (err) {
-      alert(err.message);
+      alert("Không thể tải thông tin danh mục.");
     }
   }
 
@@ -125,6 +105,7 @@ export default function AdminPostCategoriesPage() {
     setEditCategory(null);
   }
 
+  // === 5. Cập nhật (Dùng axiosClient) ===
   async function handleSubmitEdit(e) {
     e.preventDefault();
     if (!editCategory?.name.trim()) {
@@ -133,30 +114,49 @@ export default function AdminPostCategoriesPage() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/api/postcategories/${editCategory.post_category_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: editCategory.name,
-          description: editCategory.description || "",
-        }),
+      await axiosClient.put(`/postcategories/${editCategory.post_category_id}`, {
+        name: editCategory.name,
+        description: editCategory.description || "",
       });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        alert(data.message || "Không thể cập nhật danh mục.");
-        return;
-      }
 
       alert("✅ Đã cập nhật danh mục thành công!");
       handleCloseEdit();
       loadCategories();
-    } catch {
-      alert("Không thể kết nối tới máy chủ.");
+    } catch (err) {
+      const message = err.response?.data?.message || "Không thể cập nhật danh mục.";
+      alert(message);
     }
   }
 
-  const handleExport = (format) => {
-    window.open(`${API_URL}/api/postcategories/export?format=${format}`, "_blank");
+  // === 6. Xuất file (Dùng Blob) ===
+  const [openExport, setOpenExport] = useState(false);
+  const exportRef = useRef(null);
+
+  useEffect(() => {
+    const close = (e) => !exportRef.current?.contains(e.target) && setOpenExport(false);
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const handleExport = async (format) => {
+    try {
+      setOpenExport(false);
+      const response = await axiosClient.get(`/postcategories/export?format=${format}`, {
+        responseType: 'blob',
+      });
+      
+      // Tạo link tải
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `post_categories_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Export error:", error);
+      alert("Xuất file thất bại.");
+    }
   };
 
   return (
@@ -296,7 +296,7 @@ export default function AdminPostCategoriesPage() {
   );
 }
 
-/* === COMPONENTS === */
+/* === COMPONENTS (Giữ nguyên) === */
 function Th({ children, className = "" }) {
   return (
     <th
@@ -333,7 +333,7 @@ function formatDate(s) {
   });
 }
 
-/* === MODALS === */
+/* === MODALS (Giữ nguyên) === */
 function CreateCategoryModal({ open, onClose, onSubmit, form, setForm, loading, error }) {
   if (!open) return null;
   return (

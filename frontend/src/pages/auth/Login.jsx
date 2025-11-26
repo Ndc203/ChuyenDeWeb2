@@ -1,22 +1,24 @@
-// src/pages/auth/Login.jsx
 import { useState, useEffect } from "react";
-import axios from "axios";
+import axiosClient from '../../api/axiosClient';
 import { useNavigate, Link, useLocation } from "react-router-dom";
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "", remember: false });
   const [error, setError] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Nhận thông báo từ Register
+  // Xử lý thông báo từ trang Register chuyển sang
   useEffect(() => {
     if (location.state?.successMessage) {
       setSuccessMessage(location.state.successMessage);
       if (location.state.email) {
         setForm((prev) => ({ ...prev, email: location.state.email }));
       }
+      // Xóa thông báo sau 5 giây
       const timer = setTimeout(() => {
         setSuccessMessage("");
         window.history.replaceState({}, document.title);
@@ -28,26 +30,40 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    setIsLoading(true);
 
     try {
-      const res = await axios.post("http://127.0.0.1:8000/api/login", {
+      const res = await axiosClient.post("/login", {
         email: form.email,
         password: form.password,
       });
-      if (res.data.token) {
-      // Lưu token
-      localStorage.setItem("authToken", res.data.token);
 
-      // Lưu thông tin user nếu API trả về
-      if (res.data.data) {
-        localStorage.setItem("userData", JSON.stringify(res.data.data));
-      }
+      // Lấy dữ liệu (axiosClient trả về response object)
+      const { access_token, role, user } = res.data;
 
-      alert("Đăng nhập thành công!");
-      navigate("/admin/categories");
+      if (access_token) {
+        // 1. Lưu vào LocalStorage (Token Key phải khớp với axiosClient)
+        localStorage.setItem("authToken", access_token);
+        
+        // Lưu thêm thông tin phụ trợ nếu cần hiển thị UI
+        localStorage.setItem("userRole", role);
+        localStorage.setItem("userInfo", JSON.stringify(user));
+
+        alert("Đăng nhập thành công!");
+
+        // 2. ĐIỀU HƯỚNG
+        if (role === 'admin' || role === 'Admin') {
+            navigate("/admin/dashboard");
+        } else {
+            navigate("/"); 
+        }
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Đăng nhập thất bại!");
+      console.error(err);
+      // Xử lý thông báo lỗi từ Backend trả về
+      setError(err.response?.data?.message || "Đăng nhập thất bại! Vui lòng kiểm tra lại.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -82,11 +98,11 @@ export default function Login() {
 
         {/* THÔNG BÁO THÀNH CÔNG */}
         {successMessage && (
-          <p
+          <div
             style={{
-              color: "#10b981",
+              color: "#065f46",
               textAlign: "center",
-              margin: "0 0 16px",
+              marginBottom: "16px",
               fontSize: "14px",
               backgroundColor: "#d1fae5",
               padding: "10px",
@@ -95,13 +111,14 @@ export default function Login() {
             }}
           >
             {successMessage}
-          </p>
+          </div>
         )}
 
+        {/* THÔNG BÁO LỖI */}
         {error && (
-          <p style={{ color: "#ef4444", textAlign: "center", margin: "0 0 16px", fontSize: "14px", backgroundColor: "#fee2e2", padding: "8px", borderRadius: "8px" }}>
+          <div style={{ color: "#b91c1c", textAlign: "center", marginBottom: "16px", fontSize: "14px", backgroundColor: "#fee2e2", padding: "8px", borderRadius: "8px", border: "1px solid #fecaca" }}>
             {error}
-          </p>
+          </div>
         )}
 
         <form onSubmit={handleSubmit}>
@@ -115,7 +132,7 @@ export default function Login() {
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
                 required
-                style={{ width: "100%", padding: "12px 14px 12px 40px", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none" }}
+                style={{ width: "100%", padding: "12px 14px 12px 40px", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none", transition: "border-color 0.2s" }}
               />
               <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", width: "18px", height: "18px", color: "#94a3b8" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
@@ -151,19 +168,21 @@ export default function Login() {
 
           <button
             type="submit"
+            disabled={isLoading}
             style={{
               width: "100%",
               padding: "14px",
-              backgroundColor: "#0ea5e9",
+              backgroundColor: isLoading ? "#9ca3af" : "#0ea5e9",
               color: "#fff",
               border: "none",
               borderRadius: "12px",
               fontSize: "15px",
               fontWeight: "600",
-              cursor: "pointer",
+              cursor: isLoading ? "not-allowed" : "pointer",
+              transition: "background-color 0.2s",
             }}
           >
-            Đăng nhập
+            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
           </button>
         </form>
 

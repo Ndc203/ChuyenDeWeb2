@@ -154,44 +154,60 @@ class ProductController extends Controller
      */
     public function show($id)
     {
-        // Hỗ trợ cả ID thật và Hashed ID
-        $product = Product::with(['category', 'brand', 'reviews']);
-        
-        $realId = Product::decodeHashedId($id);
-        if ($realId) {
-            $product = $product->findOrFail($realId);
-        } else {
-            $product = $product->findOrFail($id);
+        // 1. Tìm sản phẩm theo ID hoặc Slug
+        // Sử dụng 'with' để lấy luôn thông tin Brand và Category (Eager Loading)
+        $product = Product::with(['category', 'brand'])
+            ->where('product_id', $id)
+            ->orWhere('slug', $id)
+            ->first();
+
+        // 2. Nếu không tìm thấy -> Trả về lỗi 404
+        if (!$product) {
+            return response()->json(['message' => 'Sản phẩm không tồn tại'], 404);
         }
 
+        // 3. Tính toán Rating & Reviews
+        // (Truy vấn trực tiếp từ quan hệ reviews)
         $avgRating = $product->reviews()->avg('rating') ?? 0;
         $totalReviews = $product->reviews()->count();
 
+        // 4. Tính giá cuối cùng (Final Price)
+        $finalPrice = $product->price;
+        if ($product->discount > 0) {
+            $finalPrice = $product->price - ($product->price * ($product->discount / 100));
+        }
+
+        // 5. Trả về JSON
         return response()->json([
-            'id' => $product->product_id,
-            'hashed_id' => $product->hashed_id,
+            'product_id' => $product->product_id, // Sửa lại key cho khớp với frontend nếu cần
             'name' => $product->name,
             'slug' => $product->slug,
             'description' => $product->description,
-            'brand' => optional($product->brand)->name,
+            
+            // Xử lý an toàn nếu brand/category bị null
+            'brand' => $product->brand ? $product->brand->name : 'Không có thương hiệu',
             'brand_id' => $product->brand_id,
+            'category' => $product->category ? $product->category->name : 'Không có danh mục',
+            'category_id' => $product->category_id,
+
             'price' => (float) $product->price,
             'discount' => $product->discount ?? 0,
-            'final_price' => $product->discount > 0 
-                ? (float) ($product->price - ($product->price * $product->discount / 100))
-                : (float) $product->price,
-            'category' => optional($product->category)->name,
-            'category_id' => $product->category_id,
+            'final_price' => (float) $finalPrice,
+            
             'stock' => $product->stock,
             'status' => $product->status ?? 'active',
+            
+            // Thông tin đánh giá
             'rating' => round($avgRating, 1),
             'reviews' => $totalReviews,
-            'is_flash_sale' => $product->is_flash_sale,
-            'is_new' => $product->is_new,
+            
+            'is_flash_sale' => (bool) $product->is_flash_sale,
+            'is_new' => (bool) $product->is_new,
             'tags' => $product->tags,
             'image' => $product->image,
-            'created_at' => optional($product->created_at)?->format('Y-m-d H:i'),
-            'updated_at' => optional($product->updated_at)?->format('Y-m-d H:i'),
+            
+            'created_at' => $product->created_at ? $product->created_at->format('Y-m-d H:i') : null,
+            'updated_at' => $product->updated_at ? $product->updated_at->format('Y-m-d H:i') : null,
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 

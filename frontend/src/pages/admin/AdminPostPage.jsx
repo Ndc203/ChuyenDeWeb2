@@ -99,15 +99,17 @@ async function handleViewHistory(id) {
     const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
     if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
     const data = await res.json();
-    // Lấy mảng versions
-    setHistoryData(data.versions || []);
+
+    // Hỗ trợ cả dạng: [] và { versions: [] }
+    const versions = Array.isArray(data) ? data : data.versions || [];
+
+    setHistoryData(versions);
     setSelectedPostId(id);
     setOpenHistory(true);
   } catch (err) {
     alert(err.message || "Không thể kết nối tới máy chủ.");
   }
 }
-
 
 
   // === Tạo bài viết ===
@@ -132,21 +134,26 @@ async function handleViewHistory(id) {
       setFormError("Vui lòng nhập tiêu đề bài viết.");
       return;
     }
-     if (!form.post_category_id) { // ✅ thêm check danh mục
-    setFormError("Vui lòng chọn danh mục bài viết.");
-    return;
-  }
+    if (!form.post_category_id) {
+      // ✅ thêm check danh mục
+      setFormError("Vui lòng chọn danh mục bài viết.");
+      return;
+    }
     const formData = new FormData();
     formData.append("title", form.title.trim());
     formData.append("excerpt", form.excerpt.trim());
     formData.append("content", form.content.trim());
     formData.append("status", form.status);
     formData.append("is_trending", form.is_trending ? 1 : 0);
-    if (form.post_category_id) 
-  formData.append("post_category_id", Number(form.post_category_id));
+    if (form.post_category_id)
+      formData.append("post_category_id", Number(form.post_category_id));
     if (form.image) formData.append("image", form.image);
 
-    const user = JSON.parse(localStorage.getItem("userData") || "{}");
+    const user = {
+      role: localStorage.getItem("userRole"),
+      ...JSON.parse(localStorage.getItem("userInfo") || "{}"),
+    };
+
     if (user.role !== "admin") {
       formData.set("status", "draft");
       formData.set("is_trending", 0);
@@ -173,7 +180,6 @@ async function handleViewHistory(id) {
       }
 
       // ✅ Thêm user_id của người tạo để isOwner = true
-      setRows((prev) => [{ ...data, user_id: user.user_id }, ...prev]);
       await loadPosts();
       handleCloseCreate();
     } catch (err) {
@@ -210,6 +216,7 @@ async function handleViewHistory(id) {
     } catch {
       alert("Không thể kết nối tới máy chủ.");
     }
+    await loadPosts();
   }
 
   // === Edit ===
@@ -352,13 +359,16 @@ async function handleViewHistory(id) {
                   </tr>
                 ) : (
                   filtered.map((r, i) => {
-                    const user = JSON.parse(
-                      localStorage.getItem("userData") || "{}"
-                    );
-                    const isOwner =
-                      user.role === "admin" ||
-                      Number(r.user_id) === Number(user.user_id);
+                    const user = {
+                      role: localStorage.getItem("userRole"),
+                      ...JSON.parse(localStorage.getItem("userInfo") || "{}"),
+                    };
 
+                    const currentUserId = Number(user.id || user.user_id);
+                    const ownerId = Number(r.user_id || r.user?.user_id);
+
+                    const isOwner =
+                      user.role === "admin" || ownerId === currentUserId;
                     return (
                       <tr
                         key={r.post_id}
@@ -703,7 +713,10 @@ function CreatePostModal({
           {/* Trạng thái + Trending */}
           <div className="flex items-center justify-between gap-4">
             {(() => {
-              const user = JSON.parse(localStorage.getItem("userData") || "{}");
+              const user = {
+                role: localStorage.getItem("userRole"),
+                ...JSON.parse(localStorage.getItem("userInfo") || "{}"),
+              };
               const isAdmin = user.role === "admin";
 
               if (isAdmin) {
@@ -860,8 +873,8 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
     if (!open) return;
     setLoadingCategories(true);
     fetch(`${API_URL}/api/postcategories`)
-      .then(res => res.json())
-      .then(data => setCategories(Array.isArray(data) ? data : []))
+      .then((res) => res.json())
+      .then((data) => setCategories(Array.isArray(data) ? data : []))
       .catch(() => setCategories([]))
       .finally(() => setLoadingCategories(false));
   }, [open, API_URL]);
@@ -930,7 +943,10 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
     }
   }
 
-  const user = JSON.parse(localStorage.getItem("userData") || "{}");
+  const user = {
+    role: localStorage.getItem("userRole"),
+    ...JSON.parse(localStorage.getItem("userInfo") || "{}"),
+  };
   const isAdmin = user.role === "admin";
 
   return (
@@ -949,7 +965,9 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
         </div>
 
         {loadingCategories && (
-          <div className="text-center text-slate-500 py-10">Đang tải danh mục...</div>
+          <div className="text-center text-slate-500 py-10">
+            Đang tải danh mục...
+          </div>
         )}
 
         {!loadingCategories && (
@@ -962,7 +980,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               <input
                 type="text"
                 value={form.title}
-                onChange={e => setForm({ ...form, title: e.target.value })}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2"
                 required
               />
@@ -975,7 +993,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               </label>
               <textarea
                 value={form.excerpt}
-                onChange={e => setForm({ ...form, excerpt: e.target.value })}
+                onChange={(e) => setForm({ ...form, excerpt: e.target.value })}
                 className="w-full border rounded-lg px-3 py-2"
               />
             </div>
@@ -987,14 +1005,14 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               </label>
               <select
                 value={form.post_category_id}
-                onChange={e =>
+                onChange={(e) =>
                   setForm({ ...form, post_category_id: e.target.value })
                 }
                 className="w-full border rounded-lg px-3 py-2"
                 required
               >
                 <option value="">-- Chọn danh mục --</option>
-                {categories.map(cat => (
+                {categories.map((cat) => (
                   <option
                     key={cat.post_category_id}
                     value={String(cat.post_category_id)}
@@ -1012,7 +1030,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               </label>
               <ReactQuill
                 value={form.content}
-                onChange={value => setForm({ ...form, content: value })}
+                onChange={(value) => setForm({ ...form, content: value })}
                 theme="snow"
               />
             </div>
@@ -1024,7 +1042,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               </label>
               <input
                 type="file"
-                onChange={e => setForm({ ...form, image: e.target.files[0] })}
+                onChange={(e) => setForm({ ...form, image: e.target.files[0] })}
                 className="w-full border rounded-lg px-3 py-2"
                 accept="image/*"
               />
@@ -1048,7 +1066,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
               <div className="flex items-center mt-4 gap-4">
                 <select
                   value={form.status}
-                  onChange={e => setForm({ ...form, status: e.target.value })}
+                  onChange={(e) => setForm({ ...form, status: e.target.value })}
                   className="border rounded-lg px-3 py-2 text-sm"
                 >
                   <option value="draft">Bản nháp</option>
@@ -1059,7 +1077,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
                     id="is_trending_edit"
                     type="checkbox"
                     checked={form.is_trending}
-                    onChange={e =>
+                    onChange={(e) =>
                       setForm({ ...form, is_trending: e.target.checked })
                     }
                     className="h-4 w-4 text-indigo-600 border-gray-300 rounded"
@@ -1097,8 +1115,6 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
   );
 }
 
-
-
 /* === Modal Lịch sử chỉnh sửa === */
 function HistoryModal({ open, onClose, history, postId }) {
   if (!open) return null;
@@ -1114,7 +1130,8 @@ function HistoryModal({ open, onClose, history, postId }) {
         `${API_URL}/api/posts/${postId}/restore/${versionId}`,
         {
           method: "POST",
-          headers: { Accept: "application/json" ,
+          headers: {
+            Accept: "application/json",
             Authorization: token ? `Bearer ${token}` : "",
           },
         }
