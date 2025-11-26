@@ -64,11 +64,18 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/products/slugify', [ProductController::class, 'slugify']);
 Route::get('/reviews', [ProductReviewController::class, 'index']);
 
-// Posts & Comments
+// Posts
+Route::get('/posts/export', [PostController::class, 'export']);
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
 Route::get('/post-statistics', [PostController::class, 'statistics']);
+Route::get('/postcategories', [PostCategoryController::class, 'index']);
+Route::get('/postcategories/{id}', [PostCategoryController::class, 'show']);
+// Comment routes
+Route::get('/posts/{id}/comments', [CommentController::class, 'index']);  // Lấy theo post_id
+Route::get('/comments/export', [CommentController::class, 'export']);      // Nếu sau này bạn thêm export
+Route::apiResource('comments', CommentController::class);
 
 // Quick Counts (Thống kê nhanh cho trang chủ)
 Route::get('/brands/count', fn() => ['count' => DB::table('brands')->count()]);
@@ -191,7 +198,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
 
     // Route CRUD chuẩn
-    Route::apiResource('postcategories', PostCategoryController::class);
+    Route::post('/postcategories', [PostCategoryController::class, 'store']);
+    Route::put('/postcategories/{id}', [PostCategoryController::class, 'update']);
+    Route::delete('/postcategories/{id}', [PostCategoryController::class, 'destroy']);
+    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
 });
 
 
