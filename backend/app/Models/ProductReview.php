@@ -10,7 +10,7 @@ class ProductReview extends Model
     use HasFactory;
 
     protected $table = 'productreviews';
-    protected $primaryKey = 'review_id';
+    protected $primaryKey = 'product_review_id';
     public $timestamps = true;
 
     protected $fillable = [
