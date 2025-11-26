@@ -141,11 +141,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Categories Management
     Route::post('/categories', [CategoryController::class, 'store']);
+    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::put('/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     Route::patch('/categories/{id}/toggle', [CategoryController::class, 'toggleStatus']);
     Route::get('/categories/trashed', [CategoryController::class, 'trashed']);
-    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::post('/categories/import', [CategoryController::class, 'import']);
 
     // Brands Management
