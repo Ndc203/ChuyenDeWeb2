@@ -25,6 +25,7 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\PaymentWebhookController;
+use App\Http\Controllers\Admin\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -93,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
+    Route::get('/dashboard', [DashboardController::class, 'statistics']);
 
     // Route hỗ trợ code cũ (AdminProfilePage)
     Route::get('/user', function (Request $request) {
