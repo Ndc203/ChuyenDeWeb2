@@ -1,11 +1,9 @@
 import React, { useState, useEffect, Fragment } from "react";
 import { Plus, Edit, Users, Shield, ArrowLeft } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
-import axios from "axios";
+import axiosClient from "../../api/axiosClient";
 import EditRoleModal from "./EditRoleModal.jsx";
 import AddRoleModal from "./AddRoleModal.jsx";
-
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 // Helper: Component Card Vai Trò (như trong ảnh)
 const RoleCard = ({ role, onEditClick }) => {
@@ -50,17 +48,12 @@ export default function AdminRolesPage() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      // Lấy token (giống code AdminProfilePage của bạn)
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      }
 
       try {
         // Chạy song song 2 API
         const [rolesRes, permsRes] = await Promise.all([
-          axios.get(`${API_URL}/api/roles`),
-          axios.get(`${API_URL}/api/permissions`)
+          axiosClient.get('/roles'),
+          axiosClient.get('/permissions')
         ]);
         
         setRoles(rolesRes.data);
