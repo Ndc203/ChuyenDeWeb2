@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Plus, Search } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import centralized Axios client
 
 export default function AdminStockPage() {
   const [activeTab, setActiveTab] = useState("list"); // "list" hoặc "history"
@@ -15,10 +16,6 @@ export default function AdminStockPage() {
   const [updateNote, setUpdateNote] = useState("");
   const [updating, setUpdating] = useState(false);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
-
   // Load danh sách tồn kho
   useEffect(() => {
     loadStocks();
@@ -28,9 +25,9 @@ export default function AdminStockPage() {
   const loadStocks = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/stock`);
-      const data = await response.json();
-      setStocks(data);
+      // Use axiosClient instead of fetch
+      const response = await axiosClient.get('/stock');
+      setStocks(response.data);
     } catch (error) {
       console.error("Error loading stocks:", error);
     } finally {
@@ -40,9 +37,9 @@ export default function AdminStockPage() {
 
   const loadHistory = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/stock/history`);
-      const data = await response.json();
-      setHistory(data);
+      // Use axiosClient instead of fetch
+      const response = await axiosClient.get('/stock/history');
+      setHistory(response.data);
     } catch (error) {
       console.error("Error loading history:", error);
     }
@@ -87,36 +84,29 @@ export default function AdminStockPage() {
 
     setUpdating(true);
     try {
-      const response = await fetch(`${API_URL}/api/stock/update`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({
-          product_id: selectedProduct.hashed_id || selectedProduct.id, // Use hashed_id for security
-          type: updateType,
-          quantity: parseInt(updateQuantity),
-          note: updateNote,
-        }),
+      // Use axiosClient.post
+      const response = await axiosClient.post('/stock/update', {
+        product_id: selectedProduct.hashed_id || selectedProduct.id, 
+        type: updateType,
+        quantity: parseInt(updateQuantity),
+        note: updateNote,
       });
 
-      const data = await response.json();
+      // Axios throws error automatically if status is not 2xx, 
+      // so if we reach here, it's successful
+      alert(response.data.message);
+      
+      setShowUpdateModal(false);
+      setSelectedProduct(null);
+      setUpdateQuantity("");
+      setUpdateNote("");
+      loadStocks();
+      loadHistory();
 
-      if (response.ok) {
-        alert(data.message);
-        setShowUpdateModal(false);
-        setSelectedProduct(null);
-        setUpdateQuantity("");
-        setUpdateNote("");
-        loadStocks();
-        loadHistory();
-      } else {
-        alert(data.message || "Có lỗi xảy ra");
-      }
     } catch (error) {
       console.error("Error updating stock:", error);
-      alert("Không thể kết nối tới máy chủ");
+      const message = error.response?.data?.message || "Có lỗi xảy ra";
+      alert(message);
     } finally {
       setUpdating(false);
     }

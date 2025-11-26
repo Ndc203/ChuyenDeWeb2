@@ -2,11 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import AdminSidebar from '../layout/AdminSidebar';
 import { ArrowLeft, Search, Download } from 'lucide-react';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient'; // Import axiosClient
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
-
-
+// --- Helper Components ---
 const StatCard = ({ title, value, colorClass }) => (
   <div className={`bg-white p-5 rounded-lg shadow`}>
     <h3 className="text-sm font-medium text-slate-500">{title}</h3>
@@ -70,28 +68,32 @@ export default function AdminActivityHistoryPage() {
   useEffect(() => { fetchLogs(); }, []);
 
   const fetchLogs = async () => {
-    const token = localStorage.getItem('authToken');
-    if (!token) return;
     setLoading(true);
     try {
-      const resp = await axios.get(`${API_URL}/api/activity-logs`, { headers: { Authorization: `Bearer ${token}` } });
-      // Laravel pagination returns data in resp.data.data
+      // --- SỬA ĐỔI: Dùng axiosClient ---
+      // Không cần lấy token thủ công, không cần header
+      const resp = await axiosClient.get('/activity-logs');
+      
+      // Xử lý dữ liệu (Laravel pagination trả về data trong .data, hoặc trả về mảng trực tiếp)
       const data = resp.data.data ?? resp.data;
+      
       setLogs(data.map(l => ({
         id: l.id,
         user: {
           name: l.username || l.user?.username || 'N/A',
           email: l.user?.email || '',
+          // Tạo avatar giả định nếu không có ảnh thật
           avatar: `https://i.pravatar.cc/40?u=${l.user?.email || l.username || l.id}`,
         },
         loginTime: formatDateTime(l.created_at),
-        // Per request: always show "Laptop" for device and location in UI
-        device: 'Laptop',
+        // Hardcode theo yêu cầu UI cũ, hoặc map từ l.user_agent nếu Backend có trả về
+        device: 'Laptop', 
         location: 'Tp.HCM',
         ipAddress: l.ip_address || 'N/A',
         status: mapStatusToLabel(l.status),
         responseTime: l.response_time_ms ? `${l.response_time_ms}ms` : 'N/A',
       })));
+
     } catch (err) {
       console.error('Failed to fetch activity logs', err);
     } finally {

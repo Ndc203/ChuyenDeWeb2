@@ -1,9 +1,7 @@
 import React, { useState, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { X } from "lucide-react";
-import axios from "axios";
-
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+import axiosClient from "../../api/axiosClient"; // Đảm bảo đường dẫn import đúng
 
 export default function AddRoleModal({ isOpen, onClose, allPermissions, onSuccess }) {
   // Bắt đầu với Tên rỗng
@@ -33,28 +31,28 @@ export default function AddRoleModal({ isOpen, onClose, allPermissions, onSucces
     setError('');
 
     try {
-      // 1. Lấy token
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      }
-
-      // 2. SỬA: Gọi API POST (đã tạo ở Backend)
-      await axios.post(`${API_URL}/api/roles`, {
+      // --- SỬA ĐỔI: Dùng axiosClient ---
+      // Không cần lấy token thủ công, không cần khai báo URL đầy đủ
+      await axiosClient.post('/roles', {
         name: roleName,
-        permissions: Array.from(selectedPerms) // Chuyển Set về mảng
+        permissions: Array.from(selectedPerms) // Chuyển Set về mảng để gửi lên server
       });
       
-      // 3. Báo thành công
+      // Báo thành công và reset form (nếu cần thiết logic reset có thể đặt ở đây hoặc parent)
       onSuccess();
+      setRoleName('');
+      setSelectedPerms(new Set());
 
     } catch (err) {
+      console.error(err);
+      // Xử lý lỗi validation từ Laravel (422)
       if (err.response && err.response.status === 422) {
-        setError(err.response.data.message || err.response.data.errors.name[0]);
+        // Lấy lỗi đầu tiên của trường 'name' nếu có, hoặc hiển thị message chung
+        const errorMsg = err.response.data.errors?.name?.[0] || err.response.data.message;
+        setError(errorMsg);
       } else {
         setError("Đã xảy ra lỗi. Vui lòng thử lại.");
       }
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -88,7 +86,6 @@ export default function AddRoleModal({ isOpen, onClose, allPermissions, onSucces
             >
               <Dialog.Panel className="w-full max-w-2xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                 <div className="flex items-center justify-between">
-                  {/* SỬA: Tiêu đề */}
                   <Dialog.Title as="h3" className="text-xl font-bold leading-6 text-slate-900">
                     Tạo Vai trò mới
                   </Dialog.Title>
@@ -108,15 +105,16 @@ export default function AddRoleModal({ isOpen, onClose, allPermissions, onSucces
                       onChange={(e) => setRoleName(e.target.value)}
                       className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       placeholder="Ví dụ: Staff, Biên tập viên,..."
+                      required
                     />
                   </div>
 
-                  {/* Danh sách Quyền hạn (Giữ nguyên) */}
+                  {/* Danh sách Quyền hạn */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700">Quyền hạn</label>
                     <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                       {allPermissions.map(perm => (
-                        <label key={perm.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-slate-50">
+                        <label key={perm.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-slate-50 cursor-pointer">
                           <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -130,7 +128,9 @@ export default function AddRoleModal({ isOpen, onClose, allPermissions, onSucces
                   </div>
 
                   {error && (
-                    <p className="text-sm text-red-600">{error}</p>
+                    <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md">
+                      {error}
+                    </div>
                   )}
 
                   {/* Nút bấm */}
@@ -147,7 +147,6 @@ export default function AddRoleModal({ isOpen, onClose, allPermissions, onSucces
                       disabled={loading}
                       className="inline-flex justify-center rounded-lg border border-transparent bg-indigo-600 text-white px-4 py-2 text-sm font-medium hover:bg-indigo-700 shadow-sm disabled:opacity-50"
                     >
-                      {/* SỬA: Text nút */}
                       {loading ? "Đang tạo..." : "Tạo mới"}
                     </button>
                   </div>

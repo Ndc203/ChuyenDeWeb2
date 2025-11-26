@@ -1,10 +1,9 @@
 import React, { useState, useEffect, Fragment } from "react";
 import AdminSidebar from "../../layout/AdminSidebar.jsx";
-import { DollarSign, ShoppingCart, Package, Calendar, Mail, Box } from "lucide-react";
+import { DollarSign, ShoppingCart, Package, Mail, Box } from "lucide-react";
+import axiosClient from '../../../api/axiosClient.js'; // Import centralized Axios client
 
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-
-// --- Helper Components (Copy từ các trang khác) ---
+// --- Helper Components ---
 const formatCurrency = (value) => {
   if (isNaN(value)) value = 0;
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -55,10 +54,11 @@ export default function AdminRevenueReportPage() {
       date: selectedDate,
     });
     
-    // Gọi API đã tạo ở backend
-    fetch(`${API_URL}/api/reports/revenue?${params.toString()}`)
-      .then(res => res.json())
-      .then(setData)
+    // --- SỬA ĐỔI: Dùng axiosClient ---
+    axiosClient.get(`/reports/revenue?${params.toString()}`)
+      .then(res => {
+        setData(res.data); // Dữ liệu nằm trong res.data
+      })
       .catch(error => {
         console.error("Lỗi tải báo cáo:", error);
         setData(null); // Xóa dữ liệu cũ nếu lỗi

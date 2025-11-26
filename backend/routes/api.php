@@ -25,6 +25,7 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\PaymentWebhookController;
+use App\Http\Controllers\Admin\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -93,6 +94,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
+    Route::get('/dashboard', [DashboardController::class, 'statistics']);
 
     // Route hỗ trợ code cũ (AdminProfilePage)
     Route::get('/user', function (Request $request) {
@@ -141,11 +143,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Categories Management
     Route::post('/categories', [CategoryController::class, 'store']);
+    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::put('/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     Route::patch('/categories/{id}/toggle', [CategoryController::class, 'toggleStatus']);
     Route::get('/categories/trashed', [CategoryController::class, 'trashed']);
-    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::post('/categories/import', [CategoryController::class, 'import']);
 
     // Brands Management
@@ -160,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
     Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
     Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
+    Route::get('/post-statistics', [PostController::class, 'statistics']);
 
     // Coupons Management
     Route::get('/coupons', [CouponController::class, 'index']); // Admin view list
@@ -183,6 +186,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/reviews/{id}/status', [ProductReviewController::class, 'updateStatus']);
     Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy']);
     Route::get('/reviews/statistics', [ProductReviewController::class, 'statistics']);
+
+    // Route đặc biệt đặt trước route resource
+    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
+    // Route CRUD chuẩn
+    Route::apiResource('postcategories', PostCategoryController::class);
 });
 
 

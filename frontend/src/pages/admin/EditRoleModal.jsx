@@ -1,31 +1,28 @@
-import React, { useState, useEffect, Fragment } from "react";
+import React, { useState, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { X } from "lucide-react";
-import axios from "axios";
-
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
 export default function EditRoleModal({ isOpen, onClose, role, allPermissions, onSuccess }) {
   const [roleName, setRoleName] = useState(role.name);
   
-  // Dùng Set (tập hợp) để quản lý check/uncheck hiệu quả
-  // 1. Lấy mảng tên các quyền của role này (vd: ['view users', 'edit orders'])
+  // 1. Lấy mảng tên các quyền hiện tại của role
   const initialPermNames = role.permissions.map(p => p.name);
-  // 2. Tạo một Set từ mảng đó
+  
+  // 2. Khởi tạo Set
   const [selectedPerms, setSelectedPerms] = useState(new Set(initialPermNames));
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Hàm xử lý check/uncheck
+  // Hàm xử lý check/uncheck (giữ nguyên logic cũ)
   const handlePermissionChange = (permissionName) => {
-    // Tạo bản sao của Set
     const newPerms = new Set(selectedPerms);
     
     if (newPerms.has(permissionName)) {
-      newPerms.delete(permissionName); // Nếu đã có -> Xóa
+      newPerms.delete(permissionName);
     } else {
-      newPerms.add(permissionName); // Nếu chưa có -> Thêm
+      newPerms.add(permissionName);
     }
     
     setSelectedPerms(newPerms);
@@ -38,29 +35,26 @@ export default function EditRoleModal({ isOpen, onClose, role, allPermissions, o
     setError('');
 
     try {
-      // 1. Lấy token
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      }
-
-      // 2. Gọi API PUT (đã tạo ở Backend)
-      await axios.put(`${API_URL}/api/roles/${role.id}`, {
+      // --- SỬA ĐỔI: Dùng axiosClient ---
+      // Không cần lấy token, không cần set header, không cần URL đầy đủ
+      await axiosClient.put(`/roles/${role.id}`, {
         name: roleName,
         permissions: Array.from(selectedPerms) // Chuyển Set về mảng
       });
       
-      // 3. Báo thành công
+      // Báo thành công
       onSuccess();
 
     } catch (err) {
+      console.error(err);
+      // Xử lý lỗi từ Laravel (422 Unprocessable Entity)
       if (err.response && err.response.status === 422) {
-        // Lỗi validation
-        setError(err.response.data.message);
+        // Lấy lỗi cụ thể của trường name hoặc message chung
+        const errorMsg = err.response.data.errors?.name?.[0] || err.response.data.message;
+        setError(errorMsg);
       } else {
         setError("Đã xảy ra lỗi. Vui lòng thử lại.");
       }
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -120,7 +114,7 @@ export default function EditRoleModal({ isOpen, onClose, role, allPermissions, o
                     <label className="block text-sm font-medium text-slate-700">Quyền hạn</label>
                     <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border border-slate-200 p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
                       {allPermissions.map(perm => (
-                        <label key={perm.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-slate-50">
+                        <label key={perm.id} className="flex items-center space-x-3 p-2 rounded-md hover:bg-slate-50 cursor-pointer">
                           <input
                             type="checkbox"
                             className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
@@ -134,7 +128,9 @@ export default function EditRoleModal({ isOpen, onClose, role, allPermissions, o
                   </div>
 
                   {error && (
-                    <p className="text-sm text-red-600">{error}</p>
+                    <div className="bg-red-50 text-red-600 text-sm p-3 rounded-md">
+                      {error}
+                    </div>
                   )}
 
                   {/* Nút bấm */}

@@ -1,20 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowLeft, Edit, Lock, Users, Mail, Phone, Calendar, MapPin, User, Shield, Activity } from 'lucide-react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import axios from 'axios';
 import AdminSidebar from '../layout/AdminSidebar';
-
-// API service definition
-const api = {
-  getOwnProfile: () => axios.get('http://localhost:8000/api/user'),
-  getUserById: (id) => axios.get(`http://localhost:8000/api/users/${id}`),
-  updateProfile: (data) => axios.put('http://localhost:8000/api/me/update', data),
-  changePassword: (data) => axios.post('http://localhost:8000/api/me/change-password', data),
-};
+import axiosClient from '../../api/axiosClient'; // Import axiosClient
 
 const AdminProfilePage = () => {
   const navigate = useNavigate();
-  const { id: userId } = useParams();
+  const { id: userId } = useParams(); // Nếu có ID thì xem user khác, không có thì xem chính mình
 
   const [user, setUser] = useState(null);
   const [isOwnProfile, setIsOwnProfile] = useState(false);
@@ -38,27 +30,25 @@ const AdminProfilePage = () => {
     const fetchUser = async () => {
       setLoading(true);
       try {
-        const token = localStorage.getItem('authToken');
-        if (!token) {
-          navigate('/login');
-          return;
-        }
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
-        const response = userId ? await api.getUserById(userId) : await api.getOwnProfile();
+        // Logic: Nếu có userId trên URL -> Gọi API lấy user theo ID
+        // Nếu không -> Gọi API lấy profile của chính mình (/user hoặc /me)
+        const endpoint = userId ? `/users/${userId}` : '/user';
+        
+        const response = await axiosClient.get(endpoint);
+        
         setUser(response.data);
-        setIsOwnProfile(!userId);
+        setIsOwnProfile(!userId); // Nếu không có param ID, tức là đang xem profile mình
 
       } catch (err) {
+        console.error("Lỗi tải profile:", err);
         setError('Không thể tải thông tin người dùng.');
-        console.error(err);
       } finally {
         setLoading(false);
       }
     };
 
     fetchUser();
-  }, [userId, navigate]);
+  }, [userId]);
 
   const RoleBadge = ({ role, className }) => {
     if (!role) return null;
@@ -86,7 +76,7 @@ const AdminProfilePage = () => {
     );
   };
 
-  if (loading) return <div className="flex h-screen items-center justify-center"><p>Đang tải...</p></div>;
+  if (loading) return <div className="flex h-screen items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div></div>;
   if (error) return <div className="flex h-screen items-center justify-center text-red-500"><p>{error}</p></div>;
   if (!user) return null;
 
@@ -222,7 +212,7 @@ const InfoRow = ({ icon, label, value, href }) => (
   </div>
 );
 
-// Các component Modal (EditProfileModal, ChangePasswordModal) giữ nguyên như cũ
+/* === Modal Chỉnh Sửa (Dùng axiosClient) === */
 const EditProfileModal = ({ user, setUser, closeModal }) => {
   const [formData, setFormData] = useState({
     full_name: user.full_name || '', phone: user.phone || '', address: user.address || '',
@@ -238,13 +228,15 @@ const EditProfileModal = ({ user, setUser, closeModal }) => {
         e.preventDefault();
         setError(''); setSuccess('');
         try {
-            const response = await api.updateProfile(formData);
+            // Dùng axiosClient.put
+            const response = await axiosClient.put('/me/update', formData);
+            
             setUser(response.data.user);
             setSuccess(response.data.message);
             setTimeout(() => closeModal(), 1500);
         } catch (err) {
-            setError('Cập nhật thất bại. Vui lòng thử lại.');
-            console.error(err);
+            const message = err.response?.data?.message || 'Cập nhật thất bại.';
+            setError(message);
         }
     };
 
@@ -261,7 +253,6 @@ const EditProfileModal = ({ user, setUser, closeModal }) => {
             <select name="gender" value={formData.gender} onChange={handleChange} className="p-2 border rounded">
               <option value="">Chọn giới tính</option> <option value="male">Nam</option> <option value="female">Nữ</option> <option value="other">Khác</option>
             </select>
-            {/* 'Phòng ban' field removed */}
                     </div>
                     <textarea name="about_me" value={formData.about_me} onChange={handleChange} placeholder="Giới thiệu bản thân" className="w-full p-2 border rounded mt-4" rows="3"></textarea>
                     {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
@@ -276,6 +267,7 @@ const EditProfileModal = ({ user, setUser, closeModal }) => {
     );
 };
 
+/* === Modal Đổi Mật Khẩu (Dùng axiosClient) === */
 const ChangePasswordModal = ({ closeModal }) => {
     const [formData, setFormData] = useState({ current_password: '', new_password: '', new_password_confirmation: '' });
     const [error, setError] = useState('');
@@ -291,12 +283,14 @@ const ChangePasswordModal = ({ closeModal }) => {
             return;
         }
         try {
-            const response = await api.changePassword(formData);
+            // Dùng axiosClient.post
+            const response = await axiosClient.post('/me/change-password', formData);
+            
             setSuccess(response.data.message);
             setTimeout(() => closeModal(), 1500);
         } catch (err) {
-            setError(err.response?.data?.message || 'Đổi mật khẩu thất bại.');
-            console.error(err);
+            const message = err.response?.data?.message || 'Đổi mật khẩu thất bại.';
+            setError(message);
         }
     };
     

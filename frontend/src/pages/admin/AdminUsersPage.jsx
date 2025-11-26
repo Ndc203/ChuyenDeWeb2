@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useMemo } from "react";
-import axios from "axios";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AdminSidebar from "../layout/AdminSidebar";
-import { useThemeLang } from "../../code/ThemeLangContext";
 import { Plus, BarChart2, Search, Eye, Pencil, Trash2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
+
+// --- Helper Functions ---
 
 // Map backend status values to localized labels for UI
 const mapServerStatusToLocal = (status) => {
@@ -19,29 +20,26 @@ const mapLocalStatusToServer = (status) => {
   if (status === 'Hoạt động') return 'active';
   if (status === 'Bị cấm') return 'banned';
   if (status === 'Không hoạt động') return 'banned';
-  // If already a backend value, pass through
   return status;
 };
 
-// Role mapping -- frontend uses 'editor' as a role; backend now accepts it.
+// Role mapping
 const mapRoleToServer = (role) => {
   if (!role) return null;
-  return role; // pass through (admin, customer, editor)
+  return role; 
 };
 
 // enhanceUserData: accept currentUserId to mark only the logged-in account as 'Hoạt động'.
 const enhanceUserData = (user, currentUserId = null) => {
-  const avatar = `https://i.pravatar.cc/40?u=${user.email}`;
+  const avatar = user.avatar || `https://i.pravatar.cc/40?u=${user.email}`;
   const last_login = user.last_login || new Date(Date.now() - Math.random() * 1000 * 60 * 60 * 24 * 14).toISOString();
 
-  // If this is the logged-in user, show 'Hoạt động'.
   let localizedStatus;
   if (currentUserId && user.user_id === currentUserId) {
     localizedStatus = 'Hoạt động';
   } else {
-    // If user is banned on server, show 'Bị cấm', otherwise treat as 'Không hoạt động'
     if (user.status === 'banned') localizedStatus = 'Bị cấm';
-    else localizedStatus = 'Không hoạt động';
+    else localizedStatus = 'Không hoạt động'; // Mặc định nếu không phải mình và không bị ban
   }
 
   return {
@@ -57,6 +55,8 @@ const formatDate = (dateString) => {
   const date = new Date(dateString);
   return date.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
+
+// --- Components ---
 
 const RoleBadge = ({ role }) => {
   if (!role) return null;
@@ -104,7 +104,7 @@ const AddUserModal = ({ onClose, onSave }) => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center px-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">Thêm người dùng mới</h3>
@@ -112,10 +112,10 @@ const AddUserModal = ({ onClose, onSave }) => {
                 </div>
                 {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
                 <div className="space-y-4">
-                    <input name="username" value={newUser.username} onChange={handleChange} placeholder="Tên người dùng" className="w-full border-slate-300 rounded-md" />
-                    <input name="email" type="email" value={newUser.email} onChange={handleChange} placeholder="Email" className="w-full border-slate-300 rounded-md" />
-                    <input name="password" type="password" value={newUser.password} onChange={handleChange} placeholder="Mật khẩu" className="w-full border-slate-300 rounded-md" />
-                    <select name="role" value={newUser.role} onChange={handleChange} className="w-full border-slate-300 rounded-md">
+                    <input name="username" value={newUser.username} onChange={handleChange} placeholder="Tên người dùng" className="w-full border-slate-300 rounded-md p-2 border" />
+                    <input name="email" type="email" value={newUser.email} onChange={handleChange} placeholder="Email" className="w-full border-slate-300 rounded-md p-2 border" />
+                    <input name="password" type="password" value={newUser.password} onChange={handleChange} placeholder="Mật khẩu" className="w-full border-slate-300 rounded-md p-2 border" />
+                    <select name="role" value={newUser.role} onChange={handleChange} className="w-full border-slate-300 rounded-md p-2 border">
                         <option value="customer">Người dùng</option>
                         <option value="editor">Điều hành viên</option>
                         <option value="admin">Quản trị viên</option>
@@ -137,19 +137,19 @@ const EditUserModal = ({ user, onClose, onSave }) => {
     const handleSave = () => onSave(user.user_id, { role, status });
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center px-4">
             <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-semibold">Chỉnh sửa người dùng</h3>
                     <button onClick={onClose} className="text-slate-500 hover:text-slate-800"><X size={24} /></button>
                 </div>
                 <div className="space-y-4">
-                    <input type="text" disabled value={user.username} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100" />
-                    <input type="text" disabled value={user.email} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100" />
-                    <select value={role} onChange={e => setRole(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md">
+                    <input type="text" disabled value={user.username} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100 p-2 border" />
+                    <input type="text" disabled value={user.email} className="mt-1 w-full border-slate-300 rounded-md bg-slate-100 p-2 border" />
+                    <select value={role} onChange={e => setRole(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md p-2 border">
                         <option value="customer">Người dùng</option><option value="editor">Điều hành viên</option><option value="admin">Quản trị viên</option>
                     </select>
-                    <select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md">
+                    <select value={status} onChange={e => setStatus(e.target.value)} className="mt-1 w-full border-slate-300 rounded-md p-2 border">
                         <option value="Hoạt động">Hoạt động</option><option value="Không hoạt động">Không hoạt động</option><option value="Bị cấm">Bị cấm</option>
                     </select>
                 </div>
@@ -161,6 +161,8 @@ const EditUserModal = ({ user, onClose, onSave }) => {
         </div>
     );
 };
+
+// --- Main Page ---
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState([]);
@@ -182,19 +184,18 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-  const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
-
+  // === 1. Fetch Users (Dùng axiosClient) ===
   const fetchUsers = async () => {
-    const token = localStorage.getItem("authToken");
-    if (!token) { setError("Authentication token not found."); setLoading(false); return; }
     try {
       setLoading(true);
-      // Fetch current user to know which account is the logged-in one
-      const meResp = await axios.get(`${API_URL}/api/user`, { headers: { Authorization: `Bearer ${token}` } });
+      // Gọi API lấy thông tin user hiện tại để so sánh ID
+      const meResp = await axiosClient.get('/user');
       setCurrentUserId(meResp.data.user_id);
 
-      const response = await axios.get(`${API_URL}/api/users`, { headers: { Authorization: `Bearer ${token}` } });
-      // Adjust status display so only the logged-in account shows 'Hoạt động'
+      // Gọi API lấy danh sách user
+      const response = await axiosClient.get('/users');
+      
+      // Xử lý dữ liệu
       setUsers(response.data.map(u => enhanceUserData(u, meResp.data.user_id)));
     } catch (err) {
       setError(err.response?.data?.message || "Failed to fetch users.");
@@ -203,50 +204,56 @@ export default function AdminUsersPage() {
     }
   };
 
-  useEffect(() => { fetchUsers(); }, [API_URL]);
+  useEffect(() => { fetchUsers(); }, []);
 
+  // === 2. Delete User ===
   const handleDelete = async (userId) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa người dùng này không?")) {
-      const token = localStorage.getItem("authToken");
       try {
-        await axios.delete(`${API_URL}/api/users/${userId}`, { headers: { Authorization: `Bearer ${token}` } });
+        await axiosClient.delete(`/users/${userId}`);
         setUsers(users.filter(user => user.user_id !== userId));
         alert("Người dùng đã được xóa thành công!");
-      } catch (err) { alert("Lỗi khi xóa người dùng: " + (err.response?.data?.message || err.message)); }
+      } catch (err) { 
+        alert("Lỗi khi xóa người dùng: " + (err.response?.data?.message || err.message)); 
+      }
     }
   };
 
   const handleOpenEditModal = (user) => { setEditingUser(user); setIsEditModalOpen(true); };
   const handleCloseEditModal = () => { setEditingUser(null); setIsEditModalOpen(false); };
 
+  // === 3. Save User (Update) ===
   const handleSaveUser = async (userId, updatedData) => {
-    const token = localStorage.getItem("authToken");
     try {
-        // Map localized values to backend values before sending
+        // Map dữ liệu hiển thị sang dữ liệu Backend
         const payload = {
             ...updatedData,
             status: mapLocalStatusToServer(updatedData.status),
             role: mapRoleToServer(updatedData.role),
         };
-  await axios.put(`${API_URL}/api/users/${userId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
-  // Re-fetch list so status mapping (only current user active) is applied consistently
-  await fetchUsers();
+        
+        await axiosClient.put(`/users/${userId}`, payload);
+        
+        // Tải lại danh sách để cập nhật status chuẩn xác
+        await fetchUsers();
         alert("Cập nhật người dùng thành công!");
         handleCloseEditModal();
-    } catch (err) { alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message)); }
+    } catch (err) { 
+        alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message)); 
+    }
   };
 
+  // === 4. Add User (Create) ===
   const handleAddUser = async (newUserData) => {
-    const token = localStorage.getItem("authToken");
     try {
-    // Map localized values to backend before sending
-    const payload = {
-      ...newUserData,
-      role: mapRoleToServer(newUserData.role),
-      status: mapLocalStatusToServer(newUserData.status),
-    };
-    await axios.post(`${API_URL}/api/users`, payload, { headers: { Authorization: `Bearer ${token}` } });
-        // Instead of optimistically updating, re-fetch the entire list for consistency.
+        const payload = {
+          ...newUserData,
+          role: mapRoleToServer(newUserData.role),
+          status: mapLocalStatusToServer(newUserData.status),
+        };
+        
+        await axiosClient.post('/users', payload);
+        
         await fetchUsers(); 
         alert("Thêm người dùng thành công!");
         setIsAddModalOpen(false);
@@ -255,6 +262,7 @@ export default function AdminUsersPage() {
     }
   };
 
+  // === Filter Logic ===
   const filteredUsers = useMemo(() => users.filter(user => 
     (roleFilter === "all" || user.role === roleFilter) &&
     (statusFilter === "all" || user.status === statusFilter) &&
@@ -281,6 +289,7 @@ export default function AdminUsersPage() {
       <AdminSidebar />
       <main className="flex-1 w-full min-w-0">
         <div className="w-full px-6 md:px-10 py-4">
+          {/* Header */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Quản lý người dùng</h1>
@@ -292,21 +301,23 @@ export default function AdminUsersPage() {
             </div>
           </div>
 
+          {/* Filter Bar */}
           <div className="p-4 bg-white rounded-lg shadow-sm mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-                <input type="text" placeholder="Tìm theo tên hoặc email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border-slate-300 rounded-md pl-10" />
+                <input type="text" placeholder="Tìm theo tên hoặc email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full border-slate-300 rounded-md pl-10 p-2 border" />
               </div>
-              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="w-full border-slate-300 rounded-md">
+              <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)} className="w-full border-slate-300 rounded-md p-2 border">
                 <option value="all">Tất cả vai trò</option><option value="admin">Quản trị viên</option><option value="editor">Điều hành viên</option><option value="customer">Người dùng</option>
               </select>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full border-slate-300 rounded-md">
+              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full border-slate-300 rounded-md p-2 border">
                 <option value="all">Tất cả trạng thái</option><option value="Hoạt động">Hoạt động</option><option value="Không hoạt động">Không hoạt động</option><option value="Bị cấm">Bị cấm</option>
               </select>
             </div>
           </div>
 
+          {/* Users Table */}
           <div className="overflow-hidden shadow-sm rounded-lg bg-white">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -325,7 +336,7 @@ export default function AdminUsersPage() {
                   {loading ? (
                     <tr><td colSpan={7} className="p-6 text-center text-slate-500">Đang tải dữ liệu...</td></tr>
                   ) : error ? (
-                    <tr><td colSpan={7} className="p-6 text-center text-red-500">{{ error }}</td></tr>
+                    <tr><td colSpan={7} className="p-6 text-center text-red-500">{error}</td></tr>
                   ) : currentUsers.map(user => (
                     <tr key={user.user_id} className="hover:bg-slate-50 border-b border-slate-200">
                       <td className="p-4 border-r border-slate-200"><input type="checkbox" checked={selectedUsers.includes(user.user_id)} onChange={e => handleSelectUser(e, user.user_id)} /></td>
@@ -351,6 +362,7 @@ export default function AdminUsersPage() {
                 </tbody>
               </table>
             </div>
+            {/* Pagination */}
             <div className="p-4 flex items-center justify-between flex-wrap gap-4">
               <p className="text-sm text-slate-600">Hiển thị {indexOfFirstUser + 1} đến {Math.min(indexOfLastUser, filteredUsers.length)} trong tổng số {filteredUsers.length} người dùng</p>
               <div className="flex items-center gap-2">
