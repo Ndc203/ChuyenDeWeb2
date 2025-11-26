@@ -94,19 +94,23 @@ export default function AdminPostPage() {
   }
 
   // === Lịch sử ===
-  async function handleViewHistory(id) {
-    try {
-      const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
-      if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
-      const data = await res.json();
-      // Lấy mảng versions
-      setHistoryData(data.versions || []);
-      setSelectedPostId(id);
-      setOpenHistory(true);
-    } catch (err) {
-      alert(err.message || "Không thể kết nối tới máy chủ.");
-    }
+async function handleViewHistory(id) {
+  try {
+    const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
+    if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
+    const data = await res.json();
+
+    // Hỗ trợ cả dạng: [] và { versions: [] }
+    const versions = Array.isArray(data) ? data : data.versions || [];
+
+    setHistoryData(versions);
+    setSelectedPostId(id);
+    setOpenHistory(true);
+  } catch (err) {
+    alert(err.message || "Không thể kết nối tới máy chủ.");
   }
+}
+
 
   // === Tạo bài viết ===
   const handleOpenCreate = () => {

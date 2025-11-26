@@ -69,6 +69,7 @@ Route::get('/posts/export', [PostController::class, 'export']);
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
 Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/postcategories', [PostCategoryController::class, 'index']);
 Route::get('/postcategories/{id}', [PostCategoryController::class, 'show']);
@@ -168,7 +169,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/posts/{id}', [PostController::class, 'update']);
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
     Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
-    Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
     Route::get('/post-statistics', [PostController::class, 'statistics']);
 
     // Coupons Management
