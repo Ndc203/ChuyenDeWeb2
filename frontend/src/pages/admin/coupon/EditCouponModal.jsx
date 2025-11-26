@@ -1,47 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, AlertCircle } from 'lucide-react';
+import axiosClient from '../../../api/axiosClient'; // Import Client
 
-// Lấy API_URL từ biến môi trường
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-
-// Input datetime-local cần định dạng "YYYY-MM-DDTHH:MM"
+// Hàm helper để convert ngày từ Backend (YYYY-MM-DD HH:mm:ss) sang Input (YYYY-MM-DDTHH:mm)
 const formatDateForInput = (dateString) => {
   if (!dateString) return '';
-  try {
-    const date = new Date(dateString);
-    /* Lấy chuỗi ISO (YYYY-MM-DDTHH:MM:SS.mmmZ)
-    Cắt bớt phần giây và mili-giây (lấy 16 ký tự đầu)
-    return date.toISOString().slice(0, 16);
-  } catch (error) {
-    console.error("Lỗi định dạng ngày:", dateString, error);
-    return '';
+  // Cách đơn giản nhất: Nếu dateString dạng "2023-11-25 14:30:00" -> thay khoảng trắng bằng T
+  if (dateString.includes(' ')) {
+      return dateString.replace(' ', 'T').slice(0, 16);
   }
-};*/
-    // Tự build chuỗi YYYY-MM-DDTHH:MM bằng cách lấy các giá trị local, không dùng .toISOString()
-    const pad = (num) => num.toString().padStart(2, '0');
-
-    const Y = date.getFullYear();
-    const M = pad(date.getMonth() + 1); // getMonth() bắt đầu từ 0
-    const D = pad(date.getDate());
-    const H = pad(date.getHours());     // getHours() trả về 0-23 (24h)
-    const Min = pad(date.getMinutes());
-
-    return `${Y}-${M}-${D}T${H}:${Min}`;
-
-  } catch (error) {
-    console.error("Lỗi định dạng ngày:", dateString, error);
-    return '';
-  }
+  // Nếu là dạng ISO chuẩn
+  return dateString.slice(0, 16);
 };
 
-// Component này nhận 4 props từ AdminCouponsPage
 export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) {
-  // State cho các trường trong form
+  // State cho các trường
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('percentage');
   const [value, setValue] = useState(0);
-  const [maxValue, setMaxValue] = useState(''); // Dùng chuỗi rỗng cho dễ
+  const [maxValue, setMaxValue] = useState(''); 
   const [minOrderValue, setMinOrderValue] = useState(0);
   const [maxUsage, setMaxUsage] = useState(100);
   const [startDate, setStartDate] = useState('');
@@ -50,161 +28,190 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState(null);
 
-  // === Quan trọng: Điền dữ liệu vào form khi `coupon` thay đổi ===
+  // === 1. Đổ dữ liệu vào form khi mở modal ===
   useEffect(() => {
-    // Khi prop `coupon` (dữ liệu truyền vào) thay đổi, cập nhật state của form
-    if (coupon) {
+    if (coupon && isOpen) {
       setCode(coupon.code || '');
       setDescription(coupon.description || '');
       setType(coupon.type || 'percentage');
       setValue(coupon.value || 0);
-      setMaxValue(coupon.max_value || ''); // Dùng chuỗi rỗng nếu null
+      // Nếu null thì để rỗng, nếu có số thì lấy số
+      setMaxValue(coupon.max_value !== null ? coupon.max_value : ''); 
       setMinOrderValue(coupon.min_order_value || 0);
       setMaxUsage(coupon.max_usage || 100);
+      
+      // Format ngày
       setStartDate(formatDateForInput(coupon.start_date));
       setEndDate(formatDateForInput(coupon.end_date));
-    } else {
-      // Tùy chọn: Reset form khi coupon là null (ví dụ khi modal đóng)
-      // (Nhưng hàm handleClose() bên dưới đã làm việc này rồi)
+      
+      // Reset lỗi cũ
+      setErrors(null);
     }
-  }, [coupon]); // Chạy lại mỗi khi `coupon` prop thay đổi
+  }, [coupon, isOpen]); 
 
-  // === Xử lý Submit Form ===
+  // === 2. Xử lý Submit ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setErrors(null);
 
-    // Chuẩn bị dữ liệu gửi đi
     const couponData = {
       code: code.toUpperCase(),
       description,
       type,
-      value: parseFloat(value),
-      // Gửi null nếu maxValue là chuỗi rỗng
-      max_value: type === 'percentage' ? (maxValue || null) : null,
-      min_order_value: parseFloat(minOrderValue),
-      max_usage: parseInt(maxUsage, 10),
+      value: Number(value),
+      max_value: type === 'percentage' && maxValue ? Number(maxValue) : null,
+      min_order_value: Number(minOrderValue),
+      max_usage: Number(maxUsage),
       start_date: startDate,
       end_date: endDate,
-      is_active: true, // Hoặc bạn có thể thêm 1 checkbox cho cái này
+      // is_active: true, // Thường edit sẽ không tự kích hoạt lại nếu đang tắt, tùy logic bạn
     };
 
     try {
-      // Đảm bảo `coupon.coupon_id` hoặc `coupon.id` tồn tại
-      if (!coupon || !coupon.coupon_id) {
-        throw new Error("Không tìm thấy ID của mã giảm giá.");
-      }
+      if (!coupon?.coupon_id) throw new Error("Thiếu ID mã giảm giá");
 
-      // === THAY ĐỔI CHÍNH: Dùng PUT/PATCH và ID ===
-      const response = await fetch(`${API_URL}/api/coupons/${coupon.coupon_id}`, {
-        method: 'PUT', // Hoặc 'PATCH' tùy vào API của bạn
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          // 'Authorization': 'Bearer ...' // Thêm nếu cần
-        },
-        body: JSON.stringify(couponData),
-      });
+      // --- DÙNG AXIOS PUT ---
+      await axiosClient.put(`/coupons/${coupon.coupon_id}`, couponData);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        setErrors(errorData.errors || { general: ['Đã có lỗi xảy ra.'] });
-        throw new Error('Lỗi khi cập nhật mã');
-      }
-
-      // Nếu thành công
-      onSuccess(); // Báo cho trang cha biết để refresh
-      handleClose(); // Tự đóng modal
+      onSuccess(); // Refresh list
+      handleClose(); // Đóng modal
 
     } catch (error) {
-      console.error("Lỗi:", error);
+      console.error("Lỗi cập nhật:", error);
+       // Xử lý lỗi validation từ Laravel (422)
+       if (error.response && error.response.data && error.response.data.errors) {
+        setErrors(error.response.data.errors);
+      } else {
+        setErrors({ general: [error.response?.data?.message || 'Lỗi hệ thống, vui lòng thử lại.'] });
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Hàm reset form và gọi prop onClose
   const handleClose = () => {
-    setErrors(null); // Xóa lỗi
-    onClose(); // Gọi hàm onClose từ prop (để đóng modal)
-    // Không cần reset state ở đây vì useEffect[coupon] sẽ tự làm
+    setErrors(null);
+    onClose(); 
   };
 
-  // Nếu không 'isOpen', không render gì cả
   if (!isOpen) return null;
 
   return (
-    // Lớp "phủ" (overlay)
     <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-
-      {/* Khung nội dung Modal */}
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* Header */}
         <div className="p-5 border-b flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-800">Chỉnh sửa mã giảm giá</h2>
-          <button
-            onClick={handleClose}
-            className="p-2 text-slate-400 hover:bg-slate-100 rounded-full"
-          >
+          <h2 className="text-lg font-semibold text-slate-800">
+             Chỉnh sửa mã #{coupon?.coupon_id}
+          </h2>
+          <button onClick={handleClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full">
             <X size={20} />
           </button>
         </div>
 
-        {/* Form - Cho phép cuộn nếu nội dung dài */}
+        {/* Form */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 overflow-y-auto">
-          {/* Mã giảm giá & Mô tả */}
+          
+           {/* Hiển thị lỗi chung */}
+           {errors?.general && (
+            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm flex gap-2 items-start">
+              <AlertCircle size={16} className="mt-0.5" />
+              <div>{errors.general.map((err, idx) => <p key={idx}>{err}</p>)}</div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormInput label="Mã giảm giá" value={code} onChange={e => setCode(e.target.value)} required />
-            <FormInput label="Mô tả" value={description} onChange={e => setDescription(e.target.value)} />
+            <FormInput 
+                label="Mã giảm giá" 
+                value={code} 
+                onChange={e => setCode(e.target.value)} 
+                required 
+                error={errors?.code}
+            />
+            <FormInput 
+                label="Mô tả" 
+                value={description} 
+                onChange={e => setDescription(e.target.value)}
+                error={errors?.description} 
+            />
           </div>
 
-          {/* Loại & Giá trị */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <FormSelect label="Loại" value={type} onChange={e => setType(e.target.value)}>
               <option value="percentage">Phần trăm</option>
               <option value="fixed_amount">Số tiền</option>
             </FormSelect>
-            <FormInput label="Giá trị" type="number" value={value} onChange={e => setValue(e.target.value)} required />
+            <FormInput 
+                label="Giá trị" 
+                type="number" 
+                value={value} 
+                onChange={e => setValue(e.target.value)} 
+                required 
+                error={errors?.value}
+            />
             {type === 'percentage' && (
-              <FormInput label="Giảm tối đa (VNĐ)" type="number" value={maxValue} onChange={e => setMaxValue(e.target.value)} placeholder="Bỏ trống nếu không giới hạn" />
+              <FormInput 
+                label="Giảm tối đa (VNĐ)" 
+                type="number" 
+                value={maxValue} 
+                onChange={e => setMaxValue(e.target.value)} 
+                placeholder="Không giới hạn"
+                error={errors?.max_value} 
+            />
             )}
           </div>
 
-          {/* Điều kiện */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormInput label="Đơn tối thiểu (VNĐ)" type="number" value={minOrderValue} onChange={e => setMinOrderValue(e.target.value)} />
-            <FormInput label="Tổng lượt sử dụng" type="number" value={maxUsage} onChange={e => setMaxUsage(e.target.value)} required />
+            <FormInput 
+                label="Đơn tối thiểu (VNĐ)" 
+                type="number" 
+                value={minOrderValue} 
+                onChange={e => setMinOrderValue(e.target.value)}
+                error={errors?.min_order_value} 
+            />
+            <FormInput 
+                label="Tổng lượt sử dụng" 
+                type="number" 
+                value={maxUsage} 
+                onChange={e => setMaxUsage(e.target.value)} 
+                required 
+                error={errors?.max_usage}
+            />
           </div>
 
-          {/* Thời gian */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormInput label="Ngày bắt đầu" type="datetime-local" value={startDate} onChange={e => setStartDate(e.target.value)} required />
-            <FormInput label="Ngày kết thúc" type="datetime-local" value={endDate} onChange={e => setEndDate(e.target.value)} required />
+            <FormInput 
+                label="Ngày bắt đầu" 
+                type="datetime-local" 
+                value={startDate} 
+                onChange={e => setStartDate(e.target.value)} 
+                required 
+                error={errors?.start_date}
+            />
+            <FormInput 
+                label="Ngày kết thúc" 
+                type="datetime-local" 
+                value={endDate} 
+                onChange={e => setEndDate(e.target.value)} 
+                required 
+                error={errors?.end_date}
+            />
           </div>
-
-          {/* Hiển thị Lỗi (nếu có) */}
-          {errors && (
-            <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
-              {Object.values(errors).map(errArray => errArray.map((err, idx) => (
-                <p key={idx}>- {err}</p>
-              )))}
-            </div>
-          )}
         </form>
 
-        {/* Footer (Nút bấm) */}
+        {/* Footer */}
         <div className="p-5 border-t flex justify-end gap-3">
-          <button
-            type="button"
+          <button 
+            type="button" 
             onClick={handleClose}
             className="px-4 py-2 bg-slate-100 text-slate-700 rounded-lg font-semibold hover:bg-slate-200"
           >
             Hủy
           </button>
-          <button
-            type="submit"
-            onClick={handleSubmit} // Submit form
+          <button 
+            type="submit" 
+            onClick={handleSubmit} 
             disabled={isLoading}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
           >
@@ -216,19 +223,20 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
   );
 }
 
-// === Component phụ cho Form (để code gọn gàng) ===
-
-function FormInput({ label, type = 'text', value, onChange, ...props }) {
+// === Component phụ (Đã đồng bộ với AddCouponModal) ===
+function FormInput({ label, type = 'text', value, onChange, error, ...props }) {
   return (
     <label className="block w-full">
       <span className="text-sm font-medium text-slate-600">{label}</span>
-      <input
-        type={type}
-        value={value || ''} // Đảm bảo value không phải là null (gây lỗi React)
+      <input 
+        type={type} 
+        value={value} 
         onChange={onChange}
-        className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-        {...props}
+        className={`mt-1 block w-full rounded-lg border shadow-sm focus:ring-indigo-500 sm:text-sm 
+          ${error ? 'border-red-300 focus:border-red-500' : 'border-slate-300 focus:border-indigo-500'}`}
+        {...props} 
       />
+      {error && <span className="text-xs text-red-500 mt-1 block">{error[0]}</span>}
     </label>
   );
 }
@@ -237,8 +245,8 @@ function FormSelect({ label, value, onChange, children }) {
   return (
     <label className="block w-full">
       <span className="text-sm font-medium text-slate-600">{label}</span>
-      <select
-        value={value}
+      <select 
+        value={value} 
         onChange={onChange}
         className="mt-1 block w-full rounded-lg border-slate-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
       >
