@@ -162,6 +162,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
     Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
     Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
+    Route::get('/post-statistics', [PostController::class, 'statistics']);
 
     // Coupons Management
     Route::get('/coupons', [CouponController::class, 'index']); // Admin view list
