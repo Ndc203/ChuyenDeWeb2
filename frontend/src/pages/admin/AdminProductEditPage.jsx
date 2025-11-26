@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Upload } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
+// URL gốc để hiển thị ảnh từ server
+const IMAGE_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+// Helper an toàn để lấy dữ liệu từ object (tránh lỗi null/undefined)
 const getEntityValue = (entity, keys = []) => {
   if (!entity) return "";
   for (const key of keys) {
@@ -28,10 +33,12 @@ const getEntityLabel = (entity, fallbackPrefix, preferredKeys = []) => {
 
 export default function AdminProductEditPage() {
   const navigate = useNavigate();
-  const { id: hashedId } = useParams();
+  const { id: hashedId } = useParams(); // ID sản phẩm từ URL
+  
   const [loading, setLoading] = useState(false);
-  const [loadingProduct, setLoadingProduct] = useState(true);
+  const [loadingData, setLoadingData] = useState(true); // Loading ban đầu
   const [error, setError] = useState("");
+  
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
 
@@ -44,7 +51,7 @@ export default function AdminProductEditPage() {
     brand_id: "",
     stock: "",
     image: null,
-    currentImage: "",
+    currentImage: "", // Lưu tên ảnh cũ
     is_flash_sale: false,
     is_new: false,
     tags: [],
@@ -52,16 +59,20 @@ export default function AdminProductEditPage() {
 
   const [imagePreview, setImagePreview] = useState(null);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
-
-  // Load product data
+  // === 1. Load Tất cả dữ liệu cần thiết (Product, Categories, Brands) ===
   useEffect(() => {
-    setLoadingProduct(true);
-    fetch(`${API_URL}/api/products/${hashedId}`)
-      .then((res) => res.json())
-      .then((data) => {
+    const fetchData = async () => {
+      setLoadingData(true);
+      try {
+        // Gọi song song 3 API để tiết kiệm thời gian
+        const [productRes, categoriesRes, brandsRes] = await Promise.all([
+          axiosClient.get(`/products/${hashedId}`),
+          axiosClient.get('/categories'),
+          axiosClient.get('/brands')
+        ]);
+
+        // 1. Setup Product Data
+        const data = productRes.data;
         if (data) {
           setFormData({
             name: data.name || "",
@@ -73,43 +84,35 @@ export default function AdminProductEditPage() {
             stock: data.stock || "",
             image: null,
             currentImage: data.image || "",
-            is_flash_sale: data.is_flash_sale || false,
-            is_new: data.is_new || false,
+            is_flash_sale: !!data.is_flash_sale, // Ép kiểu boolean
+            is_new: !!data.is_new,
             tags: data.tags ? data.tags.split(",").filter(Boolean) : [],
           });
-          // Set current image as preview
+
+          // Hiển thị ảnh cũ
           if (data.image) {
-            setImagePreview(`${API_URL}/images/products/${data.image}`);
+            setImagePreview(`${IMAGE_BASE_URL}/images/products/${data.image}`);
           }
         }
-      })
-      .catch((error) => {
-        console.error("Error loading product:", error);
-        setError("Không thể tải thông tin sản phẩm");
-      })
-      .finally(() => setLoadingProduct(false));
-  }, [API_URL, hashedId]);
 
-  // Load categories và brands
-  useEffect(() => {
-    fetch(`${API_URL}/api/categories`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setCategories(data);
-        }
-      })
-      .catch((error) => console.error("Error loading categories:", error));
+        // 2. Setup Categories
+        const catData = categoriesRes.data;
+        setCategories(Array.isArray(catData) ? catData : catData.data || []);
 
-    fetch(`${API_URL}/api/brands`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setBrands(data);
-        }
-      })
-      .catch((error) => console.error("Error loading brands:", error));
-  }, [API_URL]);
+        // 3. Setup Brands
+        const brandData = brandsRes.data;
+        setBrands(Array.isArray(brandData) ? brandData : brandData.data || []);
+
+      } catch (err) {
+        console.error("Error loading data:", err);
+        setError("Không thể tải thông tin sản phẩm. Vui lòng thử lại.");
+      } finally {
+        setLoadingData(false);
+      }
+    };
+
+    fetchData();
+  }, [hashedId]);
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -123,6 +126,7 @@ export default function AdminProductEditPage() {
     const file = e.target.files[0];
     if (file) {
       setFormData((prev) => ({ ...prev, image: file }));
+      // Preview ảnh mới ngay lập tức
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -140,11 +144,13 @@ export default function AdminProductEditPage() {
     }));
   };
 
+  // === 2. Submit Form (Update) ===
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
+    // Validate cơ bản
     if (!formData.name.trim()) {
       setError("Tên sản phẩm không được để trống");
       setLoading(false);
@@ -157,6 +163,7 @@ export default function AdminProductEditPage() {
       return;
     }
 
+    // Tạo FormData
     const formPayload = new FormData();
     formPayload.append("name", formData.name.trim());
     formPayload.append("description", formData.description.trim());
@@ -169,6 +176,9 @@ export default function AdminProductEditPage() {
     formPayload.append("is_new", formData.is_new ? 1 : 0);
     formPayload.append("tags", formData.tags.join(","));
     formPayload.append("status", "active");
+    
+    // QUAN TRỌNG: Laravel không hỗ trợ PUT với Multipart form-data trực tiếp
+    // Phải dùng POST và thêm _method = PUT
     formPayload.append("_method", "PUT");
     
     if (formData.image) {
@@ -176,29 +186,15 @@ export default function AdminProductEditPage() {
     }
 
     try {
-      const response = await fetch(`${API_URL}/api/products/${hashedId}`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-        },
-        body: formPayload,
-      });
+      // Dùng axiosClient.post (vì có _method: PUT bên trong body)
+      await axiosClient.post(`/products/${hashedId}`, formPayload);
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          (data?.errors
-            ? Object.values(data.errors).flat().join(", ")
-            : "Không thể cập nhật sản phẩm.");
-        setError(message);
-        return;
-      }
-
+      // Thành công -> Quay về danh sách
       navigate("/admin/products");
     } catch (error) {
-      setError("Không thể kết nối tới máy chủ. Vui lòng thử lại.");
+      const message = error.response?.data?.message || 
+        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Không thể cập nhật sản phẩm.");
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -208,12 +204,15 @@ export default function AdminProductEditPage() {
     navigate("/admin/products");
   };
 
-  if (loadingProduct) {
+  if (loadingData) {
     return (
       <div className="min-h-screen flex bg-slate-50">
         <AdminSidebar />
         <main className="flex-1 flex items-center justify-center">
-          <div className="text-slate-600">Đang tải dữ liệu...</div>
+          <div className="text-slate-600 flex flex-col items-center">
+             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mb-2"></div>
+             Đang tải dữ liệu...
+          </div>
         </main>
       </div>
     );
@@ -224,6 +223,7 @@ export default function AdminProductEditPage() {
       <AdminSidebar />
 
       <main className="flex-1 w-full min-w-0 overflow-x-hidden">
+        {/* Header */}
         <div className="bg-white border-b border-slate-200 px-6 py-4">
           <div className="flex items-center gap-3">
             <button
@@ -238,6 +238,7 @@ export default function AdminProductEditPage() {
           </div>
         </div>
 
+        {/* Form */}
         <div className="p-6">
           <form onSubmit={handleSubmit} className="max-w-4xl">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
@@ -248,7 +249,9 @@ export default function AdminProductEditPage() {
               )}
 
               <div className="grid grid-cols-2 gap-6">
+                {/* Cột trái */}
                 <div className="space-y-4">
+                  {/* Tên */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Tên sản phẩm <span className="text-red-500">*</span>
@@ -258,12 +261,12 @@ export default function AdminProductEditPage() {
                       name="name"
                       value={formData.name}
                       onChange={handleInputChange}
-                      placeholder="Nhập tên sản phẩm"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
 
+                  {/* Giá */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Giá bán <span className="text-red-500">*</span>
@@ -273,7 +276,6 @@ export default function AdminProductEditPage() {
                       name="price"
                       value={formData.price}
                       onChange={handleInputChange}
-                      placeholder="0"
                       min="0"
                       step="1000"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -289,6 +291,7 @@ export default function AdminProductEditPage() {
                     )}
                   </div>
 
+                  {/* Giảm giá */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Giảm giá (%)
@@ -298,13 +301,13 @@ export default function AdminProductEditPage() {
                       name="discount"
                       value={formData.discount}
                       onChange={handleInputChange}
-                      placeholder="0"
                       min="0"
                       max="100"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
 
+                  {/* Danh mục */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Danh mục <span className="text-red-500">*</span>
@@ -318,24 +321,17 @@ export default function AdminProductEditPage() {
                     >
                       <option value="">Chọn danh mục</option>
                       {categories.map((cat, index) => {
-                        const rawValue = getEntityValue(cat, [
-                          "category_id",
-                          "id",
-                          "value",
-                        ]);
-                        if (rawValue === "" || rawValue === null) {
-                          return null;
-                        }
-                        const value = rawValue.toString();
+                        const value = getEntityValue(cat, ["category_id", "id"]).toString();
                         return (
                           <option key={value || index} value={value}>
-                            {getEntityLabel(cat, "Danh muc", ["category_id"])}
+                            {getEntityLabel(cat, "Danh mục", ["category_id"])}
                           </option>
                         );
                       })}
                     </select>
                   </div>
 
+                  {/* Thương hiệu */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Thương hiệu <span className="text-red-500">*</span>
@@ -349,24 +345,17 @@ export default function AdminProductEditPage() {
                     >
                       <option value="">Chọn thương hiệu</option>
                       {brands.map((brand, index) => {
-                        const rawValue = getEntityValue(brand, [
-                          "brand_id",
-                          "id",
-                          "value",
-                        ]);
-                        if (rawValue === "" || rawValue === null) {
-                          return null;
-                        }
-                        const value = rawValue.toString();
+                        const value = getEntityValue(brand, ["brand_id", "id"]).toString();
                         return (
                           <option key={value || index} value={value}>
-                            {getEntityLabel(brand, "Thuong hieu", ["brand_id"])}
+                            {getEntityLabel(brand, "Thương hiệu", ["brand_id"])}
                           </option>
                         );
                       })}
                     </select>
                   </div>
 
+                  {/* Tồn kho */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Số lượng tồn kho <span className="text-red-500">*</span>
@@ -376,16 +365,16 @@ export default function AdminProductEditPage() {
                       name="stock"
                       value={formData.stock}
                       onChange={handleInputChange}
-                      placeholder="0"
                       min="0"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
                     />
                   </div>
 
+                  {/* Ảnh */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
-                      Hình ảnh sản phẩm
+                      Hình ảnh sản phẩm (Thay đổi nếu cần)
                     </label>
                     <input
                       type="file"
@@ -393,13 +382,12 @@ export default function AdminProductEditPage() {
                       onChange={handleImageChange}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     />
-                    <p className="text-xs text-slate-500 mt-1">
-                      Định dạng: JPG, PNG, GIF, WEBP. Tối đa 2MB. Để trống nếu không đổi ảnh.
-                    </p>
                   </div>
                 </div>
 
+                {/* Cột phải */}
                 <div className="space-y-4">
+                  {/* Mô tả */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Mô tả sản phẩm
@@ -408,12 +396,12 @@ export default function AdminProductEditPage() {
                       name="description"
                       value={formData.description}
                       onChange={handleInputChange}
-                      placeholder="Nhập mô tả sản phẩm"
                       rows="4"
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                     />
                   </div>
 
+                  {/* Tags */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
                       Tags
@@ -440,6 +428,7 @@ export default function AdminProductEditPage() {
                     </div>
                   </div>
 
+                  {/* Checkboxes */}
                   <div className="flex items-center gap-2">
                     <input
                       type="checkbox"
@@ -449,13 +438,14 @@ export default function AdminProductEditPage() {
                       className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                     />
                     <label className="text-sm font-medium text-slate-700">
-                      Đánh dấu là sản phẩm HOT
+                      Đánh dấu là sản phẩm HOT/Mới
                     </label>
                   </div>
 
+                  {/* Preview */}
                   <div>
                     <label className="block text-sm font-medium text-slate-700 mb-2">
-                      Preview
+                      Xem trước
                     </label>
                     <div className="border border-slate-200 rounded-lg p-4 bg-slate-50">
                       <div className="flex gap-3">
