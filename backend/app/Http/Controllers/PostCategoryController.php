@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PostCategory;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\PostCategoryExport;
+use App\Exports\PostCategoriesExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 class PostCategoryController extends Controller
@@ -106,6 +106,6 @@ class PostCategoryController extends Controller
             return $pdf->download('postcategories.pdf');
         }
 
-        return Excel::download(new PostCategoryExport, 'postcategories.xlsx');
+        return Excel::download(new PostCategoriesExport, 'postcategories.xlsx');
     }
 }

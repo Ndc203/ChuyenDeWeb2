@@ -185,6 +185,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/reviews/{id}/status', [ProductReviewController::class, 'updateStatus']);
     Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy']);
     Route::get('/reviews/statistics', [ProductReviewController::class, 'statistics']);
+
+    // Route đặc biệt đặt trước route resource
+    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
+    // Route CRUD chuẩn
+    Route::apiResource('postcategories', PostCategoryController::class);
 });
 
 
