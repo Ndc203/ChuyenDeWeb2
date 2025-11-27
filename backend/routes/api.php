@@ -74,7 +74,6 @@ Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/postcategories', [PostCategoryController::class, 'index']);
 Route::get('/postcategories/{id}', [PostCategoryController::class, 'show']);
 // Comment routes
-Route::get('/posts/{id}/comments', [CommentController::class, 'index']);  // Lấy theo post_id
 Route::get('/comments/export', [CommentController::class, 'export']);      // Nếu sau này bạn thêm export
 Route::apiResource('comments', CommentController::class);
 

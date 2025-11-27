@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Download,
-  Search,
-  Trash2,
-  Eye,
-} from "lucide-react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import { Download, Search, Trash2, Eye } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
@@ -16,13 +17,21 @@ export default function AdminCommentPage() {
   const [detailComment, setDetailComment] = useState(null);
 
   // === 1. Lấy danh sách bình luận (Dùng axiosClient) ===
+  // === 1. Lấy danh sách bình luận (Dùng axiosClient) ===
   const loadComments = useCallback(() => {
     setLoading(true);
-    axiosClient.get('/comments')
+    axiosClient
+      .get("/comments")
       .then((res) => {
-        // Xử lý dữ liệu trả về (có thể là mảng trực tiếp hoặc nằm trong .data)
-        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
-        setRows(data);
+        const data = Array.isArray(res.data) ? res.data : res.data.data || [];
+
+        // 🔥 Đồng bộ id = comment_id
+        const normalized = data.map((c) => ({
+          ...c,
+          id: c.id,
+        }));
+
+        setRows(normalized);
       })
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
@@ -33,16 +42,20 @@ export default function AdminCommentPage() {
   }, [loadComments]);
 
   // === 2. Xem chi tiết (Dùng axiosClient) ===
-  async function handleViewDetail(id) {
-    try {
-      const res = await axiosClient.get(`/comments/${id}`);
-      setDetailComment(res.data);
-      setOpenDetail(true);
-    } catch (err) {
-      const message = err.response?.data?.message || "Lỗi kết nối máy chủ";
-      alert(message);
-    }
+async function handleViewDetail(id) {
+  try {
+    const res = await axiosClient.get(`/comments/${id}`);
+
+    // 🔥 Chuẩn cấu trúc
+    setDetailComment(res.data.data || res.data);
+
+    setOpenDetail(true);
+  } catch (err) {
+    const message = err.response?.data?.message || "Lỗi kết nối máy chủ";
+    alert(message);
   }
+}
+
 
   function handleCloseDetail() {
     setOpenDetail(false);
@@ -50,25 +63,26 @@ export default function AdminCommentPage() {
   }
 
   // === 3. Xoá bình luận (Dùng axiosClient) ===
-  async function handleDelete(id) {
-    if (!confirm("Bạn có chắc chắn muốn xoá bình luận này?")) return;
+async function handleDelete(id) {
+  if (!confirm("Bạn có chắc chắn muốn xoá bình luận này?")) return;
 
-    try {
-      await axiosClient.delete(`/comments/${id}`);
-      
-      // Xóa thành công trên server thì cập nhật UI
-      setRows((prev) => prev.filter((it) => it.id !== id));
-      alert("✅ Đã xoá bình luận thành công!");
-    } catch (err) {
-      const message = err.response?.data?.message || "Không thể xóa bình luận.";
-      alert(message);
-    }
+  try {
+    await axiosClient.delete(`/comments/${id}`);
+
+    // 🔥 Cập nhật UI đúng id
+    setRows(prev => prev.filter(it => it.id !== id));
+
+    alert("✅ Đã xoá bình luận thành công!");
+  } catch (err) {
+    const message = err.response?.data?.message || "Không thể xóa bình luận.";
+    alert(message);
   }
+}
 
   // === 4. Xuất file (Dùng Blob để bảo mật Token) ===
   const [openExport, setOpenExport] = useState(false);
   const exportRef = useRef(null);
-  
+
   useEffect(() => {
     const close = (e) =>
       !exportRef.current?.contains(e.target) && setOpenExport(false);
@@ -79,15 +93,21 @@ export default function AdminCommentPage() {
   const handleExport = async (format) => {
     try {
       setOpenExport(false); // Đóng menu
-      const response = await axiosClient.get(`/comments/export?format=${format}`, {
-        responseType: 'blob', // Quan trọng để nhận file
-      });
+      const response = await axiosClient.get(
+        `/comments/export?format=${format}`,
+        {
+          responseType: "blob", // Quan trọng để nhận file
+        }
+      );
 
       // Tạo link tải xuống ảo
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `comments_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      link.setAttribute(
+        "download",
+        `comments_export.${format === "excel" ? "xlsx" : "pdf"}`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -114,7 +134,9 @@ export default function AdminCommentPage() {
         {/* Header */}
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
           <div className="w-full px-10 py-4 flex items-center justify-between">
-            <h1 className="text-lg md:text-xl font-semibold">Quản lý Bình luận</h1>
+            <h1 className="text-lg md:text-xl font-semibold">
+              Quản lý Bình luận
+            </h1>
             <div className="relative" ref={exportRef}>
               <button
                 onClick={() => setOpenExport((v) => !v)}
@@ -180,11 +202,11 @@ export default function AdminCommentPage() {
                   </tr>
                 )}
                 {!loading && rows.length === 0 && (
-                   <tr>
-                   <td colSpan={5} className="p-6 text-center text-slate-500">
-                     Chưa có bình luận nào.
-                   </td>
-                 </tr>
+                  <tr>
+                    <td colSpan={5} className="p-6 text-center text-slate-500">
+                      Chưa có bình luận nào.
+                    </td>
+                  </tr>
                 )}
                 {!loading &&
                   filtered.map((r, i) => (
@@ -194,7 +216,9 @@ export default function AdminCommentPage() {
                     >
                       <td className="px-4 py-3 font-medium">{r.user_name}</td>
                       <td className="px-4 py-3">{r.post_title}</td>
-                      <td className="px-4 py-3 truncate max-w-xs">{r.content}</td>
+                      <td className="px-4 py-3 truncate max-w-xs">
+                        {r.content}
+                      </td>
                       <td className="px-4 py-3">{formatDate(r.created_at)}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">

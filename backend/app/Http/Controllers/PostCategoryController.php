@@ -4,14 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\PostCategory;
 use Illuminate\Http\Request;
-use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\PostCategoriesExport;
-use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\DB;
 
 class PostCategoryController extends Controller
 {
     /**
-     * Hiển thị danh sách tất cả danh mục bài viết
+     * Danh sách
      */
     public function index()
     {
@@ -20,16 +18,67 @@ class PostCategoryController extends Controller
     }
 
     /**
-     * Thêm danh mục mới
+     * Normalize input: trim all whitespace, convert full-width space & digits
+     */
+    private function normalize($value)
+    {
+        if (!is_string($value)) return $value;
+
+        // Convert full-width digits: ０１２３４５６７８９ => 0123456789
+        $value = preg_replace_callback('/[０-９]/u', function ($m) {
+            return mb_ord($m[0]) - mb_ord('０');
+        }, $value);
+
+        // Convert full-width spaces (U+3000) to normal spaces
+        $value = str_replace("\u{3000}", ' ', $value);
+
+        // Trim Unicode whitespace
+        return trim(preg_replace('/\s+/u', ' ', $value));
+    }
+
+    /**
+     * Validate ID param (fix lỗi id=abc hoặc id quá lớn)
+     */
+    private function validateId($id)
+    {
+        if (!ctype_digit((string)$id)) {
+            return response()->json(['message' => 'ID không hợp lệ.'], 400);
+        }
+
+        if ($id > 9223372036854775807) {
+            return response()->json(['message' => 'ID không hợp lệ.'], 400);
+        }
+
+        return null;
+    }
+
+    /**
+     * Thêm mới
      */
     public function store(Request $request)
     {
+        // Normalize tất cả input
+        $request->merge([
+            'name' => $this->normalize($request->name),
+            'description' => $this->normalize($request->description),
+        ]);
+
+        // Nếu toàn khoảng trắng
+        if ($request->name === '') {
+            return response()->json(['message' => 'Tên không được bỏ trống hoặc chỉ chứa khoảng trắng.'], 422);
+        }
+
         $validated = $request->validate([
             'name' => 'required|string|max:255|unique:postcategories,name',
             'description' => 'nullable|string|max:500',
         ]);
 
-        $category = PostCategory::create($validated);
+        try {
+            $category = PostCategory::create($validated);
+        } catch (\Exception $e) {
+            // Chống nhấn nút lưu liên tục → trùng lặp
+            return response()->json(['message' => 'Dữ liệu đã tồn tại hoặc thao tác không hợp lệ.'], 409);
+        }
 
         return response()->json([
             'message' => 'Thêm danh mục thành công!',
@@ -38,12 +87,13 @@ class PostCategoryController extends Controller
     }
 
     /**
-     * Hiển thị chi tiết danh mục
+     * Chi tiết
      */
     public function show($id)
     {
-        $category = PostCategory::find($id);
+        if ($bad = $this->validateId($id)) return $bad;
 
+        $category = PostCategory::find($id);
         if (!$category) {
             return response()->json(['message' => 'Không tìm thấy danh mục.'], 404);
         }
@@ -52,14 +102,25 @@ class PostCategoryController extends Controller
     }
 
     /**
-     * Cập nhật danh mục
+     * Cập nhật
      */
     public function update(Request $request, $id)
     {
-        $category = PostCategory::find($id);
+        if ($bad = $this->validateId($id)) return $bad;
 
+        $category = PostCategory::find($id);
         if (!$category) {
             return response()->json(['message' => 'Không tìm thấy danh mục.'], 404);
+        }
+
+        // Normalize input
+        $request->merge([
+            'name' => $this->normalize($request->name),
+            'description' => $this->normalize($request->description),
+        ]);
+
+        if ($request->name === '') {
+            return response()->json(['message' => 'Tên không được bỏ trống hoặc chỉ chứa khoảng trắng.'], 422);
         }
 
         $validated = $request->validate([
@@ -67,45 +128,32 @@ class PostCategoryController extends Controller
             'description' => 'nullable|string|max:500',
         ]);
 
-        $category->update($validated);
+        try {
+            $category->update($validated);
+        } catch (\Exception $e) {
+            return response()->json(['message' => 'Dữ liệu đã bị thay đổi. Hãy tải lại trang trước khi cập nhật.'], 409);
+        }
 
         return response()->json([
-            'message' => 'Cập nhật danh mục thành công!',
+            'message' => 'Cập nhật thành công!',
             'data' => $category
         ]);
     }
 
     /**
-     * Xóa danh mục
+     * Xóa — fix lỗi delete 2 tab
      */
     public function destroy($id)
     {
-        $category = PostCategory::find($id);
+        if ($bad = $this->validateId($id)) return $bad;
 
-        if (!$category) {
-            return response()->json(['message' => 'Không tìm thấy danh mục.'], 404);
+        // Xóa an toàn bằng affectedRows
+        $deleted = PostCategory::where('post_category_id', $id)->delete();
+
+        if ($deleted === 0) {
+            return response()->json(['message' => 'Danh mục không tồn tại hoặc đã bị xoá trước đó.'], 404);
         }
-
-        $category->delete();
 
         return response()->json(['message' => 'Đã xoá danh mục.']);
-    }
-
-    /**
-     * Xuất dữ liệu
-     */
-    public function export(Request $request)
-    {
-        $format = $request->query('format', 'excel');
-        $categories = PostCategory::all(['post_category_id', 'name', 'description', 'created_at']);
-
-        if ($format === 'pdf') {
-            $pdf = Pdf::loadView('postcategories_pdf', [
-                'categories' => $categories
-            ]);
-            return $pdf->download('postcategories.pdf');
-        }
-
-        return Excel::download(new PostCategoriesExport, 'postcategories.xlsx');
     }
 }
