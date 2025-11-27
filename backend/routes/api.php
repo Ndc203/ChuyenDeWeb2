@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 // --- 1. IMPORT CONTROLLERS ---
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserController;
@@ -48,6 +49,12 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/login', 'login'); // Login trả về token + role
     Route::post('/forgot-password', 'forgotPassword');
     Route::post('/reset-password', 'resetPassword');
+});
+
+// --- Socialite Routes (Google, Facebook...) ---
+Route::controller(SocialiteController::class)->group(function(){
+    Route::get('/auth/{provider}/redirect', 'redirectToProvider');
+    Route::get('/auth/{provider}/callback', 'handleProviderCallback');
 });
 
 // --- Public Data (Xem sản phẩm, danh mục, bài viết...) ---

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axiosClient from '../../api/axiosClient';
 import { useNavigate, Link, useLocation } from "react-router-dom";
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Facebook } from 'lucide-react';
 import Toast from "../../components/Toast"; // Import the Toast component
 
 export default function Login() {
@@ -153,6 +153,35 @@ export default function Login() {
                     {isLoading ? "Logging in..." : "Login"}
                 </button>
             </form>
+
+            <div className="flex items-center my-8">
+                <hr className="flex-grow border-t border-gray-300" />
+                <span className="px-4 text-sm text-gray-500">OR SIGN IN WITH</span>
+                <hr className="flex-grow border-t border-gray-300" />
+            </div>
+
+            <div className="space-y-4">
+                {/* Google Button */}
+                <a href="http://127.0.0.1:8000/api/auth/google/redirect" className="flex items-center justify-center w-full bg-[#dd4b39] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
+                    <div className="w-12 h-12 flex items-center justify-center border-r border-black/20">
+                        <span className="font-bold text-xl">G</span>
+                    </div>
+                    <span className="flex-1 text-center text-sm font-medium">
+                        Sign in with Google
+                    </span>
+                </a>
+
+                {/* Facebook Button */}
+                <a href="http://127.0.0.1:8000/api/auth/facebook/redirect" className="flex items-center justify-center w-full bg-[#3b5998] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
+                    <div className="w-12 h-12 flex items-center justify-center border-r border-black/20">
+                        <Facebook size={24} />
+                    </div>
+                    <span className="flex-1 text-center text-sm font-medium">
+                        Sign in with Facebook
+                    </span>
+                </a>
+            </div>
+
              <div className="text-center text-sm text-[#777] pt-8">
                     Don't have an account? 
                     <Link to="/register" className="font-bold text-[#2d3447] hover:underline ml-1">
