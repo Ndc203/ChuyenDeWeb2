@@ -35,8 +35,21 @@ const AdminProfilePage = () => {
         const endpoint = userId ? `/users/${userId}` : '/user';
         
         const response = await axiosClient.get(endpoint);
+        const raw = response.data || {};
+        const profile = raw.profile || {};
+
+        // Gộp thông tin profile vào user để hiển thị thuận tiện
+        const merged = {
+          ...raw,
+          full_name: profile.full_name || raw.full_name,
+          phone: profile.phone || raw.phone,
+          address: profile.address || raw.address,
+          date_of_birth: profile.date_of_birth || raw.date_of_birth,
+          gender: profile.gender || raw.gender,
+          avatar: profile.avatar || raw.avatar,
+        };
         
-        setUser(response.data);
+        setUser(merged);
         setIsOwnProfile(!userId); // Nếu không có param ID, tức là đang xem profile mình
 
       } catch (err) {

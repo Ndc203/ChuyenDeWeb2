@@ -21,17 +21,20 @@ class ProductHistoryController extends Controller
         $product = Product::withTrashed()->findOrFail($productId);
 
         $history = ProductHistory::where('product_id', $productId)
-            ->with('user:user_id,username,full_name,email')
+            ->with([
+                'user:user_id,username,email',
+                'user.profile:profile_id,user_id,full_name',
+            ])
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($item) {
                 return [
-                    'history_id' => $item->history_id,
+                    'history_id' => $item->product_history_id,
                     'action' => $item->action,
                     'user' => $item->user ? [
                         'id' => $item->user->user_id,
                         'username' => $item->user->username,
-                        'full_name' => $item->user->full_name,
+                        'full_name' => $item->user->profile->full_name ?? null,
                         'email' => $item->user->email,
                     ] : null,
                     'old_values' => $item->old_values,
@@ -39,8 +42,8 @@ class ProductHistoryController extends Controller
                     'changed_fields' => $item->changed_fields,
                     'description' => $item->description,
                     'ip_address' => $item->ip_address,
-                    'created_at' => $item->created_at->format('Y-m-d H:i:s'),
-                    'created_at_human' => $item->created_at->diffForHumans(),
+                    'created_at' => optional($item->created_at)?->format('Y-m-d H:i:s'),
+                    'created_at_human' => optional($item->created_at)?->diffForHumans(),
                 ];
             });
 
@@ -60,7 +63,8 @@ class ProductHistoryController extends Controller
     public function show($historyId)
     {
         $history = ProductHistory::with([
-            'user:user_id,username,full_name,email',
+            'user:user_id,username,email',
+            'user.profile:profile_id,user_id,full_name',
             'product:product_id,name,slug'
         ])->findOrFail($historyId);
 
@@ -75,7 +79,7 @@ class ProductHistoryController extends Controller
             'user' => $history->user ? [
                 'id' => $history->user->user_id,
                 'username' => $history->user->username,
-                'full_name' => $history->user->full_name,
+                'full_name' => $history->user->profile->full_name ?? null,
                 'email' => $history->user->email,
             ] : null,
             'old_values' => $history->old_values,
@@ -84,8 +88,8 @@ class ProductHistoryController extends Controller
             'description' => $history->description,
             'ip_address' => $history->ip_address,
             'user_agent' => $history->user_agent,
-            'created_at' => $history->created_at->format('Y-m-d H:i:s'),
-            'created_at_human' => $history->created_at->diffForHumans(),
+            'created_at' => optional($history->created_at)?->format('Y-m-d H:i:s'),
+            'created_at_human' => optional($history->created_at)?->diffForHumans(),
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -162,15 +166,15 @@ class ProductHistoryController extends Controller
         return response()->json([
             'product_id' => $history1->product_id,
             'version_1' => [
-                'history_id' => $history1->history_id,
+                'history_id' => $history1->product_history_id,
                 'action' => $history1->action,
-                'created_at' => $history1->created_at->format('Y-m-d H:i:s'),
+                'created_at' => optional($history1->created_at)?->format('Y-m-d H:i:s'),
                 'user' => $history1->user?->username,
             ],
             'version_2' => [
-                'history_id' => $history2->history_id,
+                'history_id' => $history2->product_history_id,
                 'action' => $history2->action,
-                'created_at' => $history2->created_at->format('Y-m-d H:i:s'),
+                'created_at' => optional($history2->created_at)?->format('Y-m-d H:i:s'),
                 'user' => $history2->user?->username,
             ],
             'differences' => $differences,
@@ -183,7 +187,8 @@ class ProductHistoryController extends Controller
     public function all(Request $request)
     {
         $query = ProductHistory::with([
-            'user:user_id,username,full_name',
+            'user:user_id,username,email',
+            'user.profile:profile_id,user_id,full_name',
             'product:product_id,name'
         ])->orderBy('created_at', 'desc');
 

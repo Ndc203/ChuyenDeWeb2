@@ -59,8 +59,10 @@ class User extends Authenticatable
     /**
      * Quan hệ 1-N với Order
      */
-    public function orders() {
-        return $this->hasMany(Order::class);
+    public function orders()
+    {
+        // Chỉ định rõ khóa ngoại và khóa chính để tránh phát sinh tên cột sai (user_user_id)
+        return $this->hasMany(Order::class, 'user_id', 'user_id');
     }
 
 

@@ -28,37 +28,37 @@ class UserSeeder extends Seeder
         ]);
 
         $admin->profile()->create([
-            'full_name' => 'Admin User',
+            'full_name' => 'Admin',
             'phone' => '0987654321',
-            'address' => 'Hà Nội, Việt Nam',
+            'address' => 'Thành Phố HCM, Việt Nam',
         ]);
 
-        // 3. Ngọc Ánh
+        // 3. NguyenVanA
         $ngocanh = User::create([
-            'username' => 'ngocanh',
+            'username' => 'NguyenVanA',
             'password' => Hash::make('password'),
-            'email' => 'ngocanh@example.com',
+            'email' => 'NguyenVanA@gmail.com',
             'status' => 'active',
             'role' => 'customer',
         ]);
 
         $ngocanh->profile()->create([
-            'full_name' => 'Ngọc Ánh',
+            'full_name' => 'Nguyen Van A',
             'phone' => '0912345678',
             'address' => 'TP.HCM',
         ]);
 
-        // 4. Thành Đạt
+        // 4. NguyenVanB
         $thanhdat = User::create([
-            'username' => 'thanhdat',
+            'username' => 'NguyenVanB',
             'password' => Hash::make('123456'),
-            'email' => 'thanhdat@example.com',
+            'email' => 'NguyenVanB@gmai.com',
             'status' => 'active',
             'role' => 'customer',
         ]);
 
         $thanhdat->profile()->create([
-            'full_name' => 'Thành Đạt',
+            'full_name' => 'Nguyen Van B',
             'phone' => '0901111222',
             'address' => 'Đà Nẵng',
         ]);

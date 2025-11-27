@@ -154,10 +154,13 @@ class ProductController extends Controller
      */
     public function show($id)
     {
-        // 1. Tìm sản phẩm theo ID hoặc Slug
-        // Sử dụng 'with' để lấy luôn thông tin Brand và Category (Eager Loading)
+        // Giải mã hashed_id nếu được truyền vào
+        $realId = Product::decodeHashedId($id);
+        $productId = $realId ?? $id;
+
+        // 1. Tìm sản phẩm theo ID (đã giải mã) hoặc Slug
         $product = Product::with(['category', 'brand'])
-            ->where('product_id', $id)
+            ->where('product_id', $productId)
             ->orWhere('slug', $id)
             ->first();
 
