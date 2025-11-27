@@ -18,13 +18,14 @@ class OrderController extends Controller
      */
     public function index(Request $request)
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         $query = Order::query();
 
         // --- 1. PHÂN QUYỀN (QUAN TRỌNG NHẤT) ---
         // Nếu KHÔNG PHẢI là 'Admin' hoặc 'Staff', thì chỉ được xem đơn của chính mình
         // (Lưu ý: Tên Role phải khớp với Database của bạn, ví dụ: 'Admin', 'admin', 'Staff'...)
-        if (!$user->hasRole(['Admin', 'admin', 'Staff', 'staff'])) {
+        if (!$user->hasRole(['admin', 'Admin'])) {
             $query->where('user_id', $user->user_id);
         }
 
@@ -70,10 +71,18 @@ class OrderController extends Controller
      */
     public function statistics()
     {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $query = Order::query();
         // Dùng 1 query duy nhất để lấy tất cả, rất nhanh
-        $stats = Order::select('status', DB::raw('count(*) as count'))
-                      ->groupBy('status')
-                      ->pluck('count', 'status'); // Kết quả: ['Chờ thanh toán' => 45, 'Đang xử lý' => 123, ...]
+       if (!$user->hasRole(['admin', 'Admin', 'staff', 'Staff'])) {
+            $query->where('user_id', $user->user_id);
+        }
+
+        // 2. Thống kê theo trạng thái
+        $stats = $query->select('status', DB::raw('count(*) as count'))
+                       ->groupBy('status')
+                       ->pluck('count', 'status');
 
         return response()->json([
             // 'total' là tổng của tất cả các trạng thái

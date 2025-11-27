@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -29,12 +30,26 @@ class ProfileController extends Controller
             'address' => 'nullable|string|max:500',
             'date_of_birth' => 'nullable|date',
             'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
+            'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         // 2. Cập nhật bảng Users
         $user->update([
             'email' => $validated['email'],
         ]);
+
+        // Xử lý Upload Avatar
+        $avatarPath = $user->profile->avatar ?? null; // Giữ ảnh cũ nếu không up mới
+
+        if ($request->hasFile('avatar')) {
+            // Xóa ảnh cũ nếu có (để tiết kiệm dung lượng)
+            if ($user->profile && $user->profile->avatar) {
+                Storage::disk('public')->delete($user->profile->avatar);
+            }
+
+            // Lưu ảnh mới vào thư mục 'avatars' trong storage/app/public
+            $avatarPath = $request->file('avatar')->store('avatars', 'public');
+        }
 
         // 3. Cập nhật bảng UserProfile (1-1)
         // Dùng updateOrCreate để nếu chưa có profile thì tự tạo
@@ -46,6 +61,7 @@ class ProfileController extends Controller
                 'address' => $validated['address'],
                 'date_of_birth' => $validated['date_of_birth'],
                 'gender' => $validated['gender'],
+                'avatar' => $avatarPath,
             ]
         );
 

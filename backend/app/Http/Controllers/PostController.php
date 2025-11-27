@@ -4,16 +4,23 @@ namespace App\Http\Controllers;
 
 use App\Models\Post;
 use App\Models\PostVersion;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
 {
     public function __construct()
-    {
-        // Các route không yêu cầu đăng nhập
-        $this->middleware('auth:sanctum')->except(['index', 'show', 'statistics']);
-    }
+{
+    $this->middleware('auth:sanctum')->except([
+        'index', 
+        'show', 
+        'statistics', 
+        'versions',       
+        'showVersion'     
+    ]);
+}
+
 
     // 🧩 Lấy danh sách tất cả bài viết
     public function index()
@@ -97,7 +104,7 @@ class PostController extends Controller
 
         // Lưu phiên bản cũ
         PostVersion::create([
-            'post_id' => $post->id,
+            'post_id' => $post->post_id,
             'user_id' => $user->user_id,
             'post_category_id' => $post->post_category_id,
             'title' => $post->title,
@@ -143,9 +150,10 @@ class PostController extends Controller
             ], 403);
         }
 
-        if ($post->image && file_exists(public_path($post->image))) {
-            unlink(public_path($post->image));
-        }
+       if ($post->image && file_exists(public_path('images/posts/' . $post->image))) {
+    unlink(public_path('images/posts/' . $post->image));
+}
+
 
         $post->delete();
 
@@ -178,70 +186,118 @@ class PostController extends Controller
         ]);
     }
 
-    // 🧩 Danh sách phiên bản
-    public function versions($postId)
+    // 🧩 Danh sách phiên bản (public)
+public function versions($id)
     {
-        $versions = PostVersion::where('post_id', $postId)
-            ->with('user:user_id,username')
-            ->orderByDesc('created_at')
-            ->get();
+        // Tìm post
+        $post = Post::with('versions')->find($id);
 
-        return response()->json($versions);
-    }
-
-    // 🧩 Xem chi tiết phiên bản
-    public function showVersion($postId, $versionId)
-    {
-        $version = PostVersion::where('post_id', $postId)
-            ->where('id', $versionId)
-            ->with('user:user_id,username')
-            ->firstOrFail();
-
-        return response()->json($version);
-    }
-
-    // 🧩 Khôi phục bài viết từ phiên bản cũ
-    public function restoreVersion($postId, $versionId)
-    {
-        $post = Post::findOrFail($postId);
-        $version = PostVersion::where('post_id', $postId)->findOrFail($versionId);
-        $user = auth()->user();
-
-        if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+        if (!$post) {
             return response()->json([
-                'success' => false,
-                'message' => 'Bạn không có quyền khôi phục bài viết này!',
-            ], 403);
+                'message' => 'Post not found.'
+            ], 404);
         }
 
-        // Lưu phiên bản hiện tại trước khi restore
-        PostVersion::create([
-            'post_id' => $post->id,
-            'user_id' => $user->user_id,
-            'post_category_id' => $post->post_category_id,
-            'title' => $post->title,
-            'excerpt' => $post->excerpt,
-            'content' => $post->content,
-            'image' => $post->image,
-            'status' => $post->status,
-            'is_trending' => $post->is_trending,
-        ]);
-
-        // Khôi phục dữ liệu
-        $post->update([
-            'title' => $version->title,
-            'excerpt' => $version->excerpt,
-            'content' => $version->content,
-            'image' => $version->image,
-            'status' => $version->status,
-            'is_trending' => $version->is_trending,
-            'post_category_id' => $version->post_category_id,
-        ]);
-
         return response()->json([
-            'success' => true,
-            'message' => 'Đã khôi phục bài viết về phiên bản trước đó',
-            'data' => $post
+            'post_id' => $post->post_id,
+            'title' => $post->title,
+            'versions' => $post->versions, // Giả sử quan hệ versions đã có
         ]);
+    }
+
+
+    // 🧩 Xem chi tiết phiên bản (public)
+    public function showVersion($postId, $versionId)
+    {
+        try {
+            $version = PostVersion::where('post_id', $postId)
+                ->where('post_version_id', $versionId)
+                ->with('user:user_id,username')
+                ->firstOrFail();
+
+            return response()->json([
+                'success' => true,
+                'data' => $version
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Phiên bản không tồn tại!'
+            ], 404);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi server: '.$e->getMessage()
+            ], 500);
+        }
+    }
+
+    // 🧩 Khôi phục bài viết từ phiên bản cũ (protected)
+    public function restoreVersion($postId, $versionId)
+    {
+        try {
+            $post = Post::findOrFail($postId);
+            $version = PostVersion::where('post_id', $postId)->find($versionId);
+
+            if (!$version) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Phiên bản không tồn tại!'
+                ], 404);
+            }
+
+            $user = auth()->user();
+
+            if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền khôi phục bài viết này!',
+                ], 403);
+            }
+
+            // Lưu phiên bản hiện tại trước khi restore
+            PostVersion::create([
+                'post_id' => $post->post_id,
+                'user_id' => $user->user_id,
+                'post_category_id' => $post->post_category_id,
+                'title' => $post->title,
+                'excerpt' => $post->excerpt,
+                'content' => $post->content,
+                'image' => $post->image,
+                'status' => $post->status,
+                'is_trending' => $post->is_trending,
+            ]);
+
+            // Khôi phục dữ liệu
+            $post->update([
+                'title' => $version->title,
+                'excerpt' => $version->excerpt,
+                'content' => $version->content,
+                'image' => $version->image,
+                'status' => $version->status,
+                'is_trending' => $version->is_trending,
+                'post_category_id' => $version->post_category_id,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã khôi phục bài viết về phiên bản trước đó',
+                'data' => $post
+            ]);
+
+        } catch (ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bài viết không tồn tại!'
+            ], 404);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Lỗi server: '.$e->getMessage()
+            ], 500);
+        }
     }
 }

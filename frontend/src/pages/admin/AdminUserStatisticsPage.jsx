@@ -12,7 +12,7 @@ import {
 import { Bar } from 'react-chartjs-2';
 import AdminSidebar from '../layout/AdminSidebar';
 import { ArrowLeft, Loader, AlertTriangle } from 'lucide-react';
-import axios from 'axios';
+import axiosClient from '../../api/axiosClient'; // Import axiosClient
 
 // Register Chart.js components
 ChartJS.register(
@@ -24,6 +24,7 @@ ChartJS.register(
   Legend
 );
 
+// --- Helper Components ---
 const StatCard = ({ title, value, growth }) => (
   <div className="bg-white p-6 rounded-lg shadow">
     <h3 className="text-sm font-medium text-slate-500">{title}</h3>
@@ -74,21 +75,26 @@ export default function AdminUserStatisticsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // === Load dữ liệu thống kê ===
   useEffect(() => {
     const fetchAllData = async () => {
       setLoading(true);
       setError(null);
       try {
-        const statsPromise = axios.get('/api/user-statistics');
-        const monthlyPromise = axios.get('/api/monthly-user-statistics');
+        // Sử dụng axiosClient để gọi API
+        // API 1: Thống kê tổng quan
+        const statsPromise = axiosClient.get('/user-statistics');
+        // API 2: Thống kê theo tháng (cho biểu đồ)
+        const monthlyPromise = axiosClient.get('/monthly-user-statistics');
 
         const [statsResponse, monthlyResponse] = await Promise.all([statsPromise, monthlyPromise]);
 
-        // Process general stats
+        // 1. Xử lý dữ liệu tổng quan
         setStats(statsResponse.data);
 
-        // Process monthly stats for chart
+        // 2. Xử lý dữ liệu biểu đồ
         const monthlyData = monthlyResponse.data;
+        // Giả sử API trả về mảng: [{ month: 1, year: 2023, newUsers: 5 }, ...]
         const labels = monthlyData.map(item => `Tháng ${item.month}/${item.year}`);
         const newUsersData = monthlyData.map(item => item.newUsers);
 
@@ -107,7 +113,8 @@ export default function AdminUserStatisticsPage() {
 
       } catch (err) {
         console.error('Error fetching statistics data:', err);
-        setError('Không thể tải dữ liệu từ máy chủ. Vui lòng đảm bảo backend đang chạy và API đang hoạt động. Lỗi: ' + (err.response?.data?.message || err.message));
+        const message = err.response?.data?.message || err.message || 'Không thể kết nối đến máy chủ.';
+        setError(`Lỗi tải dữ liệu: ${message}`);
       }
       setLoading(false);
     };
@@ -115,6 +122,7 @@ export default function AdminUserStatisticsPage() {
     fetchAllData();
   }, []);
 
+  // Cấu hình biểu đồ
   const chartOptions = {
     indexAxis: 'y',
     responsive: true,

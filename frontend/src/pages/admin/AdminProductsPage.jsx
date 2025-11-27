@@ -9,21 +9,18 @@ import {
   Eye,
   Star,
   History,
+  X, // <--- ĐÃ THÊM IMPORT NÀY (Lỗi cũ thiếu cái này)
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
-const emptyProductForm = () => ({
-  name: "",
-  brand: "",
-  price: "",
-  discount: "",
-  category: "",
-  stock: "",
-  status: "Còn hàng",
-  rating: "0",
-  reviews: "0",
-  badges: [],
-});
+// Helper formating
+const formatPrice = (price) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(price);
+};
 
 export default function AdminProductsPage() {
   const navigate = useNavigate();
@@ -31,45 +28,77 @@ export default function AdminProductsPage() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // State cho Modal/Confirm
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [productToDelete, setProductToDelete] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  
   const [categoryOptions, setCategoryOptions] = useState([
-    { value: "all", label: "Tat ca danh muc" },
+    { value: "all", label: "Tất cả danh mục" },
   ]);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
-
-  // Load products từ API
+  // 1. Load products từ API dùng Axios Client
   const loadProducts = useCallback(() => {
     setLoading(true);
-    fetch(`${API_URL}/api/products`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data)) {
-          setRows(data);
-        } else {
-          setRows([]);
-        }
+    axiosClient.get('/products')
+      .then((res) => {
+        // Xử lý dữ liệu trả về (mảng hoặc object có key data)
+        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRows(data);
       })
       .catch((error) => {
         console.error("Error loading products:", error);
         setRows([]);
       })
       .finally(() => setLoading(false));
-  }, [API_URL]);
+  }, []);
 
-  // Xem chi tiết sản phẩm
+  useEffect(() => {
+    loadProducts();
+  }, [loadProducts]);
+
+  // 2. Load danh mục dùng Axios Client
+  useEffect(() => {
+    axiosClient.get('/categories')
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+
+        const map = new Map();
+        data.forEach((category) => {
+          // Lấy ID an toàn (id hoặc category_id)
+          const rawId = category.category_id ?? category.id;
+          if (!rawId) return;
+
+          const value = String(rawId);
+          if (map.has(value)) return;
+
+          const label = category.name || `Danh mục #${value}`;
+          map.set(value, label);
+        });
+
+        setCategoryOptions([
+          { value: "all", label: "Tất cả danh mục" },
+          ...Array.from(map.entries()).map(([value, label]) => ({
+            value,
+            label,
+          })),
+        ]);
+      })
+      .catch((err) => {
+        console.error("Error loading categories:", err);
+      });
+  }, []);
+
+  // --- Handlers ---
+
   const handleViewDetail = (product) => {
     setSelectedProduct(product);
     setShowDetailModal(true);
   };
 
-  // Xóa sản phẩm
   const handleDeleteClick = (product) => {
     setProductToDelete(product);
     setShowDeleteConfirm(true);
@@ -80,115 +109,50 @@ export default function AdminProductsPage() {
 
     setDeleting(true);
     try {
-      // Sử dụng hashed_id thay vì id
-      const response = await fetch(`${API_URL}/api/products/${productToDelete.hashed_id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-      });
+      // Sử dụng hashed_id hoặc id (ưu tiên hashed_id nếu backend hỗ trợ hashid)
+      const deleteId = productToDelete.hashed_id || productToDelete.id;
+      
+      await axiosClient.delete(`/products/${deleteId}`);
 
-      if (response.ok) {
-        // Reload danh sách sau khi xóa thành công
-        loadProducts();
-        setShowDeleteConfirm(false);
-        setProductToDelete(null);
-      } else {
-        const data = await response.json();
-        alert(data?.message || "Không thể xóa sản phẩm");
-      }
+      // Xóa thành công
+      loadProducts(); 
+      setShowDeleteConfirm(false);
+      setProductToDelete(null);
+      alert("Xóa sản phẩm thành công!");
+
     } catch (error) {
       console.error("Error deleting product:", error);
-      alert("Không thể kết nối tới máy chủ");
+      const message = error.response?.data?.message || "Không thể xóa sản phẩm.";
+      alert(message);
     } finally {
       setDeleting(false);
     }
   };
 
-  useEffect(() => {
-    loadProducts();
-  }, [loadProducts]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    fetch(`${API_URL}/api/categories`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid categories response");
-        }
-
-        const map = new Map();
-        data.forEach((category) => {
-          const rawId =
-            category?.category_id ??
-            category?.id ??
-            (typeof category?.value !== "undefined" ? category.value : null);
-          if (rawId === undefined || rawId === null) {
-            return;
-          }
-
-          const value = rawId.toString();
-          if (map.has(value)) {
-            return;
-          }
-
-          const label = category?.name || category?.label || `Danh muc #${value}`;
-          map.set(value, label);
-        });
-
-        setCategoryOptions([
-          { value: "all", label: "Tat ca danh muc" },
-          ...Array.from(map.entries()).map(([value, label]) => ({
-            value,
-            label,
-          })),
-        ]);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setCategoryOptions([{ value: "all", label: "Tat ca danh muc" }]);
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [API_URL]);
-
-  // Lọc sản phẩm
+  // Logic lọc sản phẩm
   const getProductCategoryValue = (product) => {
     if (!product) return "";
-    if (product.category_id !== undefined && product.category_id !== null) {
-      return product.category_id.toString();
-    }
-    if (product.category) {
-      return product.category.toString();
+    // Ưu tiên lấy category_id trực tiếp
+    if (product.category_id) return String(product.category_id);
+    // Nếu category là object
+    if (typeof product.category === 'object' && product.category?.id) {
+        return String(product.category.id);
     }
     return "";
   };
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      const matchQuery = (r.name || "")
-        .toLowerCase()
-        .includes(query.toLowerCase());
+      const matchQuery = (r.name || "").toLowerCase().includes(query.toLowerCase());
+        
       const matchCategory =
         categoryFilter === "all" ||
         getProductCategoryValue(r) === categoryFilter;
+
       return matchQuery && matchCategory;
     });
   }, [rows, query, categoryFilter]);
 
-  const formatPrice = (price) => {
-    return new Intl.NumberFormat("vi-VN", {
-      style: "currency",
-      currency: "VND",
-    }).format(price);
-  };
 
   return (
     <div className="min-h-screen flex bg-slate-50 text-slate-800">
@@ -253,47 +217,33 @@ export default function AdminProductsPage() {
             <table className="w-full text-sm">
               <thead className="bg-slate-50">
                 <tr className="text-left text-slate-600">
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">
-                    Sản phẩm
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">
-                    Giá bán
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">
-                    Danh mục
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">
-                    Tồn kho
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">
-                    Trạng thái
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">
-                    Đánh giá
-                  </th>
-                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-right pr-4">
-                    Thao tác
-                  </th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Sản phẩm</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Giá bán</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Danh mục</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Tồn kho</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Trạng thái</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider">Đánh giá</th>
+                  <th className="px-4 py-3 text-[11px] font-semibold uppercase tracking-wider text-right pr-4">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {loading && (
                   <tr>
-                    <td colSpan={7} className="p-6 text-center text-slate-500">
-                      Đang tải dữ liệu...
-                    </td>
+                    <td colSpan={7} className="p-6 text-center text-slate-500">Đang tải dữ liệu...</td>
                   </tr>
+                )}
+                {!loading && filtered.length === 0 && (
+                   <tr>
+                   <td colSpan={7} className="p-6 text-center text-slate-500">Không tìm thấy sản phẩm nào.</td>
+                 </tr>
                 )}
                 {!loading &&
                   filtered.map((product, i) => (
-                    <tr
-                      key={product.id}
-                      className={i % 2 ? "bg-white" : "bg-slate-50/50"}
-                    >
+                    <tr key={product.id} className={i % 2 ? "bg-white" : "bg-slate-50/50"}>
                       {/* Sản phẩm */}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="h-12 w-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs overflow-hidden">
+                          <div className="h-12 w-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs overflow-hidden shrink-0">
                             {product.image ? (
                               <img
                                 src={product.image}
@@ -304,17 +254,11 @@ export default function AdminProductsPage() {
                                   e.target.parentElement.innerHTML = "IMG";
                                 }}
                               />
-                            ) : (
-                              "IMG"
-                            )}
+                            ) : "IMG"}
                           </div>
                           <div>
-                            <div className="font-medium text-slate-800">
-                              {product.name}
-                            </div>
-                            <div className="text-xs text-slate-500">
-                              {product.brand}
-                            </div>
+                            <div className="font-medium text-slate-800 line-clamp-2 max-w-[200px]">{product.name}</div>
+                            <div className="text-xs text-slate-500">{product.brand}</div>
                           </div>
                         </div>
                       </td>
@@ -322,51 +266,36 @@ export default function AdminProductsPage() {
                       {/* Giá bán */}
                       <td className="px-4 py-3">
                         <div className="font-semibold text-slate-800">
-                          {product.discount > 0
-                            ? formatPrice(product.final_price)
-                            : formatPrice(product.price)}
+                          {product.discount > 0 ? formatPrice(product.final_price) : formatPrice(product.price)}
                         </div>
                         {product.discount > 0 && (
-                          <div className="text-xs text-slate-400 line-through">
-                            {formatPrice(product.price)}
-                          </div>
+                          <div className="text-xs text-slate-400 line-through">{formatPrice(product.price)}</div>
                         )}
                         {product.discount > 0 && (
-                          <div className="text-xs text-rose-600">
-                            Giảm {product.discount}%
-                          </div>
+                          <div className="text-xs text-rose-600">Giảm {product.discount}%</div>
                         )}
                       </td>
 
                       {/* Danh mục */}
                       <td className="px-4 py-3 text-slate-600">
-                        {product.category}
+                         {typeof product.category === 'object' ? product.category?.name : product.category}
                       </td>
 
                       {/* Tồn kho */}
                       <td className="px-4 py-3">
-                        <div className="font-medium text-slate-800">
-                          {product.stock}
-                        </div>
-                        <div className="text-xs text-slate-500">
-                          {product.stock_status}
-                        </div>
+                        <div className="font-medium text-slate-800">{product.stock}</div>
+                        <div className="text-xs text-slate-500">{product.stock_status}</div>
                       </td>
 
-                      {/* Trạng thái */}
+                      {/* Trạng thái (Badges) */}
                       <td className="px-4 py-3">
-                        <div className="flex flex-wrap gap-1">
-                          {product.badges.map((badge) => (
-                            <span
-                              key={badge}
-                              className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold ${
-                                badge === "HOT"
-                                  ? "bg-rose-100 text-rose-700"
-                                  : badge === "MỚI"
-                                  ? "bg-blue-100 text-blue-700"
-                                  : "bg-emerald-100 text-emerald-700"
-                              }`}
-                            >
+                        <div className="flex flex-wrap gap-1 max-w-[120px]">
+                          {product.badges && product.badges.map((badge) => (
+                            <span key={badge} className={`inline-flex items-center rounded px-2 py-0.5 text-[10px] font-bold ${
+                                badge === "HOT" ? "bg-rose-100 text-rose-700" : 
+                                badge === "MỚI" ? "bg-blue-100 text-blue-700" : 
+                                "bg-emerald-100 text-emerald-700"
+                              }`}>
                               {badge}
                             </span>
                           ))}
@@ -377,12 +306,8 @@ export default function AdminProductsPage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <Star size={14} className="fill-amber-400 text-amber-400" />
-                          <span className="font-medium text-slate-800">
-                            {product.rating}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            ({product.reviews})
-                          </span>
+                          <span className="font-medium text-slate-800">{product.rating}</span>
+                          <span className="text-xs text-slate-500">({product.reviews})</span>
                         </div>
                       </td>
 
@@ -398,14 +323,16 @@ export default function AdminProductsPage() {
                           </button>
                           <button
                             title="Lịch sử thay đổi"
-                            onClick={() => navigate(`/admin/products/${product.id}/history`)}
+                            // Sử dụng hashed_id hoặc id cho URL
+                            onClick={() => navigate(`/admin/products/${product.hashed_id || product.id}/history`)}
                             className="inline-flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1.5 text-purple-600 hover:bg-purple-100"
                           >
                             <History size={16} />
                           </button>
                           <button
                             title="Sửa"
-                            onClick={() => navigate(`/admin/products/edit/${product.hashed_id}`)}
+                            // Sử dụng hashed_id hoặc id cho URL
+                            onClick={() => navigate(`/admin/products/edit/${product.hashed_id || product.id}`)}
                             className="inline-flex items-center justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-indigo-600 hover:bg-indigo-100"
                           >
                             <Edit size={16} />
@@ -432,7 +359,7 @@ export default function AdminProductsPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between z-10">
               <h2 className="text-xl font-semibold text-slate-800">
                 Chi tiết Sản phẩm
               </h2>
@@ -440,19 +367,7 @@ export default function AdminProductsPage() {
                 onClick={() => setShowDetailModal(false)}
                 className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
               >
-                <svg
-                  className="w-5 h-5 text-slate-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                <X size={20} className="text-slate-600" />
               </button>
             </div>
 
@@ -460,11 +375,11 @@ export default function AdminProductsPage() {
             <div className="p-6 space-y-6">
               {/* Ảnh sản phẩm */}
               {selectedProduct.image && (
-                <div className="flex justify-center">
+                <div className="flex justify-center bg-slate-50 p-4 rounded-lg">
                   <img
                     src={selectedProduct.image}
                     alt={selectedProduct.name}
-                    className="max-w-full h-auto max-h-64 rounded-lg object-contain"
+                    className="max-w-full h-auto max-h-64 object-contain"
                     onError={(e) => {
                       e.target.style.display = "none";
                     }}
@@ -473,119 +388,46 @@ export default function AdminProductsPage() {
               )}
 
               {/* Thông tin cơ bản */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-x-6 gap-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Tên sản phẩm
-                  </label>
-                  <p className="text-slate-800 font-medium">
-                    {selectedProduct.name}
-                  </p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Tên sản phẩm</label>
+                  <p className="text-slate-800 font-medium">{selectedProduct.name}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Thương hiệu
-                  </label>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Thương hiệu</label>
                   <p className="text-slate-800">{selectedProduct.brand || "—"}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Danh mục
-                  </label>
-                  <p className="text-slate-800">{selectedProduct.category || "—"}</p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Danh mục</label>
+                  <p className="text-slate-800">{typeof selectedProduct.category === 'object' ? selectedProduct.category?.name : selectedProduct.category || "—"}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Giá bán
-                  </label>
-                  <p className="text-slate-800 font-semibold">
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: "VND",
-                    }).format(selectedProduct.price)}
-                  </p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Giá bán</label>
+                  <p className="text-slate-800 font-semibold">{formatPrice(selectedProduct.price)}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Giảm giá
-                  </label>
-                  <p className="text-slate-800">
-                    {selectedProduct.discount > 0
-                      ? `${selectedProduct.discount}%`
-                      : "Không"}
-                  </p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Giảm giá</label>
+                  <p className="text-slate-800">{selectedProduct.discount > 0 ? `${selectedProduct.discount}%` : "Không"}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Giá sau giảm
-                  </label>
-                  <p className="text-green-600 font-semibold">
-                    {new Intl.NumberFormat("vi-VN", {
-                      style: "currency",
-                      currency: "VND",
-                    }).format(selectedProduct.final_price)}
-                  </p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Giá sau giảm</label>
+                  <p className="text-green-600 font-semibold">{formatPrice(selectedProduct.final_price)}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Tồn kho
-                  </label>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Tồn kho</label>
                   <p className="text-slate-800">{selectedProduct.stock}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Trạng thái
-                  </label>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Trạng thái</label>
                   <p className="text-slate-800">{selectedProduct.stock_status}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Đánh giá
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                    <span className="text-slate-800">
-                      {selectedProduct.rating} ({selectedProduct.reviews} đánh giá)
-                    </span>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Badges
-                  </label>
-                  <div className="flex gap-1">
-                    {selectedProduct.badges && selectedProduct.badges.length > 0 ? (
-                      selectedProduct.badges.map((badge, idx) => (
-                        <span
-                          key={idx}
-                          className="px-2 py-0.5 bg-red-100 text-red-600 text-xs font-medium rounded"
-                        >
-                          {badge}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </div>
                 </div>
               </div>
 
               {/* Mô tả */}
               {selectedProduct.description && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Mô tả
-                  </label>
-                  <p className="text-slate-700 text-sm leading-relaxed">
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Mô tả</label>
+                  <p className="text-slate-700 text-sm leading-relaxed bg-slate-50 p-3 rounded-lg">
                     {selectedProduct.description}
                   </p>
                 </div>
@@ -594,27 +436,18 @@ export default function AdminProductsPage() {
               {/* Thời gian */}
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Ngày tạo
-                  </label>
-                  <p className="text-slate-600 text-sm">
-                    {selectedProduct.created_at}
-                  </p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Ngày tạo</label>
+                  <p className="text-slate-600 text-sm">{selectedProduct.created_at}</p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">
-                    Cập nhật lần cuối
-                  </label>
-                  <p className="text-slate-600 text-sm">
-                    {selectedProduct.updated_at}
-                  </p>
+                  <label className="block text-sm font-medium text-slate-500 mb-1">Cập nhật lần cuối</label>
+                  <p className="text-slate-600 text-sm">{selectedProduct.updated_at}</p>
                 </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end gap-3">
+            <div className="sticky bottom-0 bg-slate-50 border-t border-slate-200 px-6 py-4 flex justify-end gap-3 z-10">
               <button
                 onClick={() => setShowDetailModal(false)}
                 className="px-4 py-2 border border-slate-300 rounded-lg text-slate-700 hover:bg-white transition-colors"
@@ -624,7 +457,7 @@ export default function AdminProductsPage() {
               <button
                 onClick={() => {
                   setShowDetailModal(false);
-                  navigate(`/admin/products/edit/${selectedProduct.hashed_id}`);
+                  navigate(`/admin/products/edit/${selectedProduct.hashed_id || selectedProduct.id}`);
                 }}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >

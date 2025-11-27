@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { Search, Star, ThumbsUp, Trash2, Check, X } from "lucide-react";
-import axios from "axios";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
+
+// Base URL để hiển thị ảnh (nếu backend trả về đường dẫn tương đối)
+const IMAGE_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState([]);
@@ -17,10 +20,11 @@ export default function AdminReviewsPage() {
     fetchReviews();
   }, [currentPage, searchTerm, statusFilter, ratingFilter]);
 
+  // === 1. Lấy danh sách đánh giá ===
   const fetchReviews = async () => {
     setLoading(true);
     try {
-      const response = await axios.get("http://127.0.0.1:8000/api/reviews", {
+      const response = await axiosClient.get("/reviews", {
         params: {
           page: currentPage,
           search: searchTerm,
@@ -29,44 +33,54 @@ export default function AdminReviewsPage() {
           per_page: 10,
         },
       });
+      
+      // Laravel pagination trả về data trong .data
       setReviews(response.data.data);
       setTotalPages(response.data.last_page);
       setTotalReviews(response.data.total);
     } catch (error) {
       console.error("Lỗi khi tải đánh giá:", error);
-      alert("Không thể tải danh sách đánh giá");
     } finally {
       setLoading(false);
     }
   };
 
-  const updateStatus = async (reviewId, newStatus) => {
+  // === 2. Cập nhật trạng thái ===
+  // Sử dụng product_review_id thay vì review_id
+  const updateStatus = async (id, newStatus) => {
     try {
-      await axios.patch(
-        `http://127.0.0.1:8000/api/reviews/${reviewId}/status`,
-        { status: newStatus }
-      );
+      await axiosClient.patch(`/reviews/${id}/status`, { 
+        status: newStatus 
+      });
+      
       alert("Cập nhật trạng thái thành công");
-      fetchReviews();
+      fetchReviews(); // Load lại danh sách
     } catch (error) {
-      console.error("Lỗi khi cập nhật trạng thái:", error);
-      alert("Không thể cập nhật trạng thái");
+      console.error("Lỗi cập nhật:", error);
+      const message = error.response?.data?.message || "Không thể cập nhật trạng thái";
+      alert(message);
     }
   };
 
-  const deleteReview = async (reviewId) => {
+  // === 3. Xóa đánh giá ===
+  // Sử dụng product_review_id
+  const deleteReview = async (id) => {
     if (!confirm("Bạn có chắc chắn muốn xóa đánh giá này?")) return;
 
     try {
-      await axios.delete(`http://127.0.0.1:8000/api/reviews/${reviewId}`);
+      await axiosClient.delete(`/reviews/${id}`);
       alert("Xóa đánh giá thành công");
-      fetchReviews();
+      
+      // Cập nhật UI ngay lập tức (Optimistic UI update)
+      setReviews(prev => prev.filter(r => r.product_review_id !== id));
     } catch (error) {
-      console.error("Lỗi khi xóa đánh giá:", error);
-      alert("Không thể xóa đánh giá");
+      console.error("Lỗi xóa:", error);
+      const message = error.response?.data?.message || "Không thể xóa đánh giá";
+      alert(message);
     }
   };
 
+  // --- Helper UI Functions ---
   const renderStars = (rating) => {
     return (
       <div className="flex gap-0.5">
@@ -92,7 +106,7 @@ export default function AdminReviewsPage() {
       rejected: { label: "Từ chối", class: "bg-red-100 text-red-700" },
     };
 
-    const config = statusConfig[status] || statusConfig.pending;
+    const config = statusConfig[status] || { label: status, class: "bg-gray-100 text-gray-700" };
 
     return (
       <span
@@ -104,7 +118,9 @@ export default function AdminReviewsPage() {
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString("vi-VN", {
+    if (!dateString) return "N/A";
+    const d = new Date(dateString);
+    return isNaN(d.getTime()) ? dateString : d.toLocaleDateString("vi-VN", {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
@@ -170,7 +186,7 @@ export default function AdminReviewsPage() {
                 }}
                 className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               >
-                <option value="all">Tất cả cao</option>
+                <option value="all">Tất cả sao</option>
                 <option value="5">5 sao</option>
                 <option value="4">4 sao</option>
                 <option value="3">3 sao</option>
@@ -219,7 +235,8 @@ export default function AdminReviewsPage() {
               <tbody>
                 {reviews.map((review, i) => (
                   <tr
-                    key={review.review_id}
+                    // SỬA LẠI KEY: dùng product_review_id
+                    key={review.product_review_id} 
                     className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                   >
                     {/* Product */}
@@ -228,7 +245,10 @@ export default function AdminReviewsPage() {
                         <div className="h-12 w-12 rounded-lg bg-slate-200 flex items-center justify-center text-slate-400 text-xs overflow-hidden flex-shrink-0">
                           {review.product?.main_image_url ? (
                             <img
-                              src={review.product.main_image_url}
+                              src={review.product.main_image_url.startsWith('http') 
+                                ? review.product.main_image_url 
+                                : `${IMAGE_BASE_URL}${review.product.main_image_url}`
+                              }
                               alt={review.product.product_name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
@@ -241,11 +261,12 @@ export default function AdminReviewsPage() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <div className="font-medium text-slate-800 truncate">
-                            {review.product?.product_name || "N/A"}
+                          <div className="font-medium text-slate-800 truncate max-w-[150px]">
+                            {review.product?.product_name || "Sản phẩm đã xóa"}
                           </div>
                           <div className="text-xs text-slate-500">
-                            ID: {review.product?.product_id}
+                            {/* Hiển thị ID Review thay vì ID Product nếu muốn debug */}
+                            Review #{review.product_review_id}
                           </div>
                         </div>
                       </div>
@@ -260,8 +281,8 @@ export default function AdminReviewsPage() {
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <div className="text-sm font-medium text-slate-700 truncate">
-                            {review.user?.name || "Anonymous"}
+                          <div className="text-sm font-medium text-slate-700 truncate max-w-[120px]">
+                            {review.user?.name || "Khách hàng"}
                           </div>
                           <div className="text-xs text-slate-500">
                             {formatDate(review.created_at)}
@@ -277,18 +298,18 @@ export default function AdminReviewsPage() {
                         <span className="text-xs text-slate-600">
                           {review.rating}/5
                         </span>
-                        <div className="flex items-center gap-1 text-slate-500">
-                          <ThumbsUp size={12} />
-                          <span className="text-xs">{review.helpful_count || 0}</span>
-                        </div>
                       </div>
                     </td>
 
                     {/* Comment */}
                     <td className="px-4 py-3">
-                      <p className="text-sm text-slate-700 line-clamp-2">
+                      <p className="text-sm text-slate-700 line-clamp-2 max-w-xs" title={review.comment}>
                         {review.comment}
                       </p>
+                      <div className="flex items-center gap-1 text-slate-400 text-xs mt-1">
+                          <ThumbsUp size={12} />
+                          <span>{review.helpful_count || 0} hữu ích</span>
+                        </div>
                     </td>
 
                     {/* Status */}
@@ -301,7 +322,7 @@ export default function AdminReviewsPage() {
                           <>
                             <button
                               onClick={() =>
-                                updateStatus(review.review_id, "approved")
+                                updateStatus(review.product_review_id, "approved")
                               }
                               className="inline-flex items-center justify-center rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-green-600 hover:bg-green-100"
                               title="Duyệt"
@@ -310,7 +331,7 @@ export default function AdminReviewsPage() {
                             </button>
                             <button
                               onClick={() =>
-                                updateStatus(review.review_id, "rejected")
+                                updateStatus(review.product_review_id, "rejected")
                               }
                               className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
                               title="Từ chối"
@@ -322,10 +343,10 @@ export default function AdminReviewsPage() {
                         {review.status === "approved" && (
                           <button
                             onClick={() =>
-                              updateStatus(review.review_id, "rejected")
+                              updateStatus(review.product_review_id, "rejected")
                             }
                             className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-2.5 py-1.5 text-slate-600 hover:bg-slate-50"
-                            title="Ẩn"
+                            title="Ẩn bài"
                           >
                             <X size={16} />
                           </button>
@@ -333,18 +354,18 @@ export default function AdminReviewsPage() {
                         {review.status === "rejected" && (
                           <button
                             onClick={() =>
-                              updateStatus(review.review_id, "approved")
+                              updateStatus(review.product_review_id, "approved")
                             }
                             className="inline-flex items-center justify-center rounded-lg border border-green-200 bg-green-50 px-2.5 py-1.5 text-green-600 hover:bg-green-100"
-                            title="Duyệt"
+                            title="Duyệt lại"
                           >
                             <Check size={16} />
                           </button>
                         )}
                         <button
-                          onClick={() => deleteReview(review.review_id)}
+                          onClick={() => deleteReview(review.product_review_id)}
                           className="inline-flex items-center justify-center rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-rose-600 hover:bg-rose-100"
-                          title="Xóa"
+                          title="Xóa vĩnh viễn"
                         >
                           <Trash2 size={16} />
                         </button>

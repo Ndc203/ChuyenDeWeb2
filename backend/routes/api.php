@@ -25,6 +25,7 @@ use App\Http\Controllers\ActivityLogController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ApiTokenController;
 use App\Http\Controllers\PaymentWebhookController;
+use App\Http\Controllers\Admin\DashboardController;
 
 /*
 |--------------------------------------------------------------------------
@@ -63,11 +64,19 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/products/slugify', [ProductController::class, 'slugify']);
 Route::get('/reviews', [ProductReviewController::class, 'index']);
 
-// Posts & Comments
+// Posts
+Route::get('/posts/export', [PostController::class, 'export']);
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
+Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
 Route::get('/post-statistics', [PostController::class, 'statistics']);
+Route::get('/postcategories', [PostCategoryController::class, 'index']);
+Route::get('/postcategories/{id}', [PostCategoryController::class, 'show']);
+// Comment routes
+Route::get('/posts/{id}/comments', [CommentController::class, 'index']);  // Lấy theo post_id
+Route::get('/comments/export', [CommentController::class, 'export']);      // Nếu sau này bạn thêm export
+Route::apiResource('comments', CommentController::class);
 
 // Quick Counts (Thống kê nhanh cho trang chủ)
 Route::get('/brands/count', fn() => ['count' => DB::table('brands')->count()]);
@@ -93,6 +102,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me/update', [ProfileController::class, 'updateProfile']);
     Route::post('/me/change-password', [ProfileController::class, 'changePassword']);
+    Route::get('/dashboard', [DashboardController::class, 'statistics']);
 
     // Route hỗ trợ code cũ (AdminProfilePage)
     Route::get('/user', function (Request $request) {
@@ -110,12 +120,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // --- 2.3 Quản lý Đơn hàng (Orders) ---
     // Customer xem đơn mình, Admin/Shop xem tất cả (Logic phân quyền trong Controller)
     Route::get('/orders', [OrderController::class, 'index']);
-    Route::get('/orders/{order}', [OrderController::class, 'show']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']); // Admin/Shop update
     Route::get('/orders/{order}/print', [OrderController::class, 'print']);
     Route::get('/orders/statistics', [OrderController::class, 'statistics']);
     Route::get('/orders/{order}/status', [OrderController::class, 'checkStatus']);
+    Route::get('/orders/{order}', [OrderController::class, 'show']);
 
     // --- 2.4 Quản lý Phân quyền (Roles) - CHO ADMIN ---
     Route::get('/roles', [RolePermissionController::class, 'getRoles']);
@@ -141,11 +151,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Categories Management
     Route::post('/categories', [CategoryController::class, 'store']);
+    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::put('/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     Route::patch('/categories/{id}/toggle', [CategoryController::class, 'toggleStatus']);
     Route::get('/categories/trashed', [CategoryController::class, 'trashed']);
-    Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
     Route::post('/categories/import', [CategoryController::class, 'import']);
 
     // Brands Management
@@ -159,7 +169,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/posts/{id}', [PostController::class, 'update']);
     Route::delete('/posts/{id}', [PostController::class, 'destroy']);
     Route::post('/posts/{id}/restore/{versionId}', [PostController::class, 'restoreVersion']);
-    Route::get('/posts/{id}/versions', [PostController::class, 'versions']);
+    Route::get('/post-statistics', [PostController::class, 'statistics']);
 
     // Coupons Management
     Route::get('/coupons', [CouponController::class, 'index']); // Admin view list
@@ -183,6 +193,16 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::patch('/reviews/{id}/status', [ProductReviewController::class, 'updateStatus']);
     Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy']);
     Route::get('/reviews/statistics', [ProductReviewController::class, 'statistics']);
+
+    // Route đặc biệt đặt trước route resource
+    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
+    // Route CRUD chuẩn
+    Route::post('/postcategories', [PostCategoryController::class, 'store']);
+    Route::put('/postcategories/{id}', [PostCategoryController::class, 'update']);
+    Route::delete('/postcategories/{id}', [PostCategoryController::class, 'destroy']);
+    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
 });
 
 

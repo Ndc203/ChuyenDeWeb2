@@ -1,16 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { User, Lock, Save, MapPin, Phone, Mail, Calendar } from 'lucide-react';
+import { User, Lock, Save, MapPin, Phone, Mail, Calendar, Camera } from 'lucide-react';
 import ShopHeader from '../../components/shop/ShopHeader';
 import AddressSelector from '../../components/AddressSelector';
 
 const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+
+  // Helper lấy URL avatar
+  const getAvatarUrl = (path) => {
+    if (!path) return null;
+    if (path.startsWith('http')) return path;
+    // Nối với đường dẫn storage (giống ProductDetail)
+    const baseUrl = API_URL.replace('/api', ''); 
+    return `${baseUrl}/storage/${path}`;
+};
 
 export default function ProfilePage() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('info'); // 'info' hoặc 'password'
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [avatarFile, setAvatarFile] = useState(null); // Lưu file người dùng chọn
+  const [previewUrl, setPreviewUrl] = useState(null); // Để hiển thị xem trước
 
   // Form Data
   const [formData, setFormData] = useState({
@@ -21,6 +33,7 @@ export default function ProfilePage() {
   const [passData, setPassData] = useState({
     current_password: '', new_password: '', new_password_confirmation: ''
   });
+
 
   // 1. Tải thông tin User
   useEffect(() => {
@@ -41,6 +54,7 @@ export default function ProfilePage() {
           address: u.profile?.address || '',
           date_of_birth: u.profile?.date_of_birth || '',
           gender: u.profile?.gender || 'other',
+          avatar: u.profile?.avatar || '',
         });
       } catch (err) {
         console.error(err);
@@ -57,14 +71,44 @@ export default function ProfilePage() {
     setMessage({ type: '', text: '' });
     
     try {
-      const res = await axios.put(`${API_URL}/api/me/update`, formData);
+      // Tạo FormData
+      const data = new FormData();
       
-      // Cập nhật lại LocalStorage để Header hiển thị tên mới ngay
+      // Đưa dữ liệu chữ vào
+      data.append('full_name', formData.full_name);
+      data.append('email', formData.email);
+      data.append('phone', formData.phone || '');
+      data.append('address', formData.address || '');
+      data.append('date_of_birth', formData.date_of_birth || '');
+      data.append('gender', formData.gender || '');
+
+      // Đưa file ảnh vào (nếu có chọn)
+      if (avatarFile) {
+        data.append('avatar', avatarFile);
+      }
+
+      // Cần thêm dòng này để Laravel hiểu đây là PUT request với FormData
+      data.append('_method', 'PUT'); 
+
+      const res = await axios.post(`${API_URL}/api/me/update`, data, {
+        headers: { 'Content-Type': 'multipart/form-data' } // Header bắt buộc cho file
+      });
+      
       localStorage.setItem('userInfo', JSON.stringify(res.data.user));
-      
+      setUser(res.data.user); // Cập nhật state user
       setMessage({ type: 'success', text: 'Cập nhật thông tin thành công!' });
+      
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.message || 'Lỗi cập nhật.' });
+    }
+  };
+
+  // Hàm xử lý khi chọn file
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setAvatarFile(file);
+      setPreviewUrl(URL.createObjectURL(file)); // Tạo link xem trước
     }
   };
 
@@ -97,18 +141,62 @@ export default function ProfilePage() {
         <h1 className="text-2xl font-bold text-gray-800 mb-6">Hồ sơ cá nhân</h1>
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            
+        
+
             {/* Sidebar Menu */}
-            <div className="bg-white rounded-xl shadow-sm p-4 h-fit">
-                <div className="flex items-center gap-3 mb-6 px-2">
-                    <img 
-                        src={`https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random`} 
-                        alt="Avatar" className="w-12 h-12 rounded-full"
-                    />
-                    <div>
-                        <p className="font-bold text-sm text-gray-900">{user?.profile?.full_name}</p>
-                        <p className="text-xs text-gray-500">{user?.email}</p>
+            <div className="bg-white rounded-xl shadow-sm p-6 h-fit"> {/* Tăng padding lên p-6 */}
+                
+                {/* SỬA: Dùng flex-col để xếp dọc (Ảnh trên, Tên dưới) */}
+                <div className="flex flex-col items-center gap-4 mb-6"> 
+                    
+                    {/* --- KHU VỰC AVATAR (GIỮ NGUYÊN LOGIC CŨ) --- */}
+                    <div className="relative group w-fit">
+                        <label 
+                            htmlFor="avatar-upload" 
+                            className="cursor-pointer block relative"
+                        >
+                            <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-white shadow-lg bg-gray-200">
+                                <img 
+                                    src={
+                                        previewUrl || 
+                                        getAvatarUrl(user?.profile?.avatar) || 
+                                        `https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random&size=128`
+                                    } 
+                                    alt="Avatar" 
+                                    className="w-full h-full object-cover transition-opacity hover:opacity-90"
+                                    style={{ objectFit: 'cover' }}
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = `https://ui-avatars.com/api/?name=${user?.profile?.full_name || 'User'}&background=random&size=128`;
+                                    }}
+                                />
+                            </div>
+
+                            <div className="absolute bottom-1 right-1 bg-gray-800 text-white p-2 rounded-full border-2 border-white shadow-sm transform transition-colors hover:bg-blue-600">
+                                <Camera size={16} />
+                            </div>
+                        </label>
+
+                        <input 
+                            id="avatar-upload" 
+                            type="file" 
+                            className="hidden" 
+                            accept="image/*"
+                            onChange={handleFileChange}
+                        />
                     </div>
+                    {/* -------------------------------------------- */}
+
+                    {/* Phần tên và email căn giữa */}
+                    <div className="text-center w-full">
+                        <p className="font-bold text-lg text-gray-900 truncate">
+                            {user?.profile?.full_name || user?.username}
+                        </p>
+                        <p className="text-sm text-gray-500 truncate px-2" title={user?.email}>
+                            {user?.email}
+                        </p>
+                    </div>
+
                 </div>
                 <nav className="space-y-1">
                     <button 
@@ -208,7 +296,7 @@ export default function ProfilePage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu hiện tại</label>
                                 <input type="password" value={passData.current_password} onChange={e => setPassData({...passData, current_password: e.target.value})} 
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Nhập mật khẩu hiện tại..." />
                             </div>
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
@@ -218,7 +306,7 @@ export default function ProfilePage() {
                             <div>
                                 <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
                                 <input type="password" value={passData.new_password_confirmation} onChange={e => setPassData({...passData, new_password_confirmation: e.target.value})} 
-                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required />
+                                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" required placeholder="Ít nhất 8 ký tự" />
                             </div>
                         </div>
 

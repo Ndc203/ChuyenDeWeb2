@@ -6,6 +6,7 @@ import {
   Eye,
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
+import axiosClient from "../../api/axiosClient"; // Import axiosClient
 
 export default function AdminCommentPage() {
   const [query, setQuery] = useState("");
@@ -14,34 +15,32 @@ export default function AdminCommentPage() {
   const [openDetail, setOpenDetail] = useState(false);
   const [detailComment, setDetailComment] = useState(null);
 
-  const API_URL = (
-    import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
-  ).replace(/\/$/, "");
-
-  // === Lấy danh sách bình luận ===
+  // === 1. Lấy danh sách bình luận (Dùng axiosClient) ===
   const loadComments = useCallback(() => {
     setLoading(true);
-    return fetch(`${API_URL}/api/comments`)
-      .then((res) => res.json())
-      .then((data) => (Array.isArray(data) ? setRows(data) : setRows([])))
+    axiosClient.get('/comments')
+      .then((res) => {
+        // Xử lý dữ liệu trả về (có thể là mảng trực tiếp hoặc nằm trong .data)
+        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        setRows(data);
+      })
       .catch(() => setRows([]))
       .finally(() => setLoading(false));
-  }, [API_URL]);
+  }, []);
 
   useEffect(() => {
     loadComments();
   }, [loadComments]);
 
-  // === Xem chi tiết ===
+  // === 2. Xem chi tiết (Dùng axiosClient) ===
   async function handleViewDetail(id) {
     try {
-      const res = await fetch(`${API_URL}/api/comments/${id}`);
-      if (!res.ok) throw new Error("Không thể tải chi tiết bình luận");
-      const data = await res.json();
-      setDetailComment(data);
+      const res = await axiosClient.get(`/comments/${id}`);
+      setDetailComment(res.data);
       setOpenDetail(true);
     } catch (err) {
-      alert(err.message || "Lỗi kết nối máy chủ");
+      const message = err.response?.data?.message || "Lỗi kết nối máy chủ";
+      alert(message);
     }
   }
 
@@ -50,42 +49,55 @@ export default function AdminCommentPage() {
     setDetailComment(null);
   }
 
-  // === Xoá bình luận ===
+  // === 3. Xoá bình luận (Dùng axiosClient) ===
   async function handleDelete(id) {
     if (!confirm("Bạn có chắc chắn muốn xoá bình luận này?")) return;
 
     try {
-      const res = await fetch(`${API_URL}/api/comments/${id}`, {
-        method: "DELETE",
-        headers: { Accept: "application/json" },
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        alert(data.message || "Không thể xoá bình luận.");
-        return;
-      }
-
+      await axiosClient.delete(`/comments/${id}`);
+      
+      // Xóa thành công trên server thì cập nhật UI
       setRows((prev) => prev.filter((it) => it.id !== id));
       alert("✅ Đã xoá bình luận thành công!");
-    } catch {
-      alert("Không thể kết nối tới máy chủ.");
+    } catch (err) {
+      const message = err.response?.data?.message || "Không thể xóa bình luận.";
+      alert(message);
     }
   }
 
-  // === Xuất file ===
+  // === 4. Xuất file (Dùng Blob để bảo mật Token) ===
   const [openExport, setOpenExport] = useState(false);
   const exportRef = useRef(null);
+  
   useEffect(() => {
     const close = (e) =>
       !exportRef.current?.contains(e.target) && setOpenExport(false);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
-  const handleExport = (format) => {
-    window.open(`${API_URL}/api/comments/export?format=${format}`, "_blank");
+
+  const handleExport = async (format) => {
+    try {
+      setOpenExport(false); // Đóng menu
+      const response = await axiosClient.get(`/comments/export?format=${format}`, {
+        responseType: 'blob', // Quan trọng để nhận file
+      });
+
+      // Tạo link tải xuống ảo
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `comments_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+    } catch (error) {
+      console.error("Export error:", error);
+      alert("Xuất file thất bại. Vui lòng thử lại.");
+    }
   };
 
-  // === Lọc dữ liệu ===
+  // === Lọc dữ liệu (Giữ nguyên) ===
   const filtered = useMemo(() => {
     return rows.filter((r) =>
       (r.content || "").toLowerCase().includes(query.toLowerCase())
@@ -167,6 +179,13 @@ export default function AdminCommentPage() {
                     </td>
                   </tr>
                 )}
+                {!loading && rows.length === 0 && (
+                   <tr>
+                   <td colSpan={5} className="p-6 text-center text-slate-500">
+                     Chưa có bình luận nào.
+                   </td>
+                 </tr>
+                )}
                 {!loading &&
                   filtered.map((r, i) => (
                     <tr
@@ -212,7 +231,7 @@ export default function AdminCommentPage() {
   );
 }
 
-/* === COMPONENTS === */
+/* === COMPONENTS (Giữ nguyên) === */
 function Th({ children, className = "" }) {
   return (
     <th
