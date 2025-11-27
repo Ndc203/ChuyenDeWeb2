@@ -11,6 +11,33 @@ function decodeHtml(html) {
   return txt.value;
 }
 
+// --- Normalize utilities ---
+function normalizeFullWidthNumbers(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/[\uFF10-\uFF19]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+  );
+}
+
+// Remove all unicode spaces (including full-width U+3000) and then trim
+function stripUnicodeSpaces(s) {
+  if (!s) return "";
+  // replace non-breaking spaces, full-width spaces and other unicode space separators
+  return s.replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, "").trim();
+}
+
+// Check if HTML content is effectively empty (e.g. "<p><br></p>" or only spaces & tags)
+function isHtmlEmpty(html) {
+  if (!html) return true;
+  // Create element and get text content
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  const text = el.textContent || el.innerText || "";
+  // Normalize full-width spaces and other unicode spaces
+  const cleaned = stripUnicodeSpaces(text);
+  return cleaned.length === 0;
+}
+
 export default function ShopPostDetailPage() {
   const { id } = useParams();
 
@@ -23,12 +50,19 @@ export default function ShopPostDetailPage() {
   const [replyContent, setReplyContent] = useState("");
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingContent, setEditingContent] = useState("");
+  const [editingUpdatedAt, setEditingUpdatedAt] = useState(null);
+
+  // disable states to prevent duplicate actions
+  const [submitting, setSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
   // CHUẨN KEY LOCAL STORAGE
   const userData = JSON.parse(localStorage.getItem("userInfo") || "null");
   const authToken = localStorage.getItem("authToken");
 
-  // --- API helper ---
+  // --- API helper (improved error handling) ---
   const fetchJSON = async (url, options = {}) => {
     const res = await fetch(url, options);
     const type = res.headers.get("content-type") || "";
@@ -38,11 +72,16 @@ export default function ShopPostDetailPage() {
     if (type.includes("application/json")) {
       data = await res.json();
     } else {
-      throw new Error("API không trả JSON (Lỗi server)");
+      throw { message: "API không trả JSON (Lỗi server)", status: res.status };
     }
 
     if (!res.ok) {
-      throw new Error(data.message || "Lỗi API");
+      // return structured error to caller
+      throw {
+        message: data?.message || "Lỗi API",
+        errors: data?.errors || null,
+        status: res.status,
+      };
     }
 
     return data;
@@ -64,7 +103,19 @@ export default function ShopPostDetailPage() {
       const data = await fetchJSON(
         `http://127.0.0.1:8000/api/posts/${id}/comments`
       );
-      setComments(data);
+
+      // API may return array directly or { data: [...] }
+      const list = Array.isArray(data) ? data : data?.data || [];
+
+      // Normalize: ensure id, parent_id, updated_at exist
+      const normalized = list.map((c) => ({
+        ...c,
+        id: c.id ?? c.comment_id,
+        parent_id: c.parent_id ?? null,
+        updated_at: c.updated_at ?? c.created_at ?? null,
+      }));
+
+      setComments(normalized);
     } catch (err) {
       console.error(err);
     }
@@ -83,7 +134,7 @@ export default function ShopPostDetailPage() {
   // ----------------------------------------------------------------
   const buildCommentTree = (list, parentId = null, visited = new Set()) =>
     list
-      .filter((c) => c.parent_id === parentId)
+      .filter((c) => (c.parent_id === parentId || String(c.parent_id) === String(parentId)))
       .map((c) => {
         if (visited.has(c.id)) {
           // vòng lặp phát hiện — ngắt để tránh infinite recursion
@@ -102,7 +153,16 @@ export default function ShopPostDetailPage() {
     e.preventDefault();
 
     if (!authToken) return alert("Bạn cần đăng nhập để bình luận.");
-    if (!commentContent || commentContent === "<p><br></p>") return;
+
+    // normalize pasted full-width numbers (defensive)
+    const normalizedContent = normalizeFullWidthNumbers(commentContent);
+
+    if (isHtmlEmpty(normalizedContent)) {
+      return alert("Nội dung bình luận không được để trống.");
+    }
+
+    if (submitting) return; // prevent duplicate
+    setSubmitting(true);
 
     try {
       const res = await fetchJSON("http://127.0.0.1:8000/api/comments", {
@@ -112,16 +172,35 @@ export default function ShopPostDetailPage() {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          post_id: id,
-          content: commentContent,
+          post_id: Number(normalizeFullWidthNumbers(String(id))),
+          content: normalizedContent,
           parent_id: null,
         }),
       });
 
-      setComments((prev) => [...prev, res.data]);
+      // backend returns { success: true, data: { ... } }
+      const newComment = res.data ?? res;
+      // normalize field names
+      const normalized = {
+        ...newComment,
+        id: newComment.id ?? newComment.comment_id,
+        parent_id: newComment.parent_id ?? null,
+        updated_at: newComment.updated_at ?? newComment.created_at,
+      };
+
+      setComments((prev) => [...prev, normalized]);
       setCommentContent("");
     } catch (err) {
-      alert(err.message);
+      // show specific messages if available
+      if (err?.status === 422 && err.errors) {
+        // show first validation message
+        const firstField = Object.keys(err.errors)[0];
+        alert(err.errors[firstField][0]);
+      } else {
+        alert(err.message || "Lỗi khi gửi bình luận.");
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -130,7 +209,15 @@ export default function ShopPostDetailPage() {
   // --------------------------------------------------------------------
   const handleReplySubmit = async (parentId) => {
     if (!authToken) return alert("Bạn cần đăng nhập để trả lời.");
-    if (!replyContent || replyContent === "<p><br></p>") return;
+
+    const normalizedContent = normalizeFullWidthNumbers(replyContent);
+
+    if (isHtmlEmpty(normalizedContent)) {
+      return alert("Nội dung trả lời không được để trống.");
+    }
+
+    if (replyingTo === parentId) return; // already sending
+    setReplyingTo(parentId);
 
     try {
       const res = await fetchJSON("http://127.0.0.1:8000/api/comments", {
@@ -140,47 +227,97 @@ export default function ShopPostDetailPage() {
           Authorization: `Bearer ${authToken}`,
         },
         body: JSON.stringify({
-          post_id: id,
-          content: replyContent,
+          post_id: Number(normalizeFullWidthNumbers(String(id))),
+          content: normalizedContent,
           parent_id: parentId,
         }),
       });
 
-      setComments((prev) => [...prev, res.data]);
+      const newComment = res.data ?? res;
+      const normalized = {
+        ...newComment,
+        id: newComment.id ?? newComment.comment_id,
+        parent_id: newComment.parent_id ?? null,
+        updated_at: newComment.updated_at ?? newComment.created_at,
+      };
+
+      setComments((prev) => [...prev, normalized]);
       setReplyToId(null);
       setReplyContent("");
     } catch (err) {
-      alert(err.message);
+      if (err?.status === 422 && err.errors) {
+        const firstField = Object.keys(err.errors)[0];
+        alert(err.errors[firstField][0]);
+      } else {
+        alert(err.message || "Lỗi khi gửi trả lời.");
+      }
+    } finally {
+      setReplyingTo(null);
     }
+  };
+
+  // --------------------------------------------------------------------
+  // START EDIT — set editing states (capture updated_at for optimistic lock)
+  // --------------------------------------------------------------------
+  const startEditing = (c) => {
+    setEditingCommentId(c.id);
+    setEditingContent(c.content);
+    // keep updated_at for optimistic locking (backend expects ISO string)
+    setEditingUpdatedAt(c.updated_at);
   };
 
   // --------------------------------------------------------------------
   // UPDATE COMMENT
   // --------------------------------------------------------------------
   const handleUpdateComment = async (commentId) => {
-    if (!editingContent) return;
+    if (!editingContent) return alert("Nội dung không được để trống.");
+
+    if (updatingId === commentId) return;
+    setUpdatingId(commentId);
 
     try {
-      await fetchJSON(`http://127.0.0.1:8000/api/comments/${commentId}`, {
+      const payload = {
+        content: editingContent,
+        updated_at: editingUpdatedAt, // optimistic locking
+      };
+
+      const res = await fetchJSON(`http://127.0.0.1:8000/api/comments/${commentId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({
-          content: editingContent,
-        }),
+        body: JSON.stringify(payload),
       });
 
+      const updated = res.data ?? res;
+
+      const normalized = {
+        ...updated,
+        id: updated.id ?? updated.comment_id,
+        updated_at: updated.updated_at ?? updated.created_at,
+      };
+
       setComments((prev) =>
-        prev.map((c) =>
-          c.id === commentId ? { ...c, content: editingContent } : c
-        )
+        prev.map((c) => (c.id === commentId ? { ...c, content: normalized.content, updated_at: normalized.updated_at } : c))
       );
 
       setEditingCommentId(null);
+      setEditingContent("");
     } catch (err) {
-      alert(err.message);
+      if (err?.status === 409) {
+        // optimistic lock conflict
+        alert(err.message || "Dữ liệu đã thay đổi. Vui lòng tải lại trang trước khi cập nhật.");
+        // refresh comments so user can reload latest
+        await fetchComments();
+      } else if (err?.status === 422 && err.errors) {
+        const firstField = Object.keys(err.errors)[0];
+        alert(err.errors[firstField][0]);
+      } else {
+        alert(err.message || "Lỗi khi cập nhật bình luận.");
+      }
+    } finally {
+      setUpdatingId(null);
     }
   };
 
@@ -190,17 +327,29 @@ export default function ShopPostDetailPage() {
   const handleDeleteComment = async (commentId) => {
     if (!window.confirm("Bạn chắc chắn muốn xóa?")) return;
 
+    if (deletingId === commentId) return;
+    setDeletingId(commentId);
+
     try {
-      await fetchJSON(`http://127.0.0.1:8000/api/comments/${commentId}`, {
+      const res = await fetchJSON(`http://127.0.0.1:8000/api/comments/${commentId}`, {
         method: "DELETE",
         headers: {
           Authorization: `Bearer ${authToken}`,
         },
       });
 
+      // success
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
-      alert(err.message);
+      if (err?.status === 404) {
+        alert(err.message || "Bình luận không tồn tại.");
+        // reload comments in case it was already deleted elsewhere
+        await fetchComments();
+      } else {
+        alert(err.message || "Lỗi khi xóa bình luận.");
+      }
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -223,6 +372,7 @@ export default function ShopPostDetailPage() {
             <img
               src={`https://i.pravatar.cc/40?u=${c.user_email}`}
               className="w-10 h-10 rounded-full"
+              alt={c.user_name || "avatar"}
             />
 
             <div className="bg-white p-4 rounded-lg shadow flex-1">
@@ -246,12 +396,14 @@ export default function ShopPostDetailPage() {
                     <button
                       onClick={() => handleUpdateComment(c.id)}
                       className="px-3 py-1 bg-green-600 text-white rounded"
+                      disabled={updatingId === c.id}
                     >
-                      Lưu
+                      {updatingId === c.id ? "Đang lưu..." : "Lưu"}
                     </button>
                     <button
                       onClick={() => setEditingCommentId(null)}
                       className="px-3 py-1 bg-gray-300 rounded"
+                      disabled={updatingId === c.id}
                     >
                       Hủy
                     </button>
@@ -279,18 +431,16 @@ export default function ShopPostDetailPage() {
                   <>
                     <button
                       className="text-yellow-600 text-sm"
-                      onClick={() => {
-                        setEditingCommentId(c.id);
-                        setEditingContent(c.content);
-                      }}
+                      onClick={() => startEditing(c)}
                     >
                       Sửa
                     </button>
                     <button
                       className="text-red-600 text-sm"
                       onClick={() => handleDeleteComment(c.id)}
+                      disabled={deletingId === c.id}
                     >
-                      Xóa
+                      {deletingId === c.id ? "Đang xóa..." : "Xóa"}
                     </button>
                   </>
                 )}
@@ -308,12 +458,14 @@ export default function ShopPostDetailPage() {
                     <button
                       onClick={() => handleReplySubmit(c.id)}
                       className="px-3 py-1 bg-blue-600 text-white rounded"
+                      disabled={replyingTo === c.id}
                     >
-                      Gửi
+                      {replyingTo === c.id ? "Đang gửi..." : "Gửi"}
                     </button>
                     <button
                       onClick={() => setReplyToId(null)}
                       className="px-3 py-1 bg-gray-300 rounded"
+                      disabled={replyingTo === c.id}
                     >
                       Hủy
                     </button>
@@ -347,6 +499,7 @@ export default function ShopPostDetailPage() {
             <img
               src={`http://127.0.0.1:8000/images/posts/${post.image}`}
               className="w-full h-64 object-cover rounded mb-6"
+              alt={post.title}
             />
           )}
 
@@ -374,8 +527,9 @@ export default function ShopPostDetailPage() {
             <button
               type="submit"
               className="mt-2 px-4 py-2 bg-blue-600 text-white rounded"
+              disabled={submitting}
             >
-              Gửi bình luận
+              {submitting ? "Đang gửi..." : "Gửi bình luận"}
             </button>
           </form>
         ) : (
