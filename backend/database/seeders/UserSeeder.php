@@ -28,9 +28,9 @@ class UserSeeder extends Seeder
         ]);
 
         $admin->profile()->create([
-            'full_name' => 'Admin User',
+            'full_name' => 'Admin',
             'phone' => '0987654321',
-            'address' => 'Hà Nội, Việt Nam',
+            'address' => 'Thành Phố HCM, Việt Nam',
         ]);
 
         // 3. Ngọc Ánh
