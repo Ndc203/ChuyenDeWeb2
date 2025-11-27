@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\ActivityLog;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -25,6 +26,8 @@ class AuthController extends Controller
 
         // 2. Thử đăng nhập
         if (!Auth::attempt($credentials)) {
+            // Ghi log đăng nhập thất bại
+            $this->logActivity(null, $request->email, 'login', 'failed', $request);
             return response()->json([
                 'message' => 'Thông tin đăng nhập không chính xác'
             ], 401);
@@ -48,6 +51,9 @@ class AuthController extends Controller
         // Spatie trả về Collection, ta lấy tên role đầu tiên
         // Nếu chưa có role, mặc định là 'customer'
         $role = $user->getRoleNames()->first() ?? $user->role;
+
+        // Ghi log đăng nhập thành công
+        $this->logActivity($user->user_id, $user->username, 'login', 'success', $request);
 
         // 6. Trả về dữ liệu JSON cho Frontend
         return response()->json([
@@ -93,6 +99,8 @@ class AuthController extends Controller
         $token = $user->createToken('auth_token')->plainTextToken;
         $role = 'customer';
 
+        $this->logActivity($user->user_id, $user->username, 'register', 'success', $request);
+
         return response()->json([
             'message' => 'Đăng ký thành công',
             'access_token' => $token,
@@ -111,6 +119,8 @@ class AuthController extends Controller
         // Xóa token đang sử dụng để đăng nhập
         $request->user()->currentAccessToken()->delete();
 
+        $this->logActivity($request->user()->user_id, $request->user()->username, 'logout', 'success', $request);
+
         return response()->json([
             'message' => 'Đăng xuất thành công'
         ]);
@@ -128,6 +138,24 @@ class AuthController extends Controller
         return response()->json([
             'user' => $user,
             'role' => $role
+        ]);
+    }
+
+    /**
+     * Ghi log hoạt động đăng nhập / đăng ký / đăng xuất.
+     */
+    protected function logActivity($userId, $username, $event, $status, Request $request)
+    {
+        ActivityLog::create([
+            'user_id' => $userId,
+            'username' => $username,
+            'event' => $event,
+            'status' => $status,
+            'ip_address' => $request->ip(),
+            'device' => $request->userAgent(),
+            'location' => null,
+            'response_time_ms' => null,
+            'meta' => [],
         ]);
     }
 }

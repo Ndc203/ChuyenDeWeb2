@@ -7,7 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class ProductHistory extends Model
 {
     protected $table = 'product_history';
-    protected $primaryKey = 'history_id';
+    // Đúng tên khóa chính của bảng
+    protected $primaryKey = 'product_history_id';
     public $timestamps = false; // Chỉ có created_at, không có updated_at
 
     protected $fillable = [
@@ -20,6 +21,7 @@ class ProductHistory extends Model
         'description',
         'ip_address',
         'user_agent',
+        'created_at',
     ];
 
     protected $casts = [
@@ -74,6 +76,7 @@ class ProductHistory extends Model
             'description' => $description,
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
+            'created_at' => now(),
         ]);
     }
 

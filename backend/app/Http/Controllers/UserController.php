@@ -122,6 +122,16 @@ class UserController extends Controller
     public function destroy(string $id)
     {
         $user = User::findOrFail($id);
+
+        // Nếu user còn đơn hàng gắn FK, không cho xóa để tránh lỗi 1451
+        $hasOrders = $user->orders()->exists();
+        if ($hasOrders) {
+            return response()->json([
+                'message' => 'Người dùng này vẫn còn đơn hàng, không thể xóa.',
+                'code' => 'USER_HAS_ORDERS',
+            ], 409);
+        }
+
         $user->delete(); // Do 'onDelete('cascade')', profile cũng sẽ bị xóa
         
         return response()->json(null, 204); // 204 No Content
