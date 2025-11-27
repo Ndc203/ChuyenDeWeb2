@@ -1,35 +1,35 @@
 import { useState, useEffect } from "react";
 import axiosClient from '../../api/axiosClient';
 import { useNavigate, Link, useLocation } from "react-router-dom";
+import { Mail, Lock, ArrowRight } from 'lucide-react';
+import Toast from "../../components/Toast"; // Import the Toast component
 
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "", remember: false });
-  const [error, setError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [toast, setToast] = useState({ show: false, message: '', type: 'success' });
   
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Xử lý thông báo từ trang Register chuyển sang
+  // Effect to handle success message from registration page
   useEffect(() => {
     if (location.state?.successMessage) {
-      setSuccessMessage(location.state.successMessage);
+      setToast({ show: true, message: location.state.successMessage, type: 'success' });
       if (location.state.email) {
         setForm((prev) => ({ ...prev, email: location.state.email }));
       }
-      // Xóa thông báo sau 5 giây
-      const timer = setTimeout(() => {
-        setSuccessMessage("");
-        window.history.replaceState({}, document.title);
-      }, 5000);
-      return () => clearTimeout(timer);
+      // Clear location state after showing toast
+      window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
+  const showToast = (message, type = 'success') => {
+    setToast({ show: true, message, type });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
     setIsLoading(true);
 
     try {
@@ -38,157 +38,129 @@ export default function Login() {
         password: form.password,
       });
 
-      // Lấy dữ liệu (axiosClient trả về response object)
       const { access_token, role, user } = res.data;
 
       if (access_token) {
-        // 1. Lưu vào LocalStorage (Token Key phải khớp với axiosClient)
         localStorage.setItem("authToken", access_token);
-        
-        // Lưu thêm thông tin phụ trợ nếu cần hiển thị UI
         localStorage.setItem("userRole", role);
         localStorage.setItem("userInfo", JSON.stringify(user));
 
-        alert("Đăng nhập thành công!");
+        showToast("Đăng nhập thành công!");
 
-        // 2. ĐIỀU HƯỚNG
-        if (role === 'admin' || role === 'Admin') {
-            navigate("/admin/dashboard");
-        } else {
-            navigate("/"); 
-        }
+        // Redirect after 3 seconds
+        setTimeout(() => {
+            if (role === 'admin' || role === 'Admin') {
+                navigate("/admin/dashboard");
+            } else {
+                navigate("/"); 
+            }
+        }, 3000);
       }
     } catch (err) {
       console.error(err);
-      // Xử lý thông báo lỗi từ Backend trả về
-      setError(err.response?.data?.message || "Đăng nhập thất bại! Vui lòng kiểm tra lại.");
-    } finally {
-      setIsLoading(false);
+      const errorMessage = err.response?.data?.message || "Đăng nhập thất bại! Vui lòng kiểm tra lại.";
+      showToast(errorMessage, 'error');
+      setIsLoading(false); // Stop loading on error
     }
+    // Don't set isLoading to false on success, as the page will redirect
   };
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        background: "linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%)",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        padding: "20px",
-        fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-      }}
-    >
-      <div
-        style={{
-          backgroundColor: "#fff",
-          padding: "40px 32px",
-          borderRadius: "20px",
-          boxShadow: "0 12px 30px rgba(0,0,0,0.12)",
-          width: "100%",
-          maxWidth: "420px",
-        }}
-      >
-        <h2 style={{ textAlign: "center", margin: "0 0 8px", fontSize: "26px", fontWeight: "600", color: "#1e293b" }}>
-          Đăng nhập
-        </h2>
-        <p style={{ textAlign: "center", margin: "0 0 28px", color: "#64748b", fontSize: "14px" }}>
-          Chào mừng bạn quay trở lại
-        </p>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-[#4e73df] to-[#d4508e] p-4 font-[Poppins,sans-serif]">
+      
+      <Toast 
+        message={toast.message}
+        type={toast.type}
+        show={toast.show}
+        onHide={() => setToast({ ...toast, show: false })}
+      />
 
-        {/* THÔNG BÁO THÀNH CÔNG */}
-        {successMessage && (
-          <div
-            style={{
-              color: "#065f46",
-              textAlign: "center",
-              marginBottom: "16px",
-              fontSize: "14px",
-              backgroundColor: "#d1fae5",
-              padding: "10px",
-              borderRadius: "8px",
-              border: "1px solid #a7f3d0",
-            }}
-          >
-            {successMessage}
-          </div>
-        )}
+      <div className="w-full max-w-5xl flex flex-col lg:flex-row rounded-2xl shadow-2xl overflow-visible">
+        
+        {/* Left Column (Dark Side) */}
+        <div className="bg-[#2d3447] text-white p-8 lg:p-12 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:w-5/12 rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none relative">
+            <h1 className="text-4xl font-bold tracking-wider mb-4">KING</h1>
+            <p className="text-gray-300 leading-relaxed mb-6">
+                Chào mừng bạn đến với hệ thống quản lý. Đăng nhập để tiếp tục và khám phá những tính năng tuyệt vời.
+            </p>
+            
+            {/* The Central Arrow Button */}
+            <a href="#" onClick={(e) => { e.preventDefault(); if (!isLoading) document.getElementById('login-form-submit').click(); }}
+                className={`absolute top-full lg:top-1/2 left-1/2 lg:left-full transform -translate-x-1/2 -translate-y-1/2 h-20 w-20 bg-[#d86b83] rounded-full flex items-center justify-center border-8 border-white shadow-lg  transition-all duration-300 z-10 ${isLoading ? 'cursor-not-allowed opacity-70' : 'cursor-pointer hover:scale-110'}`}
+            >
+                {isLoading ? (
+                    <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                    <ArrowRight size={32} className="text-white" />
+                )}
+            </a>
+        </div>
 
-        {/* THÔNG BÁO LỖI */}
-        {error && (
-          <div style={{ color: "#b91c1c", textAlign: "center", marginBottom: "16px", fontSize: "14px", backgroundColor: "#fee2e2", padding: "8px", borderRadius: "8px", border: "1px solid #fecaca" }}>
-            {error}
-          </div>
-        )}
+        {/* Right Column (Light Side - Form) */}
+        <div className="bg-white p-8 lg:p-12 lg:w-7/12 rounded-b-2xl lg:rounded-r-2xl lg:rounded-bl-none">
+            <h2 className="text-3xl font-bold text-[#222] mb-2">Welcome Back!</h2>
+            <p className="text-[#777] mb-8">Sign in to continue</p>
 
-        <form onSubmit={handleSubmit}>
-          {/* Email */}
-          <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#374151", fontWeight: "500" }}>Email</label>
-            <div style={{ position: "relative" }}>
-              <input
-                type="email"
-                placeholder="Nhập email của bạn"
-                value={form.email}
-                onChange={(e) => setForm({ ...form, email: e.target.value })}
-                required
-                style={{ width: "100%", padding: "12px 14px 12px 40px", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none", transition: "border-color 0.2s" }}
-              />
-              <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", width: "18px", height: "18px", color: "#94a3b8" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-            </div>
-          </div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Email */}
+                <div className="relative">
+                    <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                        type="email"
+                        placeholder="Email Address"
+                        value={form.email}
+                        onChange={(e) => setForm({ ...form, email: e.target.value })}
+                        required
+                        className="w-full pl-14 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-full focus:outline-none focus:border-[#d86b83] transition-all duration-300"
+                    />
+                </div>
 
-          {/* Mật khẩu */}
-          <div style={{ marginBottom: "20px" }}>
-            <label style={{ display: "block", marginBottom: "6px", fontSize: "14px", color: "#374151", fontWeight: "500" }}>Mật khẩu</label>
-            <div style={{ position: "relative" }}>
-              <input
-                type="password"
-                placeholder="Nhập mật khẩu"
-                value={form.password}
-                onChange={(e) => setForm({ ...form, password: e.target.value })}
-                required
-                style={{ width: "100%", padding: "12px 14px 12px 40px", borderRadius: "12px", border: "1px solid #cbd5e1", fontSize: "14px", outline: "none" }}
-              />
-              <svg style={{ position: "absolute", left: "12px", top: "50%", transform: "translateY(-50%)", width: "18px", height: "18px", color: "#94a3b8" }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-            </div>
-          </div>
+                {/* Password */}
+                <div className="relative">
+                    <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                        type="password"
+                        placeholder="Password"
+                        value={form.password}
+                        onChange={(e) => setForm({ ...form, password: e.target.value })}
+                        required
+                        className="w-full pl-14 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-full focus:outline-none focus:border-[#d86b83] transition-all duration-300"
+                    />
+                </div>
 
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "24px", fontSize: "13px" }}>
-            <label style={{ display: "flex", alignItems: "center", cursor: "pointer" }}>
-              <input type="checkbox" checked={form.remember} onChange={(e) => setForm({ ...form, remember: e.target.checked })} style={{ marginRight: "6px" }} />
-              <span style={{ color: "#475569" }}>Ghi nhớ đăng nhập</span>
-            </label>
-            <Link to="/forgot-password" style={{ color: "#0ea5e9", textDecoration: "none", fontWeight: "500" }}>Quên mật khẩu?</Link>
-          </div>
+                <div className="flex items-center justify-between text-sm">
+                    <label className="flex items-center gap-2 text-[#777] cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={form.remember} 
+                            onChange={(e) => setForm({ ...form, remember: e.target.checked })}
+                            className="h-4 w-4 rounded text-[#d86b83] focus:ring-[#d86b83]/50 border-gray-300"
+                        />
+                        Remember me
+                    </label>
+                    <Link to="/forgot-password" className="font-medium text-[#777] hover:text-[#d86b83] hover:underline">
+                        Forgot Password?
+                    </Link>
+                </div>
+                
+                {/* Hidden submit button for the central arrow to click */}
+                <button
+                    id="login-form-submit"
+                    type="submit"
+                    disabled={isLoading}
+                    className="hidden"
+                >
+                    {isLoading ? "Logging in..." : "Login"}
+                </button>
+            </form>
+             <div className="text-center text-sm text-[#777] pt-8">
+                    Don't have an account? 
+                    <Link to="/register" className="font-bold text-[#2d3447] hover:underline ml-1">
+                        Register
+                    </Link>
+                </div>
+        </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            style={{
-              width: "100%",
-              padding: "14px",
-              backgroundColor: isLoading ? "#9ca3af" : "#0ea5e9",
-              color: "#fff",
-              border: "none",
-              borderRadius: "12px",
-              fontSize: "15px",
-              fontWeight: "600",
-              cursor: isLoading ? "not-allowed" : "pointer",
-              transition: "background-color 0.2s",
-            }}
-          >
-            {isLoading ? "Đang xử lý..." : "Đăng nhập"}
-          </button>
-        </form>
-
-        <p style={{ textAlign: "center", marginTop: "24px", fontSize: "14px", color: "#64748b" }}>
-          Chưa có tài khoản? <Link to="/register" style={{ color: "#0ea5e9", fontWeight: "600", textDecoration: "none" }}>Đăng ký ngay</Link>
-        </p>
       </div>
     </div>
   );
