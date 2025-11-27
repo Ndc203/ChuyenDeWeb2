@@ -19,11 +19,25 @@ class RolePermissionController extends Controller
     {
         // Gói Spatie cho phép dùng 'withCount'
         // để tự động đếm 'users_count' và 'permissions_count'
+        // Lấy role + permissions, tự tính users_count để tránh lỗi morph khi PK user là user_id
         $roles = Role::query()
             ->select(['id', 'name', 'guard_name'])
-            ->withCount('users')
             ->with(['permissions:id,name'])
             ->get();
+
+        $roleIds = $roles->pluck('id');
+
+        $userCounts = DB::table('model_has_roles')
+            ->select('role_id', DB::raw('count(*) as aggregate'))
+            ->whereIn('role_id', $roleIds)
+            ->where('model_type', \App\Models\User::class)
+            ->groupBy('role_id')
+            ->pluck('aggregate', 'role_id');
+
+        $roles = $roles->map(function ($role) use ($userCounts) {
+            $role->users_count = (int) ($userCounts[$role->id] ?? 0);
+            return $role;
+        });
         
         return response()->json($roles);
     }

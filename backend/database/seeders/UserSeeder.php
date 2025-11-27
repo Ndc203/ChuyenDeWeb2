@@ -33,7 +33,7 @@ class UserSeeder extends Seeder
             'address' => 'Thành Phố HCM, Việt Nam',
         ]);
 
-        // 3. Ngọc Ánh
+        // 3. NguyenVanA
         $ngocanh = User::create([
             'username' => 'NguyenVanA',
             'password' => Hash::make('password'),
@@ -48,7 +48,7 @@ class UserSeeder extends Seeder
             'address' => 'TP.HCM',
         ]);
 
-        // 4. Thành Đạt
+        // 4. NguyenVanB
         $thanhdat = User::create([
             'username' => 'NguyenVanB',
             'password' => Hash::make('123456'),
