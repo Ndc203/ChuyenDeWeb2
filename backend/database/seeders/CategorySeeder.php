@@ -10,9 +10,9 @@ class CategorySeeder extends Seeder
 {
     public function run(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table('categories')->truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        DB::statement('PRAGMA foreign_keys = OFF;');
+        Category::query()->delete();
+        DB::statement('PRAGMA foreign_keys = ON;');
 
         $catalogues = [
             [

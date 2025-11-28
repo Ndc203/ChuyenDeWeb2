@@ -63,7 +63,7 @@ class RolePermissionSeeder extends Seeder
 
         $adminUser = User::where('username', 'admin')->first();
         if ($adminUser) {
-            $adminUser->assignRole('Admin');
+            $adminUser->assignRole('admin');
         }
 
         // Ví dụ: gán 'ngocanh' làm Staff, 'thanhdat' làm Shop Owner

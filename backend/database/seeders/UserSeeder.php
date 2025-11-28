@@ -13,10 +13,10 @@ class UserSeeder extends Seeder
     public function run(): void
     {
        // 1. Truncate (làm rỗng) cả 2 bảng
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table('users')->truncate();
-        DB::table('userprofile')->truncate(); // <-- THÊM: Truncate bảng profile
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        DB::statement('PRAGMA foreign_keys = OFF;');
+        DB::table('users')->delete();
+        DB::table('userprofile')->delete();
+        DB::statement('PRAGMA foreign_keys = ON;');
 
         // 2. Admin
         $admin = User::create([

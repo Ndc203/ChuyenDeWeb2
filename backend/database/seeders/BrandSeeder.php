@@ -10,9 +10,9 @@ class BrandSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
-        DB::table('brands')->truncate();
-        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        DB::statement('PRAGMA foreign_keys = OFF;');
+        Brand::query()->delete();
+        DB::statement('PRAGMA foreign_keys = ON;');
 
         $brands = [
             [
