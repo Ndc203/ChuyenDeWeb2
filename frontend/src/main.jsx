@@ -35,6 +35,7 @@ import Login from "./pages/auth/Login.jsx";
 import Register from "./pages/auth/Register.jsx";
 import ForgotPassword from "./pages/auth/ForgotPassword.jsx";
 import ResetPassword from "./pages/auth/ResetPassword.jsx";
+import SocialCallback from "./pages/auth/SocialCallback.jsx";
 import ShopPostPage from "./pages/shop/ShopPostPage.jsx";
 import ShopPostDetailPage from "./pages/shop/ShopPostDetailPage.jsx";
 import CartPage from "./pages/shop/CartPage.jsx";
@@ -78,6 +79,7 @@ const router = createBrowserRouter([
   { path: "/register", element: <Register /> },
   { path: "/forgot-password", element: <ForgotPassword /> },
   { path: "/reset-password", element: <ResetPassword /> },
+  { path: "/auth/social-callback", element: <SocialCallback /> },
 
   // === CUSTOMER ROUTES (Phải đăng nhập mới vào được) ===
   { 
