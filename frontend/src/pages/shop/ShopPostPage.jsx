@@ -28,7 +28,7 @@ const ShopPostPage = () => {
     try {
       const response = await fetch("http://127.0.0.1:8000/api/posts");
       const data = await response.json();
-      setPosts(data);
+      setPosts(data.filter(p => p.status === "published"));
       setLoading(false);
     } catch (error) {
       console.error("Error fetching posts:", error);
