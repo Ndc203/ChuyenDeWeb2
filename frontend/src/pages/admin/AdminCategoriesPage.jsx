@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient";
+import Swal from "sweetalert2";
 
 const emptyCategoryForm = () => ({
   name: "",
@@ -72,6 +73,16 @@ export default function AdminCategoriesPage() {
   const rowsSnapshotRef = useRef(null);
   const treeNoticeTimeout = useRef(null);
   const importInputRef = useRef(null);
+  const slugifyText = useCallback((text = "") => {
+    return text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }, []);
+  const slugPreviewCreate = useMemo(() => slugifyText(form.name || ""), [form.name, slugifyText]);
+  const slugPreviewEdit = useMemo(() => slugifyText(editForm.name || ""), [editForm.name, slugifyText]);
 
   const isDeletedView = viewMode === "deleted";
 
@@ -144,8 +155,17 @@ export default function AdminCategoriesPage() {
   const handleSubmitCreate = async (event) => {
     event.preventDefault();
     const name = form.name.trim();
+    const status = form.status === "inactive" ? "inactive" : "active";
     if (!name) {
-      setFormError("Vui lòng nhập tên danh mục.");
+      const msg = "Vui long nhap ten danh muc.";
+      setFormError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
+    if (!["active", "inactive"].includes(status)) {
+      const msg = "Trang thai khong hop le.";
+      setFormError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
       return;
     }
 
@@ -156,23 +176,32 @@ export default function AdminCategoriesPage() {
       name,
       description: form.description?.trim() ? form.description.trim() : null,
       parent_id: form.parentId ? Number(form.parentId) : null,
-      status: form.status || "active",
+      status,
     };
 
     try {
       await axiosClient.post("/categories", payload);
       await loadCategories();
+      Swal.fire({
+        icon: "success",
+        title: "Them danh muc thanh cong",
+        text: "Danh muc moi da duoc tao.",
+      });
       handleCloseCreate();
     } catch (error) {
-      const message = error.response?.data?.message || 
-        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Không thể tạo danh mục.");
+      const message = error.response?.data?.message ||
+        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Khong the tao danh muc.");
       setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong the tao danh muc",
+        text: message,
+      });
     } finally {
       setCreateLoading(false);
     }
   };
-
-  // === 3. Edit Category ===
+// === 3. Edit Category ===
   const updateEditFormValue = (key, value) => {
     setEditForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -194,12 +223,30 @@ export default function AdminCategoriesPage() {
     setEditError("");
   };
 
+  const handleOpenView = (category) => {
+    if (!category) return;
+    setViewTarget(category);
+  };
+
+  const handleCloseView = () => {
+    setViewTarget(null);
+  };
+
   const handleSubmitEdit = async (event) => {
     event.preventDefault();
     if (!editTarget) return;
     const name = editForm.name.trim();
+    const status = editForm.status === "inactive" ? "inactive" : "active";
     if (!name) {
-      setEditError("Vui lòng nhập tên danh mục.");
+      const msg = "Vui long nhap ten danh muc.";
+      setEditError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
+    if (!["active", "inactive"].includes(status)) {
+      const msg = "Trang thai khong hop le.";
+      setEditError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
       return;
     }
 
@@ -210,28 +257,29 @@ export default function AdminCategoriesPage() {
       name,
       description: editForm.description?.trim() ? editForm.description.trim() : null,
       parent_id: editForm.parentId ? Number(editForm.parentId) : null,
-      status: editForm.status || "active",
+      status,
     };
 
     try {
       await axiosClient.put(`/categories/${editTarget.id}`, payload);
       await loadCategories();
+      Swal.fire({
+        icon: "success",
+        title: "Cap nhat danh muc thanh cong",
+        text: "Thong tin danh muc da duoc luu.",
+      });
       handleCloseEdit();
     } catch (error) {
-      const message = error.response?.data?.message || "Không thể cập nhật danh mục.";
+      const message = error.response?.data?.message || "Khong the cap nhat danh muc.";
       setEditError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong the cap nhat danh muc",
+        text: message,
+      });
     } finally {
       setEditLoading(false);
     }
-  };
-
-  const handleOpenView = (category) => {
-    if (!category) return;
-    setViewTarget(category);
-  };
-
-  const handleCloseView = () => {
-    setViewTarget(null);
   };
 
   // === 4. Import Logic (Axios Multipart) ===
@@ -274,14 +322,21 @@ export default function AdminCategoriesPage() {
 
       const data = response.data;
       setImportPreview(data);
-      
+
       const validIndexes = Array.isArray(data?.rows)
-        ? data.rows.filter((row) => row?.is_valid).map((row) => Number(row.index))
+        ? data.rows
+            .filter(
+              (row) =>
+                row?.is_valid &&
+                !row?.duplicate_in_file &&
+                !(Array.isArray(row?.existing) && row.existing.length > 0)
+            )
+            .map((row) => Number(row.index))
         : [];
       setImportSelected(validIndexes);
       setImportError("");
     } catch (error) {
-      const message = error.response?.data?.message || "Không thể đọc file.";
+      const message = error.response?.data?.message || "Khong the doc file.";
       setImportError(message);
       setImportPreview(null);
       setImportSelected([]);
@@ -308,7 +363,12 @@ export default function AdminCategoriesPage() {
     }
     if (checked) {
       const valid = importPreview.rows
-        .filter((row) => row?.is_valid)
+        .filter(
+          (row) =>
+            row?.is_valid &&
+            !row?.duplicate_in_file &&
+            !(Array.isArray(row?.existing) && row.existing.length > 0)
+        )
         .map((row) => Number(row.index));
       setImportSelected(valid);
     } else {
@@ -318,11 +378,11 @@ export default function AdminCategoriesPage() {
 
   const handleConfirmImport = async () => {
     if (!importFile) {
-      setImportError("Vui lòng chọn file Excel.");
+      setImportError("Vui long chon file Excel.");
       return;
     }
     if (!importSelected.length) {
-      setImportError("Vui lòng chọn ít nhất 1 dòng hợp lệ.");
+      setImportError("Vui long chon it nhat 1 dong hop le.");
       return;
     }
 
@@ -332,25 +392,24 @@ export default function AdminCategoriesPage() {
 
     const formData = new FormData();
     formData.append("file", importFile);
-    importSelected.forEach((index) =>
-      formData.append("selected[]", String(index))
-    );
+    importSelected.forEach((index) => formData.append("selected[]", String(index)));
 
     try {
       const response = await axiosClient.post("/categories/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setImportResult(response.data);
+      Swal.fire({ icon: "success", title: "Nhap file thanh cong", text: "Danh muc hop le da duoc nhap." });
       await loadCategories();
     } catch (error) {
-      const message = error.response?.data?.message || "Không thể nhập danh mục.";
+      const message = error.response?.data?.message || "Khong the nhap danh muc.";
       setImportError(message);
+      Swal.fire({ icon: "error", title: "Nhap file that bai", text: message });
     } finally {
       setImportSubmitting(false);
     }
   };
-
-  // === 5. Toggle Status & Restore ===
+// === 5. Toggle Status & Restore ===
   async function handleToggleStatus(id) {
     setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _updating: true } : it)));
     try {
@@ -363,24 +422,33 @@ export default function AdminCategoriesPage() {
             : it
         )
       );
-    } catch {
-      alert("Không thể đổi trạng thái");
+      Swal.fire({ icon: "success", title: "Da cap nhat trang thai" });
+    } catch (error) {
+      Swal.fire({
+        icon: "error",
+        title: "Khong the doi trang thai",
+        text: "Vui long thu lai.",
+      });
       setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _updating: false } : it)));
     }
   }
 
-  async function handleRestore(id) {
+async function handleRestore(id) {
     setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _restoring: true } : it)));
     try {
       await axiosClient.patch(`/categories/${id}/restore`);
-      await loadCategories(); // Reload lại list vì item sẽ biến mất khỏi list trash
+      await loadCategories();
+      Swal.fire({ icon: "success", title: "Da khoi phuc danh muc" });
     } catch (error) {
-      alert("Không thể khôi phục danh mục.");
+      Swal.fire({
+        icon: "error",
+        title: "Khong the khoi phuc danh muc",
+        text: "Vui long thu lai.",
+      });
       setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _restoring: false } : it)));
     }
   }
-
-  // === 6. Delete Category ===
+// === 6. Delete Category ===
   const handleAskDelete = (category) => {
     if (!category || deleteLoading) return;
     setDeleteError("");
@@ -405,16 +473,17 @@ export default function AdminCategoriesPage() {
     try {
       await axiosClient.delete(`/categories/${deleteTarget.id}`);
       await loadCategories();
+      Swal.fire({ icon: "success", title: "Da xoa danh muc" });
       setDeleteTarget(null);
     } catch (error) {
-      const message = error.response?.data?.message || "Không thể xóa danh mục.";
+      const message = error.response?.data?.message || "Khong the xoa danh muc.";
       setDeleteError(message);
+      Swal.fire({ icon: "error", title: "Khong the xoa danh muc", text: message });
     } finally {
       setDeleteLoading(false);
     }
   };
-
-  // === 7. Export File (Blob Download) ===
+// === 7. Export File (Blob Download) ===
   const [openExport, setOpenExport] = useState(false);
   const exportRef = useRef(null);
   useEffect(() => {
@@ -439,7 +508,11 @@ export default function AdminCategoriesPage() {
       link.parentNode.removeChild(link);
     } catch (error) {
       console.error("Export failed", error);
-      alert("Xuất file thất bại.");
+      Swal.fire({
+        icon: "error",
+        title: "Xuat file that bai",
+        text: "Vui long thu lai.",
+      });
     }
   };
 
@@ -1059,6 +1132,7 @@ export default function AdminCategoriesPage() {
         parentOptions={editParentOptions}
         loading={editLoading}
         error={editError}
+        slugPreview={slugPreviewEdit}
       />
       <CategoryFormModal
         mode="create"
@@ -1070,6 +1144,7 @@ export default function AdminCategoriesPage() {
         parentOptions={parentOptions}
         loading={createLoading}
         error={formError}
+        slugPreview={slugPreviewCreate}
       />
     </div>
   );
@@ -1093,7 +1168,11 @@ function DeleteCategoryModal({ open, category, onClose, onConfirm, loading, erro
           <p>Bạn có chắc muốn xóa danh mục <span className="font-semibold text-slate-800">{category.name}</span>?</p>
           <p className="text-xs text-amber-600">Lưu ý: Không thể xóa khi danh mục con đang tồn tại.</p>
         </div>
-        {error && <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>}
+        {error && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+            {error}
+          </div>
+        )}
         <div className="mt-6 flex justify-end gap-2">
           <button type="button" onClick={onClose} disabled={loading} className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
           <button type="button" onClick={onConfirm} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700">
@@ -1105,48 +1184,123 @@ function DeleteCategoryModal({ open, category, onClose, onConfirm, loading, erro
   );
 }
 
-function CategoryFormModal({ mode = "create", open, onClose, form, onChange, onSubmit, parentOptions, loading, error }) {
+function CategoryFormModal({
+  mode = "create",
+  open,
+  onClose,
+  form,
+  onChange,
+  onSubmit,
+  parentOptions,
+  loading,
+  error,
+  slugPreview = "",
+}) {
   if (!open) return null;
   const isEdit = mode === "edit";
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
+      <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">{isEdit ? "Sửa danh mục" : "Thêm danh mục"}</h2>
-            <p className="text-sm text-slate-500">{isEdit ? "Cập nhật thông tin danh mục." : "Nhập thông tin danh mục mới."}</p>
+            <h2 className="text-xl font-semibold text-slate-800">
+              {isEdit ? "Chinh sua danh muc" : "Them danh muc"}
+            </h2>
+            <p className="text-sm text-slate-500">
+              Slug duoc sinh tu dong dua tren ten.
+            </p>
           </div>
-          <button type="button" onClick={onClose} disabled={loading} className="rounded-full p-2 text-slate-500 hover:bg-slate-100"><X size={18} /></button>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
         </div>
-        {error && <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">{error}</div>}
-        <form onSubmit={onSubmit} className="mt-6 space-y-4">
+
+        <form onSubmit={onSubmit} className="mt-6 space-y-5">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Tên danh mục</label>
-            <input value={form.name} onChange={(e) => onChange("name", e.target.value)} className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" required />
+            <label className="mb-1 block text-sm font-medium text-slate-700">Ten danh muc</label>
+            <input
+              value={form.name}
+              onChange={(e) => onChange("name", e.target.value)}
+              className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+            />
           </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <span className="font-medium text-slate-700 mr-2">Slug du kien:</span>
+            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+              {slugPreview || "(Chua co)"}
+            </span>
+          </div>
+
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Mô tả</label>
-            <textarea value={form.description} onChange={(e) => onChange("description", e.target.value)} className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200" />
+            <label className="mb-1 block text-sm font-medium text-slate-700">Mo ta</label>
+            <textarea
+              value={form.description}
+              onChange={(e) => onChange("description", e.target.value)}
+              className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+            />
           </div>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Danh mục cha</label>
-              <select value={form.parentId} onChange={(e) => onChange("parentId", e.target.value)} className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
-                {parentOptions.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
+              <label className="mb-1 block text-sm font-medium text-slate-700">Danh muc cha</label>
+              <select
+                value={form.parentId}
+                onChange={(e) => onChange("parentId", e.target.value)}
+                className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                {parentOptions.map((op) => (
+                  <option key={op.value} value={op.value}>
+                    {op.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Trạng thái</label>
-              <select value={form.status} onChange={(e) => onChange("status", e.target.value)} className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200">
-                <option value="active">Đang hoạt động</option>
-                <option value="inactive">Tạm dừng</option>
+              <label className="mb-1 block text-sm font-medium text-slate-700">Trang thai</label>
+              <select
+                value={form.status}
+                onChange={(e) => onChange("status", e.target.value)}
+                className="w-full rounded-xl border bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
+              >
+                <option value="active">Dang hoat dong</option>
+                <option value="inactive">Tam dung</option>
               </select>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-2 pt-2">
-            <button type="button" onClick={onClose} disabled={loading} className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
-            <button type="submit" disabled={loading} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-              {loading ? (isEdit ? "Đang lưu..." : "Đang tạo...") : (isEdit ? "Lưu danh mục" : "Tạo danh mục")}
+
+          <div className="flex items-center justify-end gap-3 pt-2">
+            {error && (
+              <div className="flex-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+                {error}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+              className="rounded-xl border px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+            >
+              Huy
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading
+                ? isEdit
+                  ? "Dang luu..."
+                  : "Dang tao..."
+                : isEdit
+                  ? "Luu danh muc"
+                  : "Tao danh muc"}
             </button>
           </div>
         </form>
@@ -1174,7 +1328,18 @@ function ImportCategoriesModal({
 
   const rows = Array.isArray(preview?.rows) ? preview.rows : [];
   const summary = preview?.summary ?? {};
-
+  const totalCount = rows.length;
+  const duplicateDbCount = rows.filter(
+    (row) => Array.isArray(row?.existing) && row.existing.length > 0
+  ).length;
+  const duplicateFileCount = rows.filter((row) => row?.duplicate_in_file).length;
+  const validCount = rows.filter(
+    (row) =>
+      row?.is_valid &&
+      !row?.duplicate_in_file &&
+      !(Array.isArray(row?.existing) && row.existing.length > 0)
+  ).length;
+  const invalidCount = Math.max(totalCount - validCount, 0);
   const selectableRows = rows.filter((row) => row?.is_valid);
   const allSelected =
     selectableRows.length > 0 &&
@@ -1189,7 +1354,7 @@ function ImportCategoriesModal({
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
-      <div className="flex w-full max-w-5xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="flex w-full max-w-4xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between px-6 py-5 border-b">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">
@@ -1242,6 +1407,12 @@ function ImportCategoriesModal({
             </div>
           )}
 
+          {hasPreview && (summary.invalid ?? 0) > 0 && (
+            <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+              Co {summary.invalid} dong bi loi, vui long xem lai truoc khi nhap.
+            </div>
+          )}
+
           {result && (
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
@@ -1286,19 +1457,19 @@ function ImportCategoriesModal({
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-                  Tong dong: {summary.total ?? rows.length}
+                  Tong dong: {totalCount}
                 </span>
                 <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
-                  Hop le: {summary.valid ?? 0}
+                  Hop le: {validCount}
                 </span>
                 <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">
-                  Loi: {summary.invalid ?? 0}
+                  Loi: {invalidCount}
                 </span>
                 <span className="rounded-full bg-sky-100 px-3 py-1 font-medium text-sky-700">
-                  Trung DB: {summary.duplicates_in_db ?? 0}
+                  Trung DB: {duplicateDbCount}
                 </span>
                 <span className="rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700">
-                  Trung file: {summary.duplicates_in_file ?? 0}
+                  Trung file: {duplicateFileCount}
                 </span>
                 <span className="ml-auto text-slate-600">
                   Da chon {selectedCount} dong hop le
@@ -1329,8 +1500,6 @@ function ImportCategoriesModal({
                   <tbody className="divide-y divide-slate-100">
                     {rows.map((row) => {
                       const index = Number(row.index);
-                      const checked = selected.includes(index);
-                      const disabled = !row.is_valid || submitting;
                       const parent = row.parent;
                       const parentLabel =
                         !parent || !parent.type
@@ -1338,14 +1507,26 @@ function ImportCategoriesModal({
                           : parent.type === "existing"
                           ? `${parent.label} (ID ${parent.id})`
                           : `${parent.label} (dong ${parent.index})`;
+                      const existing = Array.isArray(row.existing) ? row.existing : [];
+                      const isDuplicateFile = !!row.duplicate_in_file;
+                      const isSelectable = !!row.is_valid && !isDuplicateFile && existing.length === 0;
+                      const checked = isSelectable && selected.includes(index);
+                      const disabled = !isSelectable || submitting;
+                      const errorMessages = Array.isArray(row.errors) ? [...row.errors] : [];
+                      if (existing.length) {
+                        errorMessages.push("Ten danh muc da ton tai trong he thong.");
+                      }
+                      if (isDuplicateFile) {
+                        errorMessages.push("Ten danh muc bi trung trong file import.");
+                      }
 
                       return (
                         <tr
                           key={row.index}
                           className={
-                            row.is_valid
+                            isSelectable
                               ? "bg-white"
-                              : "bg-rose-50/60"
+                              : "bg-rose-50/70 border-l-4 border-rose-200"
                           }
                         >
                           <td className="px-3 py-2 align-top">
@@ -1401,14 +1582,18 @@ function ImportCategoriesModal({
                               )}
                           </td>
                           <td className="px-3 py-2 align-top text-xs text-rose-600">
-                            {Array.isArray(row.errors) && row.errors.length ? (
-                              <ul className="space-y-1 list-disc pl-4">
-                                {row.errors.map((msg, idx) => (
-                                  <li key={`${row.index}-err-${idx}`}>
-                                    {msg}
-                                  </li>
+                            {errorMessages.length ? (
+                              <div className="space-y-1">
+                                {errorMessages.map((msg, idx) => (
+                                  <div
+                                    key={`${row.index}-err-${idx}`}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-rose-500" />
+                                    <span>{msg}</span>
+                                  </div>
                                 ))}
-                              </ul>
+                              </div>
                             ) : (
                               <span className="text-slate-400">---</span>
                             )}
@@ -1444,7 +1629,7 @@ function ImportCategoriesModal({
             <button
               type="button"
               onClick={onSubmit}
-              disabled={submitting || !selectedCount}
+              disabled={loading || submitting || !selectedCount}
               className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {submitLabel}
@@ -2073,3 +2258,4 @@ function updateRowsForMove(rows, id, parentId) {
       : r
   );
 }
+
