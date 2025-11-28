@@ -1,10 +1,12 @@
 import { useState } from "react";
 import axios from "axios";
 import { useNavigate, Link } from "react-router-dom";
-import { Mail, Lock, ArrowRight, User, UserSquare } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Facebook, User, UserSquare } from 'lucide-react';
 import Toast from "../../components/Toast"; // Import the Toast component
 
-const API_URL = "http://127.0.0.1:8000/api";
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+const API_URL = `${API_BASE_URL}/api`;
 
 export default function Register() {
   const navigate = useNavigate();
@@ -139,7 +141,7 @@ export default function Register() {
                         className="w-full pl-14 pr-4 py-3 bg-gray-100 border-2 border-transparent rounded-full focus:outline-none focus:border-[#d86b83] transition-all duration-300" />
                 </div>
                 
-                {/* Hidden submit button for the central arrow to click */}
+             {/* Hidden submit button for the central arrow to click */}
                 <button
                     id="register-form-submit"
                     type="submit"
@@ -149,6 +151,35 @@ export default function Register() {
                     {isLoading ? "Creating Account..." : "Register"}
                 </button>
             </form>
+
+            <div className="flex items-center my-8">
+                <hr className="flex-grow border-t border-gray-300" />
+                <span className="px-4 text-sm text-gray-500">OR SIGN UP WITH</span>
+                <hr className="flex-grow border-t border-gray-300" />
+            </div>
+
+            <div className="space-y-4">
+                {/* Google Button */}
+                <a href={`${API_BASE_URL}/api/auth/google/redirect`} className="flex items-center justify-center w-full bg-[#dd4b39] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
+                    <div className="w-12 h-12 flex items-center justify-center border-r border-black/20">
+                        <span className="font-bold text-xl">G</span>
+                    </div>
+                    <span className="flex-1 text-center text-sm font-medium">
+                        Sign up with Google
+                    </span>
+                </a>
+
+                {/* Facebook Button */}
+                <a href={`${API_BASE_URL}/api/auth/facebook/redirect`} className="flex items-center justify-center w-full bg-[#3b5998] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
+                    <div className="w-12 h-12 flex items-center justify-center border-r border-black/20">
+                        <Facebook size={24} />
+                    </div>
+                    <span className="flex-1 text-center text-sm font-medium">
+                        Sign up with Facebook
+                    </span>
+                </a>
+            </div>
+
              <div className="text-center text-sm text-[#777] pt-8">
                     Already have an account? 
                     <Link to="/login" className="font-bold text-[#2d3447] hover:underline ml-1">

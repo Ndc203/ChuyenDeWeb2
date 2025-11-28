@@ -4,6 +4,8 @@ import { useNavigate, Link, useLocation } from "react-router-dom";
 import { Mail, Lock, ArrowRight, Facebook } from 'lucide-react';
 import Toast from "../../components/Toast"; // Import the Toast component
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
 export default function Login() {
   const [form, setForm] = useState({ email: "", password: "", remember: false });
   const [isLoading, setIsLoading] = useState(false);
@@ -162,7 +164,7 @@ export default function Login() {
 
             <div className="space-y-4">
                 {/* Google Button */}
-                <a href="http://127.0.0.1:8000/api/auth/google/redirect" className="flex items-center justify-center w-full bg-[#dd4b39] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
+                <a href={`${API_BASE_URL}/api/auth/google/redirect`} className="flex items-center justify-center w-full bg-[#dd4b39] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
                     <div className="w-12 h-12 flex items-center justify-center border-r border-black/20">
                         <span className="font-bold text-xl">G</span>
                     </div>
@@ -172,7 +174,7 @@ export default function Login() {
                 </a>
 
                 {/* Facebook Button */}
-                <a href="http://127.0.0.1:8000/api/auth/facebook/redirect" className="flex items-center justify-center w-full bg-[#3b5998] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
+                <a href={`${API_BASE_URL}/api/auth/facebook/redirect`} className="flex items-center justify-center w-full bg-[#3b5998] text-white rounded-md overflow-hidden transition-opacity duration-300 hover:opacity-90">
                     <div className="w-12 h-12 flex items-center justify-center border-r border-black/20">
                         <Facebook size={24} />
                     </div>
