@@ -20,8 +20,8 @@ class OrderSeeder extends Seeder
         // Lấy ID của các user bạn đã tạo trong UserSeeder
         // Dùng 'firstOrFail()' để đảm bảo seeder dừng nếu không tìm thấy user
         $adminId = User::where('username', 'admin')->firstOrFail()->user_id;
-        $ngocanhId = User::where('username', 'ngocanh')->firstOrFail()->user_id;
-        $thanhdatId = User::where('username', 'thanhdat')->firstOrFail()->user_id;
+        $ngocanhId = User::where('username', 'NguyenVanA')->firstOrFail()->user_id;
+        $thanhdatId = User::where('username', 'NguyenVanB')->firstOrFail()->user_id;
         
         $userIds = [$adminId, $ngocanhId, $thanhdatId];
 

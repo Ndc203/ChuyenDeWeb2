@@ -16,9 +16,12 @@ class ActivityLogController extends Controller
             return response()->json(['message' => 'Unauthorized'], 401);
         }
 
-        // For the admin activity page we want to show all users' activity logs.
-        // Return all logs (paginated) for any authenticated user (admin panel is protected by auth).
-        $logs = ActivityLog::with('user')->orderBy('created_at', 'desc')->paginate(50);
+        $logs = ActivityLog::with([
+                'user:user_id,username,email',
+                'user.profile:profile_id,user_id,full_name',
+            ])
+            ->orderBy('created_at', 'desc')
+            ->paginate(50);
 
         return response()->json($logs);
     }

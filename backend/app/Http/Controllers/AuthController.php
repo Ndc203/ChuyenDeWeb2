@@ -147,9 +147,9 @@ class AuthController extends Controller
             'created_at' => Carbon::now()
         ]);
 
-        // Frontend URL for resetting password
-        // IMPORTANT: Replace 'http://localhost:3000' with your actual frontend URL
-        $resetLink = 'http://localhost:5173/reset-password?token=' . $token . '&email=' . urlencode($request->email);
+        // Build reset link from FRONTEND_URL env (fallback to APP_URL)
+        $frontendUrl = rtrim(env('FRONTEND_URL', env('APP_URL', 'http://localhost')), '/');
+        $resetLink = $frontendUrl . '/reset-password?token=' . $token . '&email=' . urlencode($request->email);
 
         // Send the email
         try {

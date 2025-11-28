@@ -19,7 +19,6 @@ function decodeHtml(html) {
   return decoded;
 }
 
-
 function normalizeFullWidthNumbers(s) {
   if (typeof s !== "string") return s;
   return s.replace(/[\uFF10-\uFF19]/g, (ch) =>
@@ -36,7 +35,6 @@ function htmlToText(html) {
   div.innerHTML = decodeHtml(html); // xử lý &lt; &gt; nếu có
   return div.textContent || div.innerText || "";
 }
-
 
 function isHtmlEmpty(html) {
   if (!html) return true;
@@ -76,11 +74,24 @@ export default function ShopPostDetailPage() {
       throw { message: data?.message || "Lỗi API", status: res.status };
     return data;
   };
+  const markPostAsDeleted = () => {
+    setPost(null);
+    setComments([]);
+  };
 
   // --- Fetch post & comments ---
   const fetchPostAndComments = async () => {
     try {
       const postData = await fetchJSON(`http://127.0.0.1:8000/api/posts/${id}`);
+
+      // Nếu API trả về null hoặc không có post → post bị xoá
+      if (!postData || postData === null || postData?.deleted_at) {
+        setPost(null);
+        setComments([]);
+        setLoading(false);
+        return; // ⛔ dừng tại đây, không fetch comments nữa
+      }
+
       setPost(postData);
 
       const commentData = await fetchJSON(
@@ -100,6 +111,11 @@ export default function ShopPostDetailPage() {
 
       setComments(normalized);
     } catch (err) {
+      // Nếu backend trả về 404 → bài viết đã bị xoá
+      if (err.status === 404) {
+        setPost(null);
+        setComments([]);
+      }
       console.error(err);
     } finally {
       setLoading(false);
@@ -165,6 +181,14 @@ export default function ShopPostDetailPage() {
 
       setComments((prev) => [...prev, newComment]);
     } catch (err) {
+      if (err.status === 404) {
+        markPostAsDeleted();
+        return;
+      }
+      if (err.status === 422) {
+        alert("Nội dung bình luận không hợp lệ hoặc bài viết đã bị xoá.");
+        return;
+      }
       alert(err.message || "Lỗi khi gửi bình luận.");
     } finally {
       setSubmitting(false);
@@ -210,6 +234,10 @@ export default function ShopPostDetailPage() {
       setReplyToId(null);
       setReplyContent("");
     } catch (err) {
+      if (err.status === 404) {
+        markPostAsDeleted();
+        return;
+      }
       alert(err.message || "Lỗi khi gửi trả lời.");
     } finally {
       setReplyingTo(null);
@@ -222,59 +250,61 @@ export default function ShopPostDetailPage() {
     setEditingContent(decodeHtml(c.content));
   };
 
-const handleUpdateComment = async (commentId) => {
-  if (updatingId === commentId) return;
+  const handleUpdateComment = async (commentId) => {
+    if (updatingId === commentId) return;
 
-  if (isHtmlEmpty(editingContent))
-    return alert("Nội dung không được để trống.");
+    if (isHtmlEmpty(editingContent))
+      return alert("Nội dung không được để trống.");
 
-  setUpdatingId(commentId);
+    setUpdatingId(commentId);
 
-  try {
-    const original = comments.find(c => c.id === commentId);
+    try {
+      const original = comments.find((c) => c.id === commentId);
 
-    if (!original) {
-      alert("Không tìm thấy comment cần sửa.");
-      return;
-    }
-
-    const payload = {
-      content: editingContent,
-      updated_at: original.updated_at // 🔥 BẮT BUỘC
-    };
-
-    const res = await fetchJSON(
-      `http://127.0.0.1:8000/api/comments/${commentId}`,
-      {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
+      if (!original) {
+        alert("Không tìm thấy comment cần sửa.");
+        return;
       }
-    );
 
-    const updated = res.data ?? res.comment ?? res;
+      const payload = {
+        content: editingContent,
+        updated_at: original.updated_at, // 🔥 BẮT BUỘC
+      };
 
-    setComments(prev =>
-      prev.map(c =>
-        c.id === commentId
-          ? { ...c, content: updated.content, updated_at: updated.updated_at }
-          : c
-      )
-    );
+      const res = await fetchJSON(
+        `http://127.0.0.1:8000/api/comments/${commentId}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
-    setEditingCommentId(null);
-    setEditingContent("");
+      const updated = res.data ?? res.comment ?? res;
 
-  } catch (err) {
-    alert(err.message || "Lỗi khi cập nhật bình luận.");
-  } finally {
-    setUpdatingId(null);
-  }
-};
+      setComments((prev) =>
+        prev.map((c) =>
+          c.id === commentId
+            ? { ...c, content: updated.content, updated_at: updated.updated_at }
+            : c
+        )
+      );
 
+      setEditingCommentId(null);
+      setEditingContent("");
+    } catch (err) {
+      if (err.status === 404) {
+        markPostAsDeleted();
+        return;
+      }
+      alert(err.message || "Lỗi khi cập nhật bình luận.");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
 
   // --- Delete ---
   const handleDeleteComment = async (commentId) => {
@@ -293,6 +323,10 @@ const handleUpdateComment = async (commentId) => {
 
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
+      if (err.status === 404) {
+        markPostAsDeleted();
+        return;
+      }
       alert(err.message || "Lỗi khi xóa bình luận.");
     } finally {
       setDeletingId(null);
@@ -419,7 +453,15 @@ const handleUpdateComment = async (commentId) => {
     });
 
   if (loading) return <>Đang tải...</>;
-  if (!post) return <>Không thể tải bài viết.</>;
+  if (!post)
+    return (
+      <div className="max-w-3xl mx-auto p-6 text-center">
+        <h2 className="text-2xl font-bold text-red-600">Bài viết đã bị xóa</h2>
+        <p className="mt-2 text-gray-600">
+          Bài viết này không còn tồn tại hoặc đã bị tác giả xoá.
+        </p>
+      </div>
+    );
 
   return (
     <div>

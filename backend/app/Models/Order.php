@@ -31,7 +31,8 @@ class Order extends Model
     // (nếu user_id không null)
     public function customer()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        // Chỉ định khóa ngoại/khóa chính để khớp cột user_id
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
     }
     
 }
