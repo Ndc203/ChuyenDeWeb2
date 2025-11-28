@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import {
-  Plus,
-  Download,
-  Search,
-  Edit,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Plus, Download, Search, Edit, Trash2, X } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
-import axiosClient from "../../api/axiosClient"; // Import axiosClient
+import axiosClient from "../../api/axiosClient";
 
+/* ============================================================
+   PAGE CHÍNH
+============================================================ */
 export default function AdminPostCategoriesPage() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -20,14 +16,16 @@ export default function AdminPostCategoriesPage() {
   const [form, setForm] = useState({ name: "", description: "" });
   const [formError, setFormError] = useState("");
   const [createLoading, setCreateLoading] = useState(false);
-  
-  // === 1. Load Danh sách (Dùng axiosClient) ===
+
+  /* === 1. Load danh sách (axiosClient) === */
   const loadCategories = useCallback(() => {
     setLoading(true);
-    axiosClient.get('/postcategories')
+    axiosClient
+      .get("/postcategories")
       .then((res) => {
-        // Xử lý dữ liệu (array hoặc object wrap)
-        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        const data = Array.isArray(res.data)
+          ? res.data
+          : res.data.data || [];
         setRows(data);
       })
       .catch(() => setRows([]))
@@ -38,12 +36,14 @@ export default function AdminPostCategoriesPage() {
     loadCategories();
   }, [loadCategories]);
 
-  // === Filter (Giữ nguyên) ===
+  /* Filter */
   const filtered = useMemo(() => {
-    return rows.filter((r) => r.name.toLowerCase().includes(query.toLowerCase()));
+    return rows.filter((r) =>
+      r.name.toLowerCase().includes(query.toLowerCase())
+    );
   }, [rows, query]);
 
-  // === Các hàm mở/đóng Modal (Giữ nguyên) ===
+  /* Modal Create */
   function handleOpenCreate() {
     setForm({ name: "", description: "" });
     setFormError("");
@@ -54,7 +54,7 @@ export default function AdminPostCategoriesPage() {
     setFormError("");
   }
 
-  // === 2. Tạo mới (Dùng axiosClient) ===
+  /* === 2. Tạo mới === */
   async function handleSubmitCreate(e) {
     e.preventDefault();
     if (!form.name.trim()) {
@@ -64,35 +64,41 @@ export default function AdminPostCategoriesPage() {
 
     setCreateLoading(true);
     try {
-      await axiosClient.post('/postcategories', form);
+      await axiosClient.post("/postcategories", form);
       await loadCategories();
       handleCloseCreate();
     } catch (err) {
-      const message = err.response?.data?.message || "Không thể tạo danh mục mới.";
+      const message =
+        err.response?.data?.message || "Không thể tạo danh mục mới.";
       setFormError(message);
     } finally {
       setCreateLoading(false);
     }
   }
 
-  // === 3. Xóa (Dùng axiosClient) ===
+  /* === 3. Xoá === */
   async function handleDelete(post_category_id) {
     if (!confirm("Bạn có chắc muốn xoá danh mục này?")) return;
 
     try {
       await axiosClient.delete(`/postcategories/${post_category_id}`);
-      setRows((prev) => prev.filter((it) => it.post_category_id !== post_category_id));
+      setRows((prev) =>
+        prev.filter((it) => it.post_category_id !== post_category_id)
+      );
       alert("Đã xoá danh mục thành công!");
     } catch (err) {
-      const message = err.response?.data?.message || "Không thể xóa danh mục.";
+      const message =
+        err.response?.data?.message || "Không thể xóa danh mục.";
       alert(message);
     }
   }
 
-  // === 4. Lấy chi tiết để sửa (Dùng axiosClient) ===
+  /* === 4. Lấy chi tiết để sửa === */
   async function handleEdit(post_category_id) {
     try {
-      const res = await axiosClient.get(`/postcategories/${post_category_id}`);
+      const res = await axiosClient.get(
+        `/postcategories/${post_category_id}`
+      );
       setEditCategory(res.data);
       setOpenEdit(true);
     } catch (err) {
@@ -105,7 +111,7 @@ export default function AdminPostCategoriesPage() {
     setEditCategory(null);
   }
 
-  // === 5. Cập nhật (Dùng axiosClient) ===
+  /* === 5. Cập nhật === */
   async function handleSubmitEdit(e) {
     e.preventDefault();
     if (!editCategory?.name.trim()) {
@@ -114,26 +120,31 @@ export default function AdminPostCategoriesPage() {
     }
 
     try {
-      await axiosClient.put(`/postcategories/${editCategory.post_category_id}`, {
-        name: editCategory.name,
-        description: editCategory.description || "",
-      });
+      await axiosClient.put(
+        `/postcategories/${editCategory.post_category_id}`,
+        {
+          name: editCategory.name,
+          description: editCategory.description || "",
+        }
+      );
 
-      alert("✅ Đã cập nhật danh mục thành công!");
+      alert("Đã cập nhật danh mục thành công!");
       handleCloseEdit();
       loadCategories();
     } catch (err) {
-      const message = err.response?.data?.message || "Không thể cập nhật danh mục.";
+      const message =
+        err.response?.data?.message || "Không thể cập nhật danh mục.";
       alert(message);
     }
   }
 
-  // === 6. Xuất file (Dùng Blob) ===
+  /* === 6. Xuất file === */
   const [openExport, setOpenExport] = useState(false);
   const exportRef = useRef(null);
 
   useEffect(() => {
-    const close = (e) => !exportRef.current?.contains(e.target) && setOpenExport(false);
+    const close = (e) =>
+      !exportRef.current?.contains(e.target) && setOpenExport(false);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -141,15 +152,18 @@ export default function AdminPostCategoriesPage() {
   const handleExport = async (format) => {
     try {
       setOpenExport(false);
-      const response = await axiosClient.get(`/postcategories/export?format=${format}`, {
-        responseType: 'blob',
-      });
-      
-      // Tạo link tải
+      const response = await axiosClient.get(
+        `/postcategories/export?format=${format}`,
+        { responseType: "blob" }
+      );
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `post_categories_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      link.setAttribute(
+        "download",
+        `post_categories_export.${format === "excel" ? "xlsx" : "pdf"}`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -166,7 +180,10 @@ export default function AdminPostCategoriesPage() {
         {/* Header */}
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
           <div className="w-full px-10 py-4 flex items-center justify-between">
-            <h1 className="text-lg md:text-xl font-semibold">Quản lý Danh mục bài viết</h1>
+            <h1 className="text-lg md:text-xl font-semibold">
+              Quản lý Danh mục bài viết
+            </h1>
+
             <div className="flex items-center gap-2">
               <div className="relative" ref={exportRef}>
                 <button
@@ -175,6 +192,7 @@ export default function AdminPostCategoriesPage() {
                 >
                   <Download size={16} /> Xuất file
                 </button>
+
                 {openExport && (
                   <div className="absolute right-0 mt-2 w-44 bg-white border rounded-xl shadow-md z-50">
                     <button
@@ -192,6 +210,7 @@ export default function AdminPostCategoriesPage() {
                   </div>
                 )}
               </div>
+
               <button
                 onClick={handleOpenCreate}
                 className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 text-white px-3 py-2 text-sm hover:bg-indigo-700"
@@ -231,6 +250,7 @@ export default function AdminPostCategoriesPage() {
                   <Th className="text-right pr-4">THAO TÁC</Th>
                 </tr>
               </thead>
+
               <tbody>
                 {loading && (
                   <tr>
@@ -239,6 +259,7 @@ export default function AdminPostCategoriesPage() {
                     </td>
                   </tr>
                 )}
+
                 {!loading &&
                   filtered.map((r, i) => (
                     <tr
@@ -247,8 +268,13 @@ export default function AdminPostCategoriesPage() {
                     >
                       <td className="px-4 py-3">{r.post_category_id}</td>
                       <td className="px-4 py-3 font-medium">{r.name}</td>
-                      <td className="px-4 py-3">{r.description || "—"}</td>
-                      <td className="px-4 py-3">{formatDate(r.created_at)}</td>
+                      <td className="px-4 py-3">
+                        {r.description || "—"}
+                      </td>
+                      <td className="px-4 py-3">
+                        {formatDate(r.created_at)}
+                      </td>
+
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <IconBtn
@@ -258,6 +284,7 @@ export default function AdminPostCategoriesPage() {
                           >
                             <Edit size={16} />
                           </IconBtn>
+
                           <IconBtn
                             title="Xoá"
                             intent="danger"
@@ -275,7 +302,7 @@ export default function AdminPostCategoriesPage() {
         </div>
       </main>
 
-      {/* Modals */}
+      {/* MODALS */}
       <CreateCategoryModal
         open={openCreate}
         onClose={handleCloseCreate}
@@ -285,6 +312,7 @@ export default function AdminPostCategoriesPage() {
         loading={createLoading}
         error={formError}
       />
+
       <EditCategoryModal
         open={openEdit}
         onClose={handleCloseEdit}
@@ -296,7 +324,10 @@ export default function AdminPostCategoriesPage() {
   );
 }
 
-/* === COMPONENTS (Giữ nguyên) === */
+/* ============================================================
+   COMPONENTS
+============================================================ */
+
 function Th({ children, className = "" }) {
   return (
     <th
@@ -312,11 +343,12 @@ function IconBtn({ children, title, intent, onClick }) {
     intent === "warning"
       ? "border-amber-200 text-amber-600 hover:bg-amber-50"
       : "border-rose-200 text-rose-600 hover:bg-rose-50";
+
   return (
     <button
       className={`inline-flex items-center justify-center rounded-lg border px-2.5 py-1.5 text-slate-600 ${color}`}
-      title={title}
       onClick={onClick}
+      title={title}
     >
       {children}
     </button>
@@ -333,42 +365,71 @@ function formatDate(s) {
   });
 }
 
-/* === MODALS (Giữ nguyên) === */
-function CreateCategoryModal({ open, onClose, onSubmit, form, setForm, loading, error }) {
+/* ============================================================
+   MODAL: CREATE
+============================================================ */
+function CreateCategoryModal({
+  open,
+  onClose,
+  onSubmit,
+  form,
+  setForm,
+  loading,
+  error,
+}) {
   if (!open) return null;
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-slate-800">Thêm danh mục</h2>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Thêm danh mục
+          </h2>
+
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"
+          >
             <X size={18} />
           </button>
         </div>
+
         {error && (
           <div className="mb-3 text-sm text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
             {error}
           </div>
         )}
+
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Tên danh mục</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Tên danh mục
+            </label>
             <input
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, name: e.target.value })
+              }
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               required
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Mô tả</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Mô tả
+            </label>
             <textarea
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
               className="w-full min-h-[60px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               placeholder="Mô tả ngắn về danh mục"
             />
           </div>
+
           <div className="flex justify-end gap-2 mt-4">
             <button
               type="button"
@@ -377,6 +438,7 @@ function CreateCategoryModal({ open, onClose, onSubmit, form, setForm, loading, 
             >
               Huỷ
             </button>
+
             <button
               type="submit"
               disabled={loading}
@@ -391,35 +453,62 @@ function CreateCategoryModal({ open, onClose, onSubmit, form, setForm, loading, 
   );
 }
 
-function EditCategoryModal({ open, onClose, category, setCategory, onSubmit }) {
+/* ============================================================
+   MODAL: EDIT
+============================================================ */
+function EditCategoryModal({
+  open,
+  onClose,
+  category,
+  setCategory,
+  onSubmit,
+}) {
   if (!open || !category) return null;
+
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-slate-800">Sửa danh mục</h2>
-          <button onClick={onClose} className="p-2 text-slate-500 hover:bg-slate-100 rounded-full">
+          <h2 className="text-lg font-semibold text-slate-800">
+            Sửa danh mục
+          </h2>
+
+          <button
+            onClick={onClose}
+            className="p-2 text-slate-500 hover:bg-slate-100 rounded-full"
+          >
             <X size={18} />
           </button>
         </div>
+
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Tên danh mục</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Tên danh mục
+            </label>
             <input
               value={category.name}
-              onChange={(e) => setCategory({ ...category, name: e.target.value })}
+              onChange={(e) =>
+                setCategory({ ...category, name: e.target.value })
+              }
               className="w-full rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               required
             />
           </div>
+
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Mô tả</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              Mô tả
+            </label>
             <textarea
               value={category.description || ""}
-              onChange={(e) => setCategory({ ...category, description: e.target.value })}
+              onChange={(e) =>
+                setCategory({ ...category, description: e.target.value })
+              }
               className="w-full min-h-[60px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             />
           </div>
+
           <div className="flex justify-end gap-2 mt-4">
             <button
               type="button"
@@ -428,6 +517,7 @@ function EditCategoryModal({ open, onClose, category, setCategory, onSubmit }) {
             >
               Huỷ
             </button>
+
             <button
               type="submit"
               className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-sm hover:bg-indigo-700"

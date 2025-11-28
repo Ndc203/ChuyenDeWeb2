@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 
 // --- 1. IMPORT CONTROLLERS ---
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\SocialiteController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\RolePermissionController;
 use App\Http\Controllers\UserController;
@@ -50,6 +51,12 @@ Route::controller(AuthController::class)->group(function () {
     Route::post('/reset-password', 'resetPassword');
 });
 
+// --- Socialite Routes (Google, Facebook...) ---
+Route::controller(SocialiteController::class)->group(function(){
+    Route::get('/auth/{provider}/redirect', 'redirectToProvider');
+    Route::get('/auth/{provider}/callback', 'handleProviderCallback');
+});
+
 // --- Public Data (Xem sản phẩm, danh mục, bài viết...) ---
 
 // Categories & Brands (Xem danh sách)
@@ -74,7 +81,6 @@ Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/postcategories', [PostCategoryController::class, 'index']);
 Route::get('/postcategories/{id}', [PostCategoryController::class, 'show']);
 // Comment routes
-Route::get('/posts/{id}/comments', [CommentController::class, 'index']);  // Lấy theo post_id
 Route::get('/comments/export', [CommentController::class, 'export']);      // Nếu sau này bạn thêm export
 Route::apiResource('comments', CommentController::class);
 
@@ -152,17 +158,25 @@ Route::middleware('auth:sanctum')->group(function () {
     // Categories Management
     Route::post('/categories', [CategoryController::class, 'store']);
     Route::put('/categories/reorder', [CategoryController::class, 'reorder']);
+    Route::post('/categories/import/preview', [CategoryController::class, 'importPreview']);
     Route::put('/categories/{id}', [CategoryController::class, 'update']);
     Route::delete('/categories/{id}', [CategoryController::class, 'destroy']);
     Route::patch('/categories/{id}/toggle', [CategoryController::class, 'toggleStatus']);
     Route::get('/categories/trashed', [CategoryController::class, 'trashed']);
     Route::post('/categories/import', [CategoryController::class, 'import']);
+    Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore']);
+    Route::get('/categories/export', [CategoryController::class, 'export']);
 
     // Brands Management
+    Route::get('/brands/trashed', [BrandController::class, 'trashed']);
+    Route::get('/brands/export', [BrandController::class, 'export']);
+    Route::post('/brands/import/preview', [BrandController::class, 'importPreview']);
+    Route::post('/brands/import', [BrandController::class, 'import']);
     Route::post('/brands', [BrandController::class, 'store']);
     Route::put('/brands/{id}', [BrandController::class, 'update']);
     Route::delete('/brands/{id}', [BrandController::class, 'destroy']);
     Route::patch('/brands/{id}/toggle', [BrandController::class, 'toggleStatus']);
+    Route::patch('/brands/{id}/restore', [BrandController::class, 'restore']);
 
     // Posts Management
     Route::post('/posts', [PostController::class, 'store']);
@@ -202,6 +216,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/postcategories/{id}', [PostCategoryController::class, 'update']);
     Route::delete('/postcategories/{id}', [PostCategoryController::class, 'destroy']);
     Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
+    // Product History (Admin)
+    Route::get('/products/{productId}/history', [ProductHistoryController::class, 'index']);
+    Route::get('/product-history', [ProductHistoryController::class, 'all']);
+    Route::get('/product-history/statistics', [ProductHistoryController::class, 'statistics']);
+    Route::get('/product-history/compare/{id1}/{id2}', [ProductHistoryController::class, 'compare']);
+    Route::get('/product-history/{id}', [ProductHistoryController::class, 'show']);
+    Route::post('/product-history/{id}/restore', [ProductHistoryController::class, 'restoreFromHistory']);
 
 });
 

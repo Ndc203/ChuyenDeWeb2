@@ -1,306 +1,479 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useParams } from "react-router-dom";
 import ReactQuill from "react-quill-new";
 import ShopHeader from "../../components/shop/ShopHeader";
 import "react-quill-new/dist/quill.snow.css";
 
-// helper function: decode HTML entities
+// --- Helper ---
 function decodeHtml(html) {
-  const txt = document.createElement("textarea");
+  let txt = document.createElement("textarea");
   txt.innerHTML = html;
-  return txt.value;
+  let decoded = txt.value;
+
+  // Lặp lại để xử lý double-encoded HTML
+  if (decoded.includes("&lt;")) {
+    txt.innerHTML = decoded;
+    decoded = txt.value;
+  }
+
+  return decoded;
 }
 
+
+function normalizeFullWidthNumbers(s) {
+  if (typeof s !== "string") return s;
+  return s.replace(/[\uFF10-\uFF19]/g, (ch) =>
+    String.fromCharCode(ch.charCodeAt(0) - 0xfee0)
+  );
+}
+
+function stripUnicodeSpaces(s) {
+  if (!s) return "";
+  return s.replace(/[\u00A0\u1680\u2000-\u200A\u202F\u205F\u3000]/g, "").trim();
+}
+function htmlToText(html) {
+  const div = document.createElement("div");
+  div.innerHTML = decodeHtml(html); // xử lý &lt; &gt; nếu có
+  return div.textContent || div.innerText || "";
+}
+
+
+function isHtmlEmpty(html) {
+  if (!html) return true;
+  const el = document.createElement("div");
+  el.innerHTML = html;
+  const text = el.textContent || el.innerText || "";
+  const cleaned = stripUnicodeSpaces(text);
+  return cleaned.length === 0;
+}
+
+// --- Component ---
 export default function ShopPostDetailPage() {
   const { id } = useParams();
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [commentContent, setCommentContent] = useState("");
+  const [replyToId, setReplyToId] = useState(null);
+  const [replyContent, setReplyContent] = useState("");
   const [editingCommentId, setEditingCommentId] = useState(null);
   const [editingContent, setEditingContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [deletingId, setDeletingId] = useState(null);
 
-  const userData = JSON.parse(localStorage.getItem("userData") || "null");
+  const userData = JSON.parse(localStorage.getItem("userInfo") || "null");
   const authToken = localStorage.getItem("authToken");
 
-  // Fetch post
-  const fetchPost = async () => {
-    try {
-      const res = await fetch(`http://127.0.0.1:8000/api/posts/${id}`);
-      if (!res.ok) throw new Error("Post not found");
-      const data = await res.json();
-      setPost(data);
-    } catch (err) {
-      console.error(err);
-    }
+  const fetchJSON = async (url, options = {}) => {
+    const res = await fetch(url, options);
+    const type = res.headers.get("content-type") || "";
+    let data = null;
+    if (type.includes("application/json")) data = await res.json();
+    else throw { message: "API không trả JSON", status: res.status };
+    if (!res.ok)
+      throw { message: data?.message || "Lỗi API", status: res.status };
+    return data;
   };
 
-  // Fetch comments
-  const fetchComments = async () => {
+  // --- Fetch post & comments ---
+  const fetchPostAndComments = async () => {
     try {
-      const res = await fetch(
-        `http://127.0.0.1:8000/api/comments?post_id=${id}`
+      const postData = await fetchJSON(`http://127.0.0.1:8000/api/posts/${id}`);
+      setPost(postData);
+
+      const commentData = await fetchJSON(
+        `http://127.0.0.1:8000/api/posts/${id}/comments`
       );
-      if (!res.ok) throw new Error("Không thể lấy bình luận");
-      const data = await res.json();
-      setComments(data);
+
+      const list = Array.isArray(commentData)
+        ? commentData
+        : commentData?.data || [];
+
+      const normalized = list.map((c) => ({
+        ...c,
+        id: c.id ?? c.comment_id,
+        parent_id: c.parent_id ?? null,
+        updated_at: c.updated_at ?? c.created_at ?? null,
+      }));
+
+      setComments(normalized);
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchPost();
-    fetchComments();
-    setLoading(false);
+    fetchPostAndComments();
   }, [id]);
 
-  const fetchJSON = async (url, options = {}) => {
-    const res = await fetch(url, options);
-    const contentType = res.headers.get("content-type");
-    let data;
-    if (contentType && contentType.includes("application/json")) {
-      data = await res.json();
-    } else {
-      const text = await res.text();
-      console.error("Server returned non-JSON:", text);
-      throw new Error("Server trả về dữ liệu không hợp lệ");
-    }
-    if (!res.ok) throw new Error(data.message || "Lỗi server");
-    return data;
-  };
+  // --- Build comment tree ---
+  const commentTree = useMemo(() => {
+    const buildTree = (list, parentId = null, visited = new Set()) =>
+      list
+        .filter(
+          (c) =>
+            c.parent_id === parentId || String(c.parent_id) === String(parentId)
+        )
+        .map((c) => {
+          if (visited.has(c.id)) return { ...c, children: [] };
+          visited.add(c.id);
+          return { ...c, children: buildTree(list, c.id, visited) };
+        });
 
-  // Thêm comment
+    return buildTree(comments);
+  }, [comments]);
+
+  // --- Submit comment ---
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
-    if (!commentContent || commentContent === "<p><br></p>") return;
-    if (!authToken || !userData) {
-      alert("Bạn cần đăng nhập để bình luận.");
-      return;
-    }
+    if (!authToken) return alert("Bạn cần đăng nhập để bình luận.");
+    if (submitting) return;
 
+    const content = normalizeFullWidthNumbers(commentContent);
+    if (isHtmlEmpty(content))
+      return alert("Nội dung bình luận không được để trống.");
+
+    setSubmitting(true);
     try {
-      const data = await fetchJSON(`http://127.0.0.1:8000/api/comments`, {
+      const payload = { post_id: Number(id), content, parent_id: null };
+
+      const res = await fetchJSON("http://127.0.0.1:8000/api/comments", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
-        body: JSON.stringify({ post_id: id, content: commentContent }),
+        body: JSON.stringify(payload),
       });
 
-      setComments((prev) => [data.data, ...prev]);
-      setCommentContent("");
+      const apiComment = res.comment ?? res.data ?? res;
+
+      const newComment = {
+        ...apiComment,
+        id: apiComment.id,
+        parent_id: null,
+
+        // thêm info user để render ngay
+        user_id: userData?.user_id,
+        user_name: userData?.name,
+        user_email: userData?.email,
+      };
+
+      setComments((prev) => [...prev, newComment]);
     } catch (err) {
-      console.error(err);
-      alert(err.message || "Thêm bình luận thất bại.");
+      alert(err.message || "Lỗi khi gửi bình luận.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // Cập nhật comment
-  const handleUpdateComment = async (commentId) => {
-    if (!editingContent || editingContent === "<p><br></p>") return;
+  // --- Reply ---
+  const handleReplySubmit = async (parentId) => {
+    if (!authToken) return alert("Bạn cần đăng nhập để trả lời.");
+    if (replyingTo === parentId) return;
+
+    const content = normalizeFullWidthNumbers(replyContent);
+    if (isHtmlEmpty(content))
+      return alert("Nội dung trả lời không được để trống.");
+
+    setReplyingTo(parentId);
     try {
-      const data = await fetchJSON(
-        `http://127.0.0.1:8000/api/comments/${commentId}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ content: editingContent }),
-        }
-      );
+      const payload = { post_id: Number(id), content, parent_id: parentId };
 
-      setComments((prev) =>
-        prev.map((c) =>
-          c.id === commentId ? { ...c, content: editingContent } : c
-        )
-      );
-      setEditingCommentId(null);
-      setEditingContent("");
+      const res = await fetchJSON("http://127.0.0.1:8000/api/comments", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const apiComment = res.comment ?? res.data ?? res;
+
+      const newReply = {
+        ...apiComment,
+        id: apiComment.id,
+        parent_id: parentId,
+
+        user_id: userData?.user_id,
+        user_name: userData?.name,
+        user_email: userData?.email,
+      };
+
+      setComments((prev) => [...prev, newReply]);
+
+      setReplyToId(null);
+      setReplyContent("");
     } catch (err) {
-      console.error(err);
-      alert(err.message || "Cập nhật thất bại.");
+      alert(err.message || "Lỗi khi gửi trả lời.");
+    } finally {
+      setReplyingTo(null);
     }
   };
 
-  // Xóa comment
+  // --- Edit ---
+  const startEditing = (c) => {
+    setEditingCommentId(c.id);
+    setEditingContent(decodeHtml(c.content));
+  };
+
+const handleUpdateComment = async (commentId) => {
+  if (updatingId === commentId) return;
+
+  if (isHtmlEmpty(editingContent))
+    return alert("Nội dung không được để trống.");
+
+  setUpdatingId(commentId);
+
+  try {
+    const original = comments.find(c => c.id === commentId);
+
+    if (!original) {
+      alert("Không tìm thấy comment cần sửa.");
+      return;
+    }
+
+    const payload = {
+      content: editingContent,
+      updated_at: original.updated_at // 🔥 BẮT BUỘC
+    };
+
+    const res = await fetchJSON(
+      `http://127.0.0.1:8000/api/comments/${commentId}`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      }
+    );
+
+    const updated = res.data ?? res.comment ?? res;
+
+    setComments(prev =>
+      prev.map(c =>
+        c.id === commentId
+          ? { ...c, content: updated.content, updated_at: updated.updated_at }
+          : c
+      )
+    );
+
+    setEditingCommentId(null);
+    setEditingContent("");
+
+  } catch (err) {
+    alert(err.message || "Lỗi khi cập nhật bình luận.");
+  } finally {
+    setUpdatingId(null);
+  }
+};
+
+
+  // --- Delete ---
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm("Bạn có chắc chắn muốn xóa bình luận này?")) return;
+    if (!window.confirm("Bạn chắc chắn muốn xóa?")) return;
+    if (deletingId === commentId) return;
+
+    setDeletingId(commentId);
+
     try {
       await fetchJSON(`http://127.0.0.1:8000/api/comments/${commentId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${authToken}` },
+        headers: {
+          Authorization: `Bearer ${authToken}`,
+        },
       });
+
       setComments((prev) => prev.filter((c) => c.id !== commentId));
     } catch (err) {
-      console.error(err);
-      alert(err.message || "Xóa thất bại.");
+      alert(err.message || "Lỗi khi xóa bình luận.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
-  if (loading) return <div className="p-8">Đang tải...</div>;
-  if (!post) return <div className="p-8">Bài viết không tồn tại.</div>;
+  // --- Render comment tree ---
+  const renderComments = (list, level = 0) =>
+    list.map((c) => {
+      const isOwner =
+        userData &&
+        (userData.user_id === c.user_id ||
+          localStorage.getItem("userRole") === "admin");
+
+      return (
+        <div key={c.id} className="mt-4">
+          <div
+            className={`p-3 rounded ${level > 0 ? "ml-8 border-l pl-4" : ""}`}
+          >
+            <div className="flex items-center gap-3">
+              <img
+                src={`https://i.pravatar.cc/40?u=${c.user_email}`}
+                className="w-10 h-10 rounded-full"
+                alt={c.user_name || "avatar"}
+              />
+              <div className="font-semibold">{c.user_name}</div>
+              <div className="text-sm text-gray-500">
+                {new Date(c.created_at).toLocaleString("vi-VN")}
+              </div>
+            </div>
+
+            {editingCommentId === c.id ? (
+              <>
+                <ReactQuill
+                  theme="snow"
+                  value={editingContent}
+                  onChange={setEditingContent}
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    onClick={() => handleUpdateComment(c.id)}
+                    className="px-3 py-1 bg-green-600 text-white rounded"
+                    disabled={updatingId === c.id}
+                  >
+                    {updatingId === c.id ? "Đang lưu..." : "Lưu"}
+                  </button>
+                  <button
+                    onClick={() => setEditingCommentId(null)}
+                    className="px-3 py-1 bg-gray-300 rounded"
+                    disabled={updatingId === c.id}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div
+                className="prose mt-2"
+                dangerouslySetInnerHTML={{
+                  __html: decodeHtml(c.content || ""),
+                }}
+              />
+            )}
+
+            <div className="mt-2 flex gap-3 text-sm">
+              <button
+                className="text-blue-600"
+                onClick={() => setReplyToId(c.id)}
+              >
+                ↳ Trả lời
+              </button>
+
+              {isOwner && editingCommentId !== c.id && (
+                <>
+                  <button
+                    className="text-yellow-600"
+                    onClick={() => startEditing(c)}
+                  >
+                    Sửa
+                  </button>
+
+                  <button
+                    className="text-red-600"
+                    onClick={() => handleDeleteComment(c.id)}
+                    disabled={deletingId === c.id}
+                  >
+                    {deletingId === c.id ? "Đang xóa..." : "Xóa"}
+                  </button>
+                </>
+              )}
+            </div>
+
+            {replyToId === c.id && (
+              <div className="mt-3">
+                <ReactQuill
+                  theme="snow"
+                  value={replyContent}
+                  onChange={setReplyContent}
+                />
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => handleReplySubmit(c.id)}
+                    className="px-3 py-1 bg-blue-600 text-white rounded"
+                    disabled={replyingTo === c.id}
+                  >
+                    {replyingTo === c.id ? "Đang gửi..." : "Gửi"}
+                  </button>
+
+                  <button
+                    onClick={() => setReplyToId(null)}
+                    className="px-3 py-1 bg-gray-300 rounded"
+                    disabled={replyingTo === c.id}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {c.children?.length > 0 && renderComments(c.children, level + 1)}
+        </div>
+      );
+    });
+
+  if (loading) return <>Đang tải...</>;
+  if (!post) return <>Không thể tải bài viết.</>;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div>
       <ShopHeader />
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        {/* Post */}
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
-          {post.image && (
-            <img
-              src={`http://127.0.0.1:8000/images/posts/${post.image}`}
-              alt={post.title}
-              className="w-full h-64 object-cover rounded mb-4"
-            />
-          )}
-          <h1 className="text-2xl font-bold mb-4">{post.title}</h1>
-          <div
-            className="prose max-w-full"
-            dangerouslySetInnerHTML={{ __html: post.content }}
+      <div className="max-w-4xl mx-auto p-4">
+        {post.image && (
+          <img
+            src={`http://127.0.0.1:8000/images/posts/${post.image}`}
+            className="w-full h-64 object-cover rounded mb-6"
+            alt={post.title}
           />
-        </div>
+        )}
 
-        {/* Add Comment */}
-        {userData && authToken ? (
-          <form onSubmit={handleCommentSubmit} className="mb-6">
+        <h1 className="text-3xl font-bold">{post.title}</h1>
+
+        <p className="text-gray-600 mt-1">
+          Danh mục: <span className="font-semibold">{post.category?.name}</span>
+        </p>
+
+        <div
+          className="prose max-w-full mt-4"
+          dangerouslySetInnerHTML={{ __html: post.content || "" }}
+        />
+
+        {/* Comment form */}
+        {authToken ? (
+          <form onSubmit={handleCommentSubmit} className="mb-6 mt-6">
             <ReactQuill
               theme="snow"
               value={commentContent}
               onChange={setCommentContent}
-              placeholder="Viết bình luận..."
-              modules={{
-                toolbar: [
-                  ["bold", "italic", "underline", "strike"],
-                  [{ list: "ordered" }, { list: "bullet" }],
-                  ["link", "image"],
-                  ["clean"],
-                ],
-              }}
             />
             <button
               type="submit"
-              className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded"
+              disabled={submitting}
             >
-              Gửi bình luận
+              {submitting ? "Đang gửi..." : "Gửi bình luận"}
             </button>
           </form>
         ) : (
-          <p className="text-red-500 mb-4">Bạn cần đăng nhập để bình luận.</p>
+          <p className="text-red-500 mt-4">Bạn cần đăng nhập để bình luận.</p>
         )}
 
-        {/* Comments List */}
-        <div className="space-y-4">
-          {comments.length === 0 ? (
-            <p className="text-gray-500">Chưa có bình luận nào.</p>
+        {/* Comment List */}
+        <div className="mt-6">
+          {commentTree.length === 0 ? (
+            <p className="text-gray-500">Chưa có bình luận.</p>
           ) : (
-            comments.map((c) => {
-              const isOwner =
-                userData &&
-                (userData.user_id === c.user_id || userData.role === "admin");
-
-              return (
-                <div
-                  key={c.id}
-                  className="flex gap-3 items-start p-4 rounded-lg shadow border border-gray-200"
-                >
-                  <img
-                    src={`https://i.pravatar.cc/40?u=${
-                      c.user_email ?? "guest@example.com"
-                    }`}
-                    alt={c.user_name}
-                    className="w-10 h-10 rounded-full flex-shrink-0"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-1">
-                      <p className="font-semibold">{c.user_name}</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(c.created_at).toLocaleString()}
-                      </p>
-                    </div>
-
-                    {editingCommentId === c.id ? (
-                      <>
-                        <ReactQuill
-                          theme="snow"
-                          value={editingContent}
-                          onChange={setEditingContent}
-                          modules={{
-                            toolbar: [
-                              ["bold", "italic", "underline", "strike"],
-                              [{ list: "ordered" }, { list: "bullet" }],
-                              ["link", "image"],
-                              ["clean"],
-                            ],
-                          }}
-                        />
-                        <div className="mt-2 flex gap-2">
-                          <button
-                            onClick={() => handleUpdateComment(c.id)}
-                            className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                          >
-                            Lưu
-                          </button>
-                          <button
-                            onClick={() => setEditingCommentId(null)}
-                            className="px-3 py-1 bg-gray-300 rounded hover:bg-gray-400"
-                          >
-                            Hủy
-                          </button>
-                        </div>
-                      </>
-                    ) : (
-                      <div
-                        className="comment-content max-w-full mt-1"
-                        dangerouslySetInnerHTML={{
-                          __html: decodeHtml(c.content),
-                        }}
-                      />
-                    )}
-
-                    {isOwner && editingCommentId !== c.id && (
-                      <div className="mt-2 flex gap-2">
-                        <button
-                          onClick={() => {
-                            setEditingCommentId(c.id);
-                            setEditingContent(c.content);
-                          }}
-                          className="px-2 py-1 bg-yellow-400 text-white rounded hover:bg-yellow-500 text-sm"
-                        >
-                          Sửa
-                        </button>
-                        <button
-                          onClick={() => handleDeleteComment(c.id)}
-                          className="px-2 py-1 bg-red-500 text-white rounded hover:bg-red-600 text-sm"
-                        >
-                          Xóa
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
+            renderComments(commentTree)
           )}
         </div>
       </div>
-
-      {/* Inline CSS for Quill comment display */}
-      <style>
-        {`
-          .comment-content p { margin: 0.5rem 0; }
-          .comment-content strong { font-weight: bold; }
-          .comment-content em { font-style: italic; }
-          .comment-content u { text-decoration: underline; }
-          .comment-content ul, .comment-content ol { margin-left: 1.5rem; }
-          .comment-content a { color: #2563eb; text-decoration: underline; }
-          .comment-content img { max-width: 100%; height: auto; display: block; margin: 0.5rem 0; }
-        `}
-      </style>
     </div>
   );
 }

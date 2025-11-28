@@ -106,13 +106,13 @@ export default function AdminProductAddPage() {
     formPayload.append("name", formData.name.trim());
     formPayload.append("description", formData.description.trim());
     formPayload.append("price", parseFloat(formData.price));
-    formPayload.append("discount", formData.discount ? parseInt(formData.discount) : 0);
-    formPayload.append("category_id", formData.category_id ? parseInt(formData.category_id) : "");
-    formPayload.append("brand_id", formData.brand_id ? parseInt(formData.brand_id) : "");
+    if (formData.discount) formPayload.append("discount", parseInt(formData.discount));
+    if (formData.category_id) formPayload.append("category_id", parseInt(formData.category_id));
+    if (formData.brand_id) formPayload.append("brand_id", parseInt(formData.brand_id));
     formPayload.append("stock", formData.stock ? parseInt(formData.stock) : 0);
     formPayload.append("is_flash_sale", formData.is_flash_sale ? 1 : 0);
     formPayload.append("is_new", formData.is_new ? 1 : 0);
-    formPayload.append("tags", formData.tags.join(","));
+    if (formData.tags.length > 0) formPayload.append("tags", formData.tags.join(","));
     formPayload.append("status", "active");
     
     if (formData.image) {

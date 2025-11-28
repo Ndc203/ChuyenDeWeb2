@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\StockTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class StockController extends Controller
 {
     /**
-     * Lấy danh sách tồn kho
+     * Danh sách tồn kho hiện tại.
      */
     public function index()
     {
@@ -27,10 +28,8 @@ class StockController extends Controller
             ->orderBy('updated_at', 'desc')
             ->get()
             ->map(function ($product) {
-                // Tính tồn kho tối thiểu (10% của giá hoặc tối thiểu 5)
                 $minStock = max(5, (int)($product->price / 1000000));
 
-                // Xác định trạng thái
                 if ($product->stock == 0) {
                     $status = 'Hết hàng';
                     $statusColor = 'red';
@@ -44,7 +43,7 @@ class StockController extends Controller
 
                 return [
                     'id' => $product->product_id,
-                    'hashed_id' => $product->hashed_id, // Add hashed_id support
+                    'hashed_id' => $product->hashed_id,
                     'name' => $product->name,
                     'image' => $product->image,
                     'brand' => optional($product->brand)->name,
@@ -53,7 +52,7 @@ class StockController extends Controller
                     'min_stock' => $minStock,
                     'status' => $status,
                     'status_color' => $statusColor,
-                    'last_updated' => $product->updated_at->format('d/m/Y'),
+                    'last_updated' => optional($product->updated_at)?->format('d/m/Y'),
                 ];
             });
 
@@ -61,50 +60,42 @@ class StockController extends Controller
     }
 
     /**
-     * Lấy lịch sử nhập/xuất kho
+     * Lịch sử nhập / xuất kho.
      */
     public function history()
     {
-        // Giả lập dữ liệu lịch sử (trong thực tế cần tạo bảng stock_transactions)
-        $history = [
-            [
-                'id' => 1,
-                'product_id' => 1,
-                'product_name' => 'iPhone 15 Pro Max',
-                'type' => 'import',
-                'quantity' => 50,
-                'date' => '2024-01-15',
-                'note' => 'Nhập hàng từ nhà cung cấp Apple',
-                'user' => 'Admin',
-            ],
-            [
-                'id' => 2,
-                'product_id' => 2,
-                'product_name' => 'Samsung Galaxy S24 Ultra',
-                'type' => 'export',
-                'quantity' => 30,
-                'date' => '2024-01-14',
-                'note' => 'Xuất hàng cho đơn hàng #12345',
-                'user' => 'Admin',
-            ],
-            [
-                'id' => 3,
-                'product_id' => 3,
-                'product_name' => 'MacBook Pro M3',
-                'type' => 'import',
-                'quantity' => 20,
-                'date' => '2024-01-13',
-                'note' => 'Nhập hàng từ nhà cung cấp',
-                'user' => 'Admin',
-            ],
-        ];
+        $history = StockTransaction::with([
+                'product:product_id,name,image',
+                'user:user_id,username,email',
+                'user.profile:profile_id,user_id,full_name',
+            ])
+            ->orderByDesc('created_at')
+            ->limit(200)
+            ->get()
+            ->map(function (StockTransaction $tx) {
+                return [
+                    'id' => $tx->stock_transaction_id,
+                    'product_id' => $tx->product_id,
+                    'product_name' => optional($tx->product)->name,
+                    'product_hashed_id' => optional($tx->product)->hashed_id,
+                    'product_image' => optional($tx->product)->image,
+                    'type' => $tx->type,
+                    'quantity' => $tx->quantity,
+                    'date' => optional($tx->created_at)?->format('Y-m-d'),
+                    'note' => $tx->note,
+                    'user' => $tx->user ? (
+                        $tx->user->profile->full_name
+                        ?? $tx->user->username
+                        ?? $tx->user->email
+                    ) : 'System',
+                ];
+            });
 
-        return response()->json($history);
+        return response()->json($history->values());
     }
 
     /**
-     * Cập nhật tồn kho (nhập/xuất)
-     * Hỗ trợ cả product_id (ID thật) và hashed_id
+     * Cập nhật tồn kho (nhập hoặc xuất).
      */
     public function updateStock(Request $request)
     {
@@ -115,18 +106,16 @@ class StockController extends Controller
             'note' => 'nullable|string|max:500',
         ]);
 
-        // Tìm product bằng ID hoặc hashed_id
         $productId = $request->product_id;
-        
-        // Nếu là số, tìm bằng product_id
+
+        // Tìm product theo ID hoặc hashed_id
         if (is_numeric($productId)) {
             $product = Product::where('product_id', $productId)->firstOrFail();
         } else {
-            // Nếu không phải số, decode hashed_id
             $product = Product::findByHashedId($productId);
             if (!$product) {
                 return response()->json([
-                    'message' => 'Không tìm thấy sản phẩm'
+                    'message' => 'Không tìm thấy sản phẩm',
                 ], 404);
             }
         }
@@ -134,13 +123,11 @@ class StockController extends Controller
         DB::beginTransaction();
         try {
             if ($request->type === 'import') {
-                // Nhập kho
                 $product->stock += $request->quantity;
             } else {
-                // Xuất kho
                 if ($product->stock < $request->quantity) {
                     return response()->json([
-                        'message' => 'Số lượng tồn kho không đủ để xuất'
+                        'message' => 'Số lượng tồn kho không đủ để xuất',
                     ], 400);
                 }
                 $product->stock -= $request->quantity;
@@ -148,8 +135,15 @@ class StockController extends Controller
 
             $product->save();
 
-            // TODO: Lưu lịch sử vào bảng stock_transactions
-            // StockTransaction::create([...]);
+            // Ghi lịch sử
+            StockTransaction::create([
+                'product_id' => $product->product_id,
+                'user_id' => $request->user()->user_id ?? null,
+                'type' => $request->type,
+                'quantity' => $request->quantity,
+                'note' => $request->note,
+                'created_at' => now(),
+            ]);
 
             DB::commit();
 
@@ -160,7 +154,7 @@ class StockController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
             return response()->json([
-                'message' => 'Có lỗi xảy ra: ' . $e->getMessage()
+                'message' => 'Đã xảy ra lỗi: ' . $e->getMessage(),
             ], 500);
         }
     }
