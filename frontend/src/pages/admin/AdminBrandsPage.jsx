@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient"; // Import axiosClient
+import Swal from "sweetalert2";
 
 // Helper để tạo object rỗng
 const emptyBrandForm = () => ({
@@ -55,7 +56,9 @@ export default function AdminBrandsPage() {
   const [slugState, setSlugState] = useState(initialSlugState);
   const [slugError, setSlugError] = useState("");
   const [editTarget, setEditTarget] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [togglingId, setTogglingId] = useState(null);
   const [restoringId, setRestoringId] = useState(null);
   const [viewTarget, setViewTarget] = useState(null);
@@ -125,7 +128,11 @@ export default function AdminBrandsPage() {
       link.parentNode.removeChild(link);
     } catch (error) {
       console.error("Export failed:", error);
-      alert("Xuất file thất bại. Vui lòng thử lại.");
+      Swal.fire({
+        icon: "error",
+        title: "Xuat file that bai",
+        text: "Vui long thu lai.",
+      });
     }
   }, []);
 
@@ -391,7 +398,7 @@ export default function AdminBrandsPage() {
     event.preventDefault();
     const name = form.name.trim();
     if (!name) {
-      setFormError("Vui lòng nhập tên thương hiệu.");
+      setFormError("Vui long nhap ten thuong hieu.");
       return;
     }
 
@@ -405,62 +412,85 @@ export default function AdminBrandsPage() {
     setFormError("");
 
     try {
+      const action = formMode === "edit" && editTarget ? "edit" : "create";
       if (formMode === "edit" && editTarget) {
-         await axiosClient.put(`/brands/${editTarget.id}`, payload);
+        await axiosClient.put(`/brands/${editTarget.id}`, payload);
       } else {
-         await axiosClient.post("/brands", payload);
+        await axiosClient.post("/brands", payload);
       }
-      
       await loadBrands();
+      Swal.fire({
+        icon: "success",
+        title: action === "edit" ? "Da cap nhat thuong hieu" : "Da them thuong hieu",
+        text: action === "edit" ? "Thong tin thuong hieu da duoc luu." : "Thuong hieu moi da duoc tao.",
+      });
       handleCloseForm();
     } catch (error) {
       const message = error.response?.data?.message || 
-        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Lỗi hệ thống.");
+        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Loi he thong.");
       setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong the luu thuong hieu",
+        text: message,
+      });
     } finally {
       setFormLoading(false);
     }
   };
-
-
-  // --- 7. Action Handlers (Delete, Restore, Toggle) ---
-  const handleDelete = async (brand) => {
-    if (isDeletedView) return;
-    if (!window.confirm(`Xóa thương hiệu "${brand.name}"?\nThương hiệu sẽ được đưa vào thùng rác.`)) return;
-
-    setDeletingId(brand.id);
-    try {
-      await axiosClient.delete(`/brands/${brand.id}`);
-      setRows((prev) => prev.filter((row) => row.id !== brand.id));
-    } catch (error) {
-      alert("Không thể xóa thương hiệu.");
-    } finally {
-      setDeletingId(null);
-    }
+// --- 7. Action Handlers (Delete, Restore, Toggle) ---
+  const handleAskDelete = (brand) => {
+    if (isDeletedView || !brand) return;
+    setDeleteError("");
+    setDeleteTarget({ id: brand.id, name: brand.name, slug: brand.slug });
   };
 
+  const handleCloseDelete = () => {
+    if (deleteLoading) return;
+    setDeleteError("");
+    setDeleteTarget(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    setDeleteError("");
+    try {
+      await axiosClient.delete(`/brands/${deleteTarget.id}`);
+      setRows((prev) => prev.filter((row) => row.id !== deleteTarget.id));
+      Swal.fire({ icon: "success", title: "Da xoa thuong hieu" });
+      setDeleteTarget(null);
+    } catch (error) {
+      const message = error.response?.data?.message || "Khong the xoa thuong hieu.";
+      setDeleteError(message);
+      Swal.fire({ icon: "error", title: "Khong the xoa thuong hieu", text: message });
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
   const handleToggleStatus = async (brand) => {
     if (isDeletedView) return;
     setTogglingId(brand.id);
     try {
       const response = await axiosClient.patch(`/brands/${brand.id}/toggle`);
       setRows((prev) =>
-        prev.map((row) => row.id === brand.id ? { ...row, status: response.data.status } : row)
+        prev.map((row) => (row.id === brand.id ? { ...row, status: response.data.status } : row))
       );
+      Swal.fire({ icon: "success", title: "Da cap nhat trang thai" });
     } catch (error) {
-      alert("Không thể cập nhật trạng thái.");
+      Swal.fire({ icon: "error", title: "Khong the cap nhat trang thai", text: "Vui long thu lai." });
     } finally {
       setTogglingId(null);
     }
   };
-
   const handleRestore = async (brand) => {
     setRestoringId(brand.id);
     try {
       await axiosClient.patch(`/brands/${brand.id}/restore`);
       setRows((prev) => prev.filter((row) => row.id !== brand.id));
+      Swal.fire({ icon: "success", title: "Da khoi phuc thuong hieu" });
     } catch (error) {
-      alert("Không thể khôi phục thương hiệu.");
+      Swal.fire({ icon: "error", title: "Khong the khoi phuc thuong hieu", text: "Vui long thu lai." });
     } finally {
       setRestoringId(null);
     }
@@ -749,10 +779,10 @@ export default function AdminBrandsPage() {
                                 <IconBtn
                                   title="Xóa"
                                   intent="danger"
-                                  onClick={() => handleDelete(brand)}
-                                  disabled={deletingId === brand.id}
+                                  onClick={() => handleAskDelete(brand)}
+                                  disabled={deleteLoading && deleteTarget?.id === brand.id}
                                 >
-                                  {deletingId === brand.id ? (
+                                  {deleteLoading && deleteTarget?.id === brand.id ? (
                                     <Loader2
                                       size={16}
                                       className="animate-spin"
@@ -791,6 +821,15 @@ export default function AdminBrandsPage() {
         onPickFile={handleTriggerImport}
       />
 
+      <DeleteBrandModal
+        open={Boolean(deleteTarget)}
+        brand={deleteTarget}
+        onClose={handleCloseDelete}
+        onConfirm={handleConfirmDelete}
+        loading={deleteLoading}
+        error={deleteError}
+      />
+
       <BrandFormModal
         open={formOpen}
         mode={formMode}
@@ -812,6 +851,60 @@ export default function AdminBrandsPage() {
 // --- Các Component con ImportBrandsModal, BrandFormModal... giữ nguyên logic UI ---
 // (Mình chỉ paste lại phần ImportBrandsModal để đảm bảo file chạy,
 // các component nhỏ khác như Th, StatusBadge... giữ nguyên như file cũ của bạn)
+
+function DeleteBrandModal({ open, brand, onClose, onConfirm, loading, error }) {
+  if (!open || !brand) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">Xoa thuong hieu</h2>
+            <p className="text-sm text-slate-500">Thuong hieu se duoc xoa mem va an khoi danh sach hien thi.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <div className="mt-4 space-y-3 text-sm text-slate-600">
+          <p>
+            Ban co chac muon xoa thuong hieu{" "}
+            <span className="font-semibold text-slate-800">{brand.name}</span>?
+          </p>
+          <p className="text-xs text-amber-600">Luu y: Khong the xoa khi thuong hieu dang duoc su dung.</p>
+        </div>
+        {error && (
+          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
+            {error}
+          </div>
+        )}
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Huy
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700"
+          >
+            {loading ? "Dang xoa..." : "Xac nhan xoa"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ImportBrandsModal({
   open,
@@ -1186,71 +1279,107 @@ function BrandViewModal({ brand, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 px-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+        className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-slate-800">
-            Thông tin thương hiệu
-          </h3>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Thong tin thuong hieu
+            </h2>
+            <p className="text-sm text-slate-500">
+              Xem chi tiet thuong hieu va trang thai hien tai.
+            </p>
+          </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-500 hover:bg-slate-100"
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
           >
-            Đóng
+            <X size={18} />
           </button>
         </div>
 
-        <div className="space-y-3 text-sm text-slate-600">
+        <div className="mt-5 space-y-4 text-sm text-slate-600">
           <div>
-            <p className="text-xs uppercase text-slate-500">Tên thương hiệu</p>
-            <p className="font-medium text-slate-800">{name}</p>
-          </div>
-          <div>
-            <p className="text-xs uppercase text-slate-500">Slug</p>
-            <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
-              {slug}
-            </code>
-          </div>
-          <div>
-            <p className="text-xs uppercase text-slate-500">Trạng thái</p>
-            <StatusBadge status={status} />
-          </div>
-          <div>
-            <p className="text-xs uppercase text-slate-500">Mô tả</p>
-            <p className="whitespace-pre-line text-slate-700">
-              {description?.trim() ? description : "Chưa có mô tả"}
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Ten thuong hieu
+            </p>
+            <p className="text-base font-semibold text-slate-800">
+              {name || "(Khong co ten)"}
             </p>
           </div>
-          <div>
-            <p className="text-xs uppercase text-slate-500">Ngày tạo</p>
-            <p>{formatDate(created_at)}</p>
-          </div>
-          {deleted_at && (
+          <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <p className="text-xs uppercase text-slate-500">Ngày xóa</p>
-              <p>{formatDate(deleted_at)}</p>
-            </div>
-          )}
-          {auto_delete_at && (
-            <div>
-              <p className="text-xs uppercase text-slate-500">
-                Tự động xóa vĩnh viễn
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Slug
               </p>
-              <p>{formatDate(auto_delete_at)}</p>
+              <p className="font-medium text-slate-700">
+                {slug || "(Khong co)"}
+              </p>
             </div>
-          )}
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Trang thai
+              </p>
+              <StatusBadge status={status} />
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-slate-400">
+                Ngay tao
+              </p>
+              <p className="font-medium text-slate-700">
+                {formatDate(created_at)}
+              </p>
+            </div>
+            {deleted_at && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Ngay xoa
+                </p>
+                <p className="font-medium text-slate-700">
+                  {formatDate(deleted_at)}
+                </p>
+              </div>
+            )}
+            {auto_delete_at && (
+              <div>
+                <p className="text-xs uppercase tracking-wide text-slate-400">
+                  Tu dong xoa vinh vien
+                </p>
+                <p className="font-medium text-slate-700">
+                  {formatDate(auto_delete_at)}
+                </p>
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">
+              Mo ta
+            </p>
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600">
+              {description?.trim() ? description : "Khong co mo ta"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Dong
+          </button>
         </div>
       </div>
     </div>
   );
 }
-
 function BrandFormModal({
   open,
   mode,
@@ -1376,3 +1505,5 @@ function BrandFormModal({
     </div>
   );
 }
+
+
