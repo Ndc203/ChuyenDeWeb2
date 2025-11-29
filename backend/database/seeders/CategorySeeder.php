@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Category;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 class CategorySeeder extends Seeder
@@ -11,180 +12,115 @@ class CategorySeeder extends Seeder
     public function run(): void
     {
         Schema::disableForeignKeyConstraints();
-        Category::query()->delete();
+        DB::table('categories')->truncate();
         Schema::enableForeignKeyConstraints();
 
         $catalogues = [
             [
-                'name' => 'Điện tử',
-                'description' => 'Thiết bị điện tử, gia dụng thông minh và phụ kiện.',
+                'name' => 'Dien tu',
+                'description' => 'Thiet bi dien tu, gia dung va phu kien.',
                 'status' => 'active',
                 'children' => [
                     [
-                        'name' => 'Điện thoại & Tablet',
-                        'description' => 'Điện thoại thông minh, tablet và phụ kiện đi kèm.',
+                        'name' => 'Dien thoai & Tablet',
+                        'description' => 'Dien thoai thong minh, tablet va phu kien.',
                         'status' => 'active',
                         'children' => [
-                            [
-                                'name' => 'Điện thoại thông minh',
-                                'description' => 'iPhone, Android flagship và phân khúc tầm trung.',
-                            ],
-                            [
-                                'name' => 'Máy tính bảng',
-                                'description' => 'iPad, tablet Android phục vụ học tập và giải trí.',
-                            ],
-                            [
-                                'name' => 'Phụ kiện di động',
-                                'description' => 'Ốp lưng, sạc nhanh, pin dự phòng.',
-                            ],
+                            ['name' => 'Dien thoai', 'description' => 'Smartphone cac phan khuc.'],
+                            ['name' => 'May tinh bang', 'description' => 'Tablet cho hoc tap va giai tri.'],
+                            ['name' => 'Phu kien di dong', 'description' => 'Op lung, sac nhanh, pin du phong.'],
                         ],
                     ],
                     [
-                        'name' => 'Máy tính & Laptop',
-                        'description' => 'Laptop học tập, làm việc và máy tính để bàn.',
+                        'name' => 'May tinh & Laptop',
+                        'description' => 'Laptop, PC lap rap va phu kien.',
                         'children' => [
-                            [
-                                'name' => 'Laptop văn phòng',
-                                'description' => 'Laptop mỏng nhẹ, pin bền cho dân công sở.',
-                            ],
-                            [
-                                'name' => 'Laptop gaming',
-                                'description' => 'Laptop cấu hình mạnh, card rời cho game thủ.',
-                            ],
-                            [
-                                'name' => 'PC lắp ráp',
-                                'description' => 'Máy tính để bàn theo cấu hình đặt hàng.',
-                            ],
+                            ['name' => 'Laptop', 'description' => 'Laptop van phong, mong nhe.'],
+                            ['name' => 'Laptop gaming', 'description' => 'Laptop cau hinh cao cho game.'],
+                            ['name' => 'PC lap rap', 'description' => 'May tinh theo cau hinh dat hang.'],
                         ],
                     ],
                     [
-                        'name' => 'Âm thanh & Phụ kiện',
-                        'description' => 'Tai nghe, loa bluetooth và phụ kiện công nghệ.',
+                        'name' => 'Am thanh & Phu kien',
+                        'description' => 'Tai nghe, loa, phu kien cong nghe.',
                         'children' => [
-                            [
-                                'name' => 'Tai nghe',
-                                'description' => 'Tai nghe bluetooth, true wireless, chống ồn.',
-                            ],
-                            [
-                                'name' => 'Loa bluetooth',
-                                'description' => 'Loa di động, loa mini cho không gian nhỏ.',
-                            ],
+                            ['name' => 'Phu kien cong nghe', 'description' => 'Do choi cong nghe, thiet bi deo.'],
+                            ['name' => 'Tai nghe', 'description' => 'Tai nghe bluetooth, true wireless.'],
+                            ['name' => 'Loa bluetooth', 'description' => 'Loa di dong, loa mini.'],
                         ],
                     ],
                 ],
             ],
             [
-                'name' => 'Nhà cửa & Đời sống',
-                'description' => 'Sản phẩm giúp tối ưu không gian sống gia đình.',
+                'name' => 'Nha cua & Doi song',
+                'description' => 'San pham giup toi uu khong gian song.',
                 'status' => 'active',
                 'children' => [
                     [
-                        'name' => 'Bếp & Nấu nướng',
-                        'description' => 'Thiết bị bếp, đồ gia dụng hỗ trợ nấu ăn nhanh.',
+                        'name' => 'Bep & Nau nuong',
+                        'description' => 'Thiet bi bep, noi chien, lo nuong.',
                         'children' => [
-                            [
-                                'name' => 'Thiết bị bếp điện',
-                                'description' => 'Bếp điện từ, nồi chiên không dầu, lò nướng.',
-                            ],
-                            [
-                                'name' => 'Dụng cụ nấu ăn',
-                                'description' => 'Nồi, chảo chống dính, dao kéo và đồ nhà bếp.',
-                            ],
+                            ['name' => 'Thiet bi bep dien', 'description' => 'Bep dien tu, noi chien khong dau.'],
+                            ['name' => 'Dung cu nau an', 'description' => 'Noi, chao chong dinh, dao keo.'],
                         ],
                     ],
                     [
-                        'name' => 'Vệ sinh gia đình',
-                        'description' => 'Thiết bị làm sạch, đồ dùng chăm sóc nhà cửa.',
+                        'name' => 'Ve sinh gia dinh',
+                        'description' => 'Thiet bi lam sach, cham soc nha cua.',
                         'children' => [
-                            [
-                                'name' => 'Thiết bị làm sạch',
-                                'description' => 'Máy hút bụi, robot lau nhà, máy lọc không khí.',
-                            ],
-                            [
-                                'name' => 'Đồ giặt ủi',
-                                'description' => 'Máy giặt mini, bàn ủi hơi nước, giá phơi thông minh.',
-                            ],
+                            ['name' => 'Thiet bi lam sach', 'description' => 'May hut bui, robot lau nha.'],
+                            ['name' => 'Do giat ui', 'description' => 'May giat mini, ban ui hoi nuoc.'],
                         ],
                     ],
                 ],
             ],
             [
-                'name' => 'Thời trang & Làm đẹp',
-                'description' => 'Thời trang, phụ kiện và sản phẩm chăm sóc cá nhân.',
+                'name' => 'Thoi trang & Lam dep',
+                'description' => 'Thoi trang, phu kien va cham soc ca nhan.',
                 'status' => 'active',
                 'children' => [
                     [
-                        'name' => 'Thời trang nam',
-                        'description' => 'Trang phục, phụ kiện dành cho nam giới.',
+                        'name' => 'Thoi trang nam',
+                        'description' => 'Trang phuc va phu kien cho nam.',
                         'children' => [
-                            [
-                                'name' => 'Áo & Quần nam',
-                                'description' => 'Áo sơ mi, áo thun, quần jeans, quần âu.',
-                            ],
-                            [
-                                'name' => 'Giày dép nam',
-                                'description' => 'Giày thể thao, giày da, dép sandal.',
-                            ],
+                            ['name' => 'Ao & Quan nam', 'description' => 'Ao so mi, ao thun, quan jeans.'],
+                            ['name' => 'Giay dep nam', 'description' => 'Giay the thao, giay da, sandal.'],
                         ],
                     ],
                     [
-                        'name' => 'Thời trang nữ',
-                        'description' => 'Trang phục, phụ kiện dành cho nữ giới.',
+                        'name' => 'Thoi trang nu',
+                        'description' => 'Trang phuc va phu kien cho nu.',
                         'children' => [
-                            [
-                                'name' => 'Đầm & Váy',
-                                'description' => 'Đầm dạ hội, váy công sở, váy maxi.',
-                            ],
-                            [
-                                'name' => 'Phụ kiện nữ',
-                                'description' => 'Túi xách, khăn choàng, trang sức thời trang.',
-                            ],
+                            ['name' => 'Dam & Vay', 'description' => 'Dam du tiec, vay cong so.'],
+                            ['name' => 'Phu kien nu', 'description' => 'Tui xach, khan choang, trang suc.'],
                         ],
                     ],
                     [
-                        'name' => 'Chăm sóc sắc đẹp',
-                        'description' => 'Mỹ phẩm, dụng cụ làm đẹp và spa tại nhà.',
+                        'name' => 'Cham soc sac dep',
+                        'description' => 'My pham, cham soc da va spa tai nha.',
                         'children' => [
-                            [
-                                'name' => 'Trang điểm',
-                                'description' => 'Kem nền, son môi, bảng phấn mắt.',
-                            ],
-                            [
-                                'name' => 'Chăm sóc da',
-                                'description' => 'Sữa rửa mặt, serum, kem chống nắng.',
-                            ],
+                            ['name' => 'Trang diem', 'description' => 'Kem nen, son moi, bang phan.'],
+                            ['name' => 'Cham soc da', 'description' => 'Sua rua mat, serum, kem chong nang.'],
                         ],
                     ],
                 ],
             ],
             [
-                'name' => 'Thể thao & Dã ngoại',
-                'description' => 'Thiết bị thể thao, du lịch và outdoor.',
+                'name' => 'The thao & Da ngoai',
+                'description' => 'Thiet bi the thao, du lich va outdoor.',
                 'status' => 'active',
                 'children' => [
-                    [
-                        'name' => 'Dụng cụ tập luyện',
-                        'description' => 'Máy tập, tạ đơn, dây kháng lực hỗ trợ gym tại nhà.',
-                    ],
-                    [
-                        'name' => 'Thể thao ngoài trời',
-                        'description' => 'Xe đạp, ván trượt, đồ leo núi, camping.',
-                    ],
+                    ['name' => 'Dung cu tap luyen', 'description' => 'May tap, ta don, day khang luc.'],
+                    ['name' => 'The thao ngoai troi', 'description' => 'Xe dap, van truot, leo nui, camping.'],
                 ],
             ],
             [
-                'name' => 'Mẹ & Bé',
-                'description' => 'Sản phẩm cho mẹ bầu, trẻ sơ sinh và trẻ nhỏ.',
+                'name' => 'Me & Be',
+                'description' => 'San pham cho me bau va tre nho.',
                 'status' => 'active',
                 'children' => [
-                    [
-                        'name' => 'Đồ sơ sinh',
-                        'description' => 'Quần áo, chăn ủ, bình sữa cho bé sơ sinh.',
-                    ],
-                    [
-                        'name' => 'Đồ chơi giáo dục',
-                        'description' => 'Đồ chơi phát triển tư duy, sách vải, bảng số.',
-                    ],
+                    ['name' => 'Do so sinh', 'description' => 'Quan ao, chan goi, binh sua.'],
+                    ['name' => 'Do choi giao duc', 'description' => 'Do choi phat trien tu duy, sach tranh.'],
                 ],
             ],
         ];

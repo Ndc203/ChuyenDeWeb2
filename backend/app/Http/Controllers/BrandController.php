@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Brand;
 use App\Services\BrandImportService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Barryvdh\DomPDF\Facade\Pdf;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -47,14 +47,12 @@ class BrandController extends Controller
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ]);
 
-        if (!isset($data['status'])) {
-            $data['status'] = 'active';
-        }
+        $data['status'] = $data['status'] ?? 'active';
 
         $brand = Brand::create($data)->refresh();
 
         return response()->json([
-            'message' => 'Tạo thương hiệu thành công.',
+            'message' => 'Tao thuong hieu thanh cong.',
             'data' => [
                 'id' => $brand->brand_id,
                 'name' => $brand->name,
@@ -88,7 +86,7 @@ class BrandController extends Controller
         $brand->refresh();
 
         return response()->json([
-            'message' => 'Cập nhật thương hiệu thành công.',
+            'message' => 'Cap nhat thuong hieu thanh cong.',
             'data' => [
                 'id' => $brand->brand_id,
                 'name' => $brand->name,
@@ -103,12 +101,20 @@ class BrandController extends Controller
     public function destroy($id)
     {
         $brand = Brand::findOrFail($id);
+
+        if ($brand->products()->exists()) {
+            return response()->json([
+                'ok' => false,
+                'message' => 'Khong the xoa thuong hieu vi dang co san pham su dung.',
+            ], 409, [], JSON_UNESCAPED_UNICODE);
+        }
+
         $brand->delete();
 
         return response()->json([
             'ok' => true,
             'id' => $brand->brand_id,
-            'message' => 'Đã chuyển thương hiệu vào thùng rác.',
+            'message' => 'Da chuyen thuong hieu vao thung rac.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -122,7 +128,7 @@ class BrandController extends Controller
             'ok' => true,
             'id' => $brand->brand_id,
             'status' => $brand->status,
-            'message' => 'Cập nhật trạng thái thương hiệu thành công.',
+            'message' => 'Cap nhat trang thai thuong hieu thanh cong.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -157,7 +163,7 @@ class BrandController extends Controller
         return response()->json([
             'ok' => true,
             'id' => $brand->brand_id,
-            'message' => 'Khôi phục thương hiệu thành công.',
+            'message' => 'Khoi phuc thuong hieu thanh cong.',
         ], 200, [], JSON_UNESCAPED_UNICODE);
     }
 
@@ -193,7 +199,7 @@ class BrandController extends Controller
 
             if (count($missing)) {
                 return response()->json([
-                    'message' => 'Một số dòng được chọn không tồn tại trong dữ liệu xem trước.',
+                    'message' => 'Mot so dong duoc chon khong ton tai trong du lieu xem truoc.',
                     'missing_indexes' => $missing,
                 ], 422, [], JSON_UNESCAPED_UNICODE);
             }
@@ -202,7 +208,7 @@ class BrandController extends Controller
         $result = $this->importService->import($parsed['rows'], $selected);
 
         return response()->json([
-            'message' => 'Nhập thương hiệu hoàn tất.',
+            'message' => 'Nhap thuong hieu hoan tat.',
             'created' => $result['created'],
             'errors' => $result['errors'],
             'summary' => $result['summary'],
@@ -241,11 +247,11 @@ class BrandController extends Controller
             ->get()
             ->map(fn (Brand $brand) => [
                 'ID' => $brand->brand_id,
-                'Tên thương hiệu' => $brand->name,
+                'Ten thuong hieu' => $brand->name,
                 'Slug' => $brand->slug,
-                'Trạng thái' => $brand->status,
-                'Mô tả' => $brand->description ?? '',
-                'Ngày tạo' => optional($brand->created_at)?->format('Y-m-d H:i'),
+                'Trang thai' => $brand->status,
+                'Mo ta' => $brand->description ?? '',
+                'Ngay tao' => optional($brand->created_at)?->format('Y-m-d H:i'),
             ])
             ->values()
             ->toArray();
@@ -257,7 +263,7 @@ class BrandController extends Controller
 
         if ($format !== 'excel') {
             return response()->json([
-                'message' => 'Định dạng xuất không hợp lệ.',
+                'message' => 'Dinh dang xuat khong hop le.',
             ], 422, [], JSON_UNESCAPED_UNICODE);
         }
 
@@ -266,11 +272,11 @@ class BrandController extends Controller
 
         $headers = [
             'A' => 'ID',
-            'B' => 'Tên thương hiệu',
+            'B' => 'Ten thuong hieu',
             'C' => 'Slug',
-            'D' => 'Trạng thái',
-            'E' => 'Mô tả',
-            'F' => 'Ngày tạo',
+            'D' => 'Trang thai',
+            'E' => 'Mo ta',
+            'F' => 'Ngay tao',
         ];
 
         foreach ($headers as $column => $title) {
@@ -280,11 +286,11 @@ class BrandController extends Controller
         $rowIndex = 2;
         foreach ($rows as $row) {
             $sheet->setCellValue("A{$rowIndex}", $row['ID']);
-            $sheet->setCellValue("B{$rowIndex}", $row['Tên thương hiệu']);
+            $sheet->setCellValue("B{$rowIndex}", $row['Ten thuong hieu']);
             $sheet->setCellValue("C{$rowIndex}", $row['Slug']);
-            $sheet->setCellValue("D{$rowIndex}", $row['Trạng thái']);
-            $sheet->setCellValue("E{$rowIndex}", $row['Mô tả']);
-            $sheet->setCellValue("F{$rowIndex}", $row['Ngày tạo']);
+            $sheet->setCellValue("D{$rowIndex}", $row['Trang thai']);
+            $sheet->setCellValue("E{$rowIndex}", $row['Mo ta']);
+            $sheet->setCellValue("F{$rowIndex}", $row['Ngay tao']);
             $rowIndex++;
         }
 
