@@ -47,6 +47,7 @@ const AdminProfilePage = () => {
           date_of_birth: profile.date_of_birth || raw.date_of_birth,
           gender: profile.gender || raw.gender,
           avatar: profile.avatar || raw.avatar,
+          about_me: profile.about_me || raw.about_me,
         };
         
         setUser(merged);
