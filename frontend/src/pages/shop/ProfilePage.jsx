@@ -208,12 +208,6 @@ export default function ProfilePage() {
                                         <User size={18}/> Thông tin tài khoản
                                     </button>
                                     <button 
-                                        onClick={() => setActiveTab('about')}
-                                        className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'about' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
-                                    >
-                                        <User size={18}/> Giới thiệu bản thân
-                                    </button>
-                                    <button 
                                         onClick={() => setActiveTab('password')}
                                         className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors ${activeTab === 'password' ? 'bg-blue-50 text-blue-700' : 'text-gray-600 hover:bg-gray-50'}`}
                                     >
@@ -297,18 +291,7 @@ export default function ProfilePage() {
                                                 Địa chỉ hiện tại: {formData.address || 'Chưa cập nhật'}
                                             </p>
                                         </div>
-                                    </div>
-                
-                                    <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2">
-                                        <Save size={18}/> Lưu thay đổi
-                                    </button>
-                                </form>
-                            )}
-                                 {activeTab === 'about' && (
-                                    <form onSubmit={handleUpdateInfo}>
-                                        <h2 className="text-lg font-bold text-gray-900 mb-6 pb-4 border-b">Giới thiệu bản thân</h2>
-                                        <div className="grid grid-cols-1 gap-6 mb-6">
-                                            <div className="md:col-span-2">
+                                        <div className="md:col-span-2">
                                                 <label className="block text-sm font-medium text-gray-700 mb-1">Giới thiệu bản thân</label>
                                                 <textarea
                                                     value={formData.about_me}
@@ -321,12 +304,13 @@ export default function ProfilePage() {
                                                     Giới thiệu hiện tại: {user.profile?.about_me || 'Chưa có giới thiệu.'}
                                                 </p>
                                             </div>
-                                        </div>
-                                        <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2">
-                                            <Save size={18} /> Lưu thay đổi
-                                        </button>
-                                    </form>
-                                )}
+                                    </div>
+                
+                                    <button type="submit" className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 flex items-center gap-2">
+                                        <Save size={18}/> Lưu thay đổi
+                                    </button>
+                                </form>
+                            )}
                 
                                 {/* TAB 2: ĐỔI MẬT KHẨU */}
                                 {activeTab === 'password' && (
