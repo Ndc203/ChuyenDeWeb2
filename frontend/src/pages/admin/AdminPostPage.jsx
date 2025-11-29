@@ -22,6 +22,8 @@ import {
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import ReactQuill from "react-quill-new";
 import "react-quill-new/dist/quill.snow.css";
+import Swal from "sweetalert2";
+
 
 // === Form mặc định ===
 const emptyPostForm = () => ({
@@ -77,40 +79,52 @@ export default function AdminPostPage() {
   }, [loadPosts]);
 
   // === Xem chi tiết ===
-  async function handleViewDetail(id) {
-    try {
-      const res = await fetch(`${API_URL}/api/posts/${id}`);
-      if (!res.ok) throw new Error("Không thể tải chi tiết bài viết");
-      const data = await res.json();
-      setDetailPost(data);
-      setOpenDetail(true);
-    } catch (err) {
-      alert(err.message || "Không thể kết nối tới máy chủ.");
+async function handleViewDetail(id) {
+  try {
+    const res = await fetch(`${API_URL}/api/posts/${id}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      Swal.fire({
+        icon: "error",
+        title: "Không thể tải bài viết!",
+        text: data.message || "Bài viết không tồn tại hoặc đã bị xoá.",
+      });
+      return;
     }
+
+    setDetailPost(data);
+    setOpenDetail(true);
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Lỗi kết nối!",
+      text: err.message || "Không thể kết nối tới máy chủ.",
+    });
   }
+}
   function handleCloseDetail() {
     setOpenDetail(false);
     setDetailPost(null);
   }
 
   // === Lịch sử ===
-async function handleViewHistory(id) {
-  try {
-    const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
-    if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
-    const data = await res.json();
+  async function handleViewHistory(id) {
+    try {
+      const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
+      if (!res.ok) throw new Error("Không thể tải lịch sử chỉnh sửa.");
+      const data = await res.json();
 
-    // Hỗ trợ cả dạng: [] và { versions: [] }
-    const versions = Array.isArray(data) ? data : data.versions || [];
+      // Hỗ trợ cả dạng: [] và { versions: [] }
+      const versions = Array.isArray(data) ? data : data.versions || [];
 
-    setHistoryData(versions);
-    setSelectedPostId(id);
-    setOpenHistory(true);
-  } catch (err) {
-    alert(err.message || "Không thể kết nối tới máy chủ.");
+      setHistoryData(versions);
+      setSelectedPostId(id);
+      setOpenHistory(true);
+    } catch (err) {
+      alert(err.message || "Không thể kết nối tới máy chủ.");
+    }
   }
-}
-
 
   // === Tạo bài viết ===
   const handleOpenCreate = () => {
@@ -175,6 +189,10 @@ async function handleViewHistory(id) {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        if (res.status === 422 && data.errors?.post_category_id) {
+          setError("Danh mục bài viết không hợp lệ hoặc không tồn tại.");
+          return;
+        }
         setFormError(data.message || "Không thể tạo bài viết mới.");
         return;
       }
@@ -190,51 +208,129 @@ async function handleViewHistory(id) {
   };
 
   // === Delete ===
-  async function handleDelete(id) {
-    if (!confirm("Bạn có chắc chắn muốn xoá bài viết này?")) return;
+async function handleViewHistory(id) {
+  try {
+    const res = await fetch(`${API_URL}/api/posts/${id}/versions`);
+    const data = await res.json().catch(() => ({}));
 
-    try {
-      const token = localStorage.getItem("authToken");
-
-      const res = await fetch(`${API_URL}/api/posts/${id}`, {
-        method: "DELETE", // ✅ DELETE đúng chuẩn
-        headers: {
-          Accept: "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
+    if (!res.ok) {
+      Swal.fire({
+        icon: "error",
+        title: "Không thể tải lịch sử chỉnh sửa!",
+        text: data.message || "Lịch sử không tồn tại hoặc bài viết đã bị xoá.",
       });
+      return;
+    }
 
-      const data = await res.json().catch(() => ({}));
+    // Hỗ trợ cả dạng: [] và { versions: [] }
+    const versions = Array.isArray(data) ? data : data.versions || [];
 
-      if (!res.ok) {
-        alert(data.message || "Không thể xoá bài viết.");
+    setHistoryData(versions);
+    setSelectedPostId(id);
+    setOpenHistory(true);
+
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Lỗi kết nối!",
+      text: err.message || "Không thể kết nối tới máy chủ.",
+    });
+  }
+}
+
+  // === Edit ===
+async function handleEdit(id) {
+  try {
+    const res = await fetch(`${API_URL}/api/posts/${id}`);
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      // ⚠ Kiểm tra lỗi validation 422
+      if (res.status === 422 && data.errors?.post_category_id) {
+        Swal.fire({
+          icon: "error",
+          title: "Danh mục không hợp lệ",
+          text: "Danh mục bài viết không tồn tại hoặc không hợp lệ.",
+        });
         return;
       }
 
-      setRows((prev) => prev.filter((it) => it.id !== id));
-      alert("Đã xoá bài viết thành công!");
-    } catch {
-      alert("Không thể kết nối tới máy chủ.");
+      Swal.fire({
+        icon: "error",
+        title: "Không thể tải bài viết",
+        text: data.message || "Bài viết không tồn tại hoặc đã bị xoá.",
+      });
+      return;
     }
-    await loadPosts();
-  }
 
-  // === Edit ===
-  async function handleEdit(id) {
-    try {
-      const res = await fetch(`${API_URL}/api/posts/${id}`);
-      if (!res.ok) throw new Error("Không thể tải thông tin bài viết.");
-      const data = await res.json();
-      setEditPost(data);
-      setOpenEdit(true);
-    } catch (err) {
-      alert(err.message || "Lỗi kết nối tới máy chủ.");
-    }
+    // Nếu hợp lệ → mở modal edit
+    setEditPost(data);
+    setOpenEdit(true);
+
+  } catch (err) {
+    Swal.fire({
+      icon: "error",
+      title: "Lỗi kết nối!",
+      text: err.message || "Không thể kết nối tới máy chủ.",
+    });
   }
+}
   const handleCloseEdit = () => {
     setOpenEdit(false);
     setEditPost(null);
   };
+async function handleDelete(id) {
+  const confirm = await Swal.fire({
+    title: "Bạn có chắc chắn?",
+    text: "Hành động này không thể hoàn tác!",
+    icon: "warning",
+    showCancelButton: true,
+    confirmButtonText: "Xoá",
+    cancelButtonText: "Hủy",
+    confirmButtonColor: "#d33",
+  });
+
+  if (!confirm.isConfirmed) return;
+
+  try {
+    const token = localStorage.getItem("authToken");
+
+    const res = await fetch(`${API_URL}/api/posts/${id}`, {
+      method: "DELETE",
+      headers: {
+        Accept: "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi!",
+        text: data.message || "Không thể xoá bài viết.",
+      });
+      return;
+    }
+
+    setRows((prev) => prev.filter((it) => it.id !== id));
+
+    Swal.fire({
+      icon: "success",
+      title: "Đã xoá!",
+      text: "Bài viết đã được xoá thành công.",
+    });
+  } catch {
+    Swal.fire({
+      icon: "error",
+      title: "Lỗi kết nối!",
+      text: "Không thể kết nối tới máy chủ.",
+    });
+  }
+
+  await loadPosts();
+}
 
   // === Export ===
   useEffect(() => {
@@ -855,6 +951,11 @@ function PostDetailModal({ open, onClose, post, API_URL }) {
     </div>
   );
 }
+function decodeHtml(html) {
+  const txt = document.createElement("textarea");
+  txt.innerHTML = html;
+  return txt.value;
+}
 function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
   const [form, setForm] = useState({
     title: "",
@@ -885,7 +986,7 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
       setForm({
         title: post.title || "",
         excerpt: post.excerpt || "",
-        content: post.content || "",
+        content: decodeHtml(post.content || ""),
         status: post.status || "draft",
         post_category_id: post.post_category_id
           ? String(post.post_category_id)
@@ -898,50 +999,73 @@ function EditPostModal({ open, onClose, post, onUpdated, API_URL }) {
 
   if (!open || !post) return null;
 
-  async function handleSubmit(e) {
-    e.preventDefault();
+async function handleSubmit(e) {
+  e.preventDefault();
 
-    if (!form.post_category_id) {
-      alert("Vui lòng chọn danh mục bài viết.");
+  if (!form.post_category_id) {
+    Swal.fire({
+      icon: "warning",
+      title: "Thiếu thông tin",
+      text: "Vui lòng chọn danh mục bài viết.",
+    });
+    return;
+  }
+
+  try {
+    const formData = new FormData();
+    formData.append("title", form.title);
+    formData.append("excerpt", form.excerpt);
+    formData.append("content", form.content);
+    formData.append("status", form.status);
+    formData.append("post_category_id", Number(form.post_category_id));
+    formData.append("is_trending", form.is_trending ? 1 : 0);
+
+    if (form.image) formData.append("image", form.image);
+
+    formData.append("_method", "PUT"); // Laravel spoof PUT
+
+    const token = localStorage.getItem("authToken");
+
+    const res = await fetch(`${API_URL}/api/posts/${post.post_id}`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        Authorization: token ? `Bearer ${token}` : "",
+      },
+      body: formData,
+    });
+
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      Swal.fire({
+        icon: "error",
+        title: "Cập nhật thất bại",
+        text: data.message || "Không thể cập nhật bài viết.",
+      });
       return;
     }
 
-    try {
-      const formData = new FormData();
-      formData.append("title", form.title);
-      formData.append("excerpt", form.excerpt);
-      formData.append("content", form.content);
-      formData.append("status", form.status);
-      formData.append("post_category_id", Number(form.post_category_id));
-      formData.append("is_trending", form.is_trending ? 1 : 0);
-      if (form.image) formData.append("image", form.image);
-      formData.append("_method", "PUT"); // Laravel spoof PUT
+    Swal.fire({
+      icon: "success",
+      title: "Thành công!",
+      text: "Cập nhật bài viết thành công!",
+      timer: 1500,
+      showConfirmButton: false,
+    });
 
-      const token = localStorage.getItem("authToken");
-      const res = await fetch(`${API_URL}/api/posts/${post.post_id}`, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Authorization: token ? `Bearer ${token}` : "",
-        },
-        body: formData,
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        alert(data.message || "Không thể cập nhật bài viết.");
-        return;
-      }
-
-      alert("✅ Cập nhật bài viết thành công!");
-      onUpdated();
-      onClose();
-    } catch (err) {
-      console.error(err);
-      alert("Không thể kết nối tới máy chủ.");
-    }
+    onUpdated();
+    onClose();
+  } catch (err) {
+    console.error(err);
+    Swal.fire({
+      icon: "error",
+      title: "Lỗi kết nối!",
+      text: "Không thể kết nối tới máy chủ.",
+    });
   }
+}
+
 
   const user = {
     role: localStorage.getItem("userRole"),
@@ -1122,7 +1246,18 @@ function HistoryModal({ open, onClose, history, postId }) {
   const API_URL = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   async function handleRestore(versionId) {
-    if (!confirm("Bạn có chắc chắn muốn khôi phục phiên bản này?")) return;
+    const confirm = await Swal.fire({
+      title: "Khôi phục phiên bản?",
+      text: "Bạn có chắc chắn muốn khôi phục phiên bản này? Hành động này không thể hoàn tác.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Khôi phục",
+      cancelButtonText: "Hủy",
+      confirmButtonColor: "#2563eb",
+      cancelButtonColor: "#6b7280",
+    });
+
+    if (!confirm.isConfirmed) return;
 
     try {
       const token = localStorage.getItem("authToken");
@@ -1138,15 +1273,31 @@ function HistoryModal({ open, onClose, history, postId }) {
       );
 
       const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        alert(data.message || "Không thể khôi phục bài viết.");
+        Swal.fire({
+          icon: "error",
+          title: "Khôi phục thất bại",
+          text: data.message || "Không thể khôi phục bài viết.",
+        });
         return;
       }
 
-      alert("✅ Đã khôi phục phiên bản bài viết thành công!");
-      onClose();
+      Swal.fire({
+        icon: "success",
+        title: "Đã khôi phục!",
+        text: "Phiên bản bài viết đã được khôi phục thành công.",
+        timer: 1500,
+        showConfirmButton: false,
+      });
+
+      onClose(); // đóng modal sau khi khôi phục
     } catch (err) {
-      alert("Không thể kết nối tới máy chủ.");
+      Swal.fire({
+        icon: "error",
+        title: "Lỗi kết nối",
+        text: "Không thể kết nối tới máy chủ.",
+      });
     }
   }
 
@@ -1183,6 +1334,7 @@ function HistoryModal({ open, onClose, history, postId }) {
                 <th className="px-4 py-2 text-right">Thao tác</th>
               </tr>
             </thead>
+
             <tbody>
               {history.map((h, i) => (
                 <tr
