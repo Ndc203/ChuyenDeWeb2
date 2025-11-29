@@ -190,14 +190,14 @@ export default function AdminActivityHistoryPage() {
                 </select>
               </div>
               <div>
-                <button
+                {/* <button
                   type="button"
                   onClick={() => alert('Chức năng xuất báo cáo đang được phát triển!')}
                   className="w-full flex items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                 >
                   <Download size={16} className="mr-2" />
                   Xuất báo cáo
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
