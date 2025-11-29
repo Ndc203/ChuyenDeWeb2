@@ -28,6 +28,7 @@ class Brand extends Model
         'updated_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
+    public const SLUG_MAX_LENGTH = 30;
 
     protected static function booted(): void
     {
@@ -44,9 +45,17 @@ class Brand extends Model
 
     public static function generateUniqueSlug(string $name, ?int $ignoreId = null): string
     {
-        $slug = Str::slug($name) ?: 'brand';
-        $originalSlug = $slug;
-        $count = 2;
+        $baseSlug = Str::slug(Str::limit($name, self::SLUG_MAX_LENGTH, '')) ?: 'brand';
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        $ensureLength = function (string $value, string $suffix) {
+            $maxLength = self::SLUG_MAX_LENGTH - strlen($suffix);
+            if ($maxLength <= 0) {
+                return '';
+            }
+            return Str::limit($value, $maxLength, '');
+        };
 
         while (
             static::withTrashed()
@@ -54,8 +63,10 @@ class Brand extends Model
                 ->where('slug', $slug)
                 ->exists()
         ) {
-            $slug = $originalSlug . '-' . $count;
-            $count++;
+            $suffixStr = '-' . $suffix;
+            $trimmed = $ensureLength($baseSlug, $suffixStr);
+            $slug = ($trimmed ?: Str::slug('brand')) . $suffixStr;
+            $suffix++;
         }
 
         return $slug;
