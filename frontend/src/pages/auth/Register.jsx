@@ -84,7 +84,7 @@ export default function Register() {
         
         {/* Left Column (Dark Side) */}
         <div className="bg-[#2d3447] text-white p-8 lg:p-12 flex flex-col justify-center items-center lg:items-start text-center lg:text-left lg:w-5/12 rounded-t-2xl lg:rounded-l-2xl lg:rounded-tr-none relative">
-            <h1 className="text-4xl font-bold tracking-wider mb-4">KING</h1>
+            <h1 className="text-4xl font-bold tracking-wider mb-4">TechStore</h1>
             <p className="text-gray-300 leading-relaxed mb-6">
                 Bắt đầu hành trình của bạn bằng cách tạo một tài khoản. Nhanh chóng, an toàn và dễ dàng.
             </p>
