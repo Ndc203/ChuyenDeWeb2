@@ -93,15 +93,16 @@ class Product extends Model
     }
 
     // Accessors
-    public function getAverageRatingAttribute()
-    {
-        return $this->reviews()->avg('rating') ?? 0;
-    }
+    // Tạm thời comment để test
+    // public function getAverageRatingAttribute()
+    // {
+    //     return $this->reviews()->avg('rating') ?? 0;
+    // }
 
-    public function getTotalReviewsAttribute()
-    {
-        return $this->reviews()->count();
-    }
+    // public function getTotalReviewsAttribute()
+    // {
+    //     return $this->reviews()->count();
+    // }
 
     public function getFinalPriceAttribute()
     {
@@ -123,10 +124,25 @@ class Product extends Model
             $badges[] = 'MỚI';
         }
         
-        if ($this->tags && str_contains($this->tags, 'hot')) {
+        if ($this->tags && strpos($this->tags, 'hot') !== false) {
             $badges[] = 'HOT';
         }
         
         return $badges;
+    }
+
+    public function getMainImageUrlAttribute()
+    {
+        if (!$this->image) {
+            return null;
+        }
+        
+        // Nếu image đã là URL đầy đủ, trả về luôn
+        if (strpos($this->image, 'http://') === 0 || strpos($this->image, 'https://') === 0) {
+            return $this->image;
+        }
+        
+        // Nếu là đường dẫn tương đối, thêm prefix
+        return '/images/products/' . $this->image;
     }
 }
