@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use App\Models\Product;
 
 class Brand extends Model
 {
@@ -66,5 +67,10 @@ class Brand extends Model
             ->where('deleted_at', '<', now()->subDays($days))
             ->cursor()
             ->each->forceDelete();
+    }
+
+    public function products()
+    {
+        return $this->hasMany(Product::class, 'brand_id', 'brand_id');
     }
 }

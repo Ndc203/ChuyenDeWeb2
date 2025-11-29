@@ -41,6 +41,25 @@ const initialSlugState = {
   modified: false,
   loading: false,
 };
+const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
+const NAME_MAX_LENGTH = 100;
+const truncateText = (value, max = 15) => {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  return str.length > max ? `${str.slice(0, max)}...` : str;
+};
+const PAGE_SIZE = 10;
+const pageSummary = (page, pageSize, total) => {
+  if (total === 0) return "Khong co muc nao";
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+  return `Hien thi ${start} den ${end} trong ${total} muc`;
+};
+const normalizeDeleteError = (message) => {
+  if (!message) return "Khong the xoa thuong hieu.";
+  if (/no query results/i.test(message)) return "Thuong hieu khong ton tai hoac da bi xoa.";
+  return message;
+};
 
 export default function AdminBrandsPage() {
   const [rows, setRows] = useState([]);
@@ -48,6 +67,7 @@ export default function AdminBrandsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("active");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [form, setForm] = useState(emptyBrandForm);
@@ -76,15 +96,30 @@ export default function AdminBrandsPage() {
 
   const isDeletedView = viewMode === "deleted";
 
+  const normalizeName = useCallback(
+    (text = "") =>
+      (text || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, ""),
+    []
+  );
+  const hasInvalidChars = useCallback(
+    (text = "") => !NAME_PATTERN.test(text),
+    []
+  );
+
   // --- 1. Load Brands ---
   const loadBrands = useCallback(() => {
     setLoading(true);
     const endpoint = viewMode === "deleted" ? "/brands/trashed" : "/brands";
 
-    axiosClient.get(endpoint)
+    axiosClient
+      .get(endpoint)
       .then((res) => {
         // Tùy backend trả về, giả sử là res.data hoặc res.data.data
-        const data = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        const data = Array.isArray(res.data) ? res.data : res.data.data || [];
         setRows(data);
       })
       .catch(() => setRows([]))
@@ -113,16 +148,22 @@ export default function AdminBrandsPage() {
     try {
       setExportOpen(false);
       // Gọi API lấy file blob
-      const response = await axiosClient.get(`/brands/export?format=${format}`, {
-        responseType: 'blob', // Quan trọng
-      });
+      const response = await axiosClient.get(
+        `/brands/export?format=${format}`,
+        {
+          responseType: "blob", // Quan trọng
+        }
+      );
 
       // Tạo link tải xuống giả
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
       // Đặt tên file (có thể lấy từ header content-disposition nếu muốn xịn hơn)
-      link.setAttribute('download', `brands_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      link.setAttribute(
+        "download",
+        `brands_export.${format === "excel" ? "xlsx" : "pdf"}`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -135,7 +176,6 @@ export default function AdminBrandsPage() {
       });
     }
   }, []);
-
 
   // --- 3. Handle Import ---
   const resetImportState = useCallback(() => {
@@ -176,21 +216,28 @@ export default function AdminBrandsPage() {
 
       try {
         // Dùng axiosClient post FormData
-        const response = await axiosClient.post("/brands/import/preview", formData, {
-          headers: { "Content-Type": "multipart/form-data" }, // Axios tự set nhưng ghi rõ cũng tốt
-        });
+        const response = await axiosClient.post(
+          "/brands/import/preview",
+          formData,
+          {
+            headers: { "Content-Type": "multipart/form-data" }, // Axios tự set nhưng ghi rõ cũng tốt
+          }
+        );
 
         const data = response.data;
         setImportPreview(data);
-        
+
         // Auto select valid rows
         const validIndexes = Array.isArray(data?.rows)
-          ? data.rows.filter((row) => row?.is_valid).map((row) => Number(row.index))
+          ? data.rows
+              .filter((row) => row?.is_valid)
+              .map((row) => Number(row.index))
           : [];
         setImportSelected(validIndexes);
-
       } catch (error) {
-        const message = error.response?.data?.message || "Không thể đọc file. Vui lòng kiểm tra lại.";
+        const message =
+          error.response?.data?.message ||
+          "Không thể đọc file. Vui lòng kiểm tra lại.";
         setImportError(message);
         setImportPreview(null);
         setImportSelected([]);
@@ -257,18 +304,19 @@ export default function AdminBrandsPage() {
 
     try {
       const response = await axiosClient.post("/brands/import", formData, {
-         headers: { "Content-Type": "multipart/form-data" },
+        headers: { "Content-Type": "multipart/form-data" },
       });
       setImportResult(response.data);
       await loadBrands(); // Reload bảng sau khi import thành công
     } catch (error) {
-      const message = error.response?.data?.message || "Không thể nhập thương hiệu. Vui lòng thử lại.";
+      const message =
+        error.response?.data?.message ||
+        "Không thể nhập thương hiệu. Vui lòng thử lại.";
       setImportError(message);
     } finally {
       setImportSubmitting(false);
     }
   }, [importFile, importSelected, loadBrands]);
-
 
   // --- 4. Search Filter ---
   const filteredRows = useMemo(() => {
@@ -281,7 +329,9 @@ export default function AdminBrandsPage() {
             brand.description || "",
             brand.deleted_at || "",
             brand.auto_delete_at || "",
-          ].join(" ").toLowerCase();
+          ]
+            .join(" ")
+            .toLowerCase();
           return haystack.includes(keyword);
         })
       : rows;
@@ -292,15 +342,30 @@ export default function AdminBrandsPage() {
 
   useEffect(() => {
     setStatusFilter("all");
+    setPage(1);
   }, [viewMode]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredRows.slice(start, start + PAGE_SIZE);
+  }, [filteredRows, page]);
 
   // --- 5. Slugify Logic ---
   useEffect(() => {
     if (!formOpen) return;
 
     const name = form.name.trim();
-    const ignoreId = formMode === "edit" && editTarget ? String(editTarget.id) : null;
+    const ignoreId =
+      formMode === "edit" && editTarget ? String(editTarget.id) : null;
 
     if (!name) {
       setSlugState(initialSlugState);
@@ -311,7 +376,7 @@ export default function AdminBrandsPage() {
     let cancelled = false;
     // Axios CancelToken source
     const controller = new AbortController();
-    
+
     setSlugState((prev) => ({ ...prev, loading: true }));
     setSlugError("");
 
@@ -319,25 +384,27 @@ export default function AdminBrandsPage() {
       const params = new URLSearchParams({ text: name });
       if (ignoreId) params.set("ignore", ignoreId);
 
-      axiosClient.get(`/brands/slugify?${params.toString()}`, {
-        signal: controller.signal
-      })
-      .then((res) => {
+      axiosClient
+        .get(`/brands/slugify?${params.toString()}`, {
+          signal: controller.signal,
+        })
+        .then((res) => {
           if (cancelled) return;
           const data = res.data;
           setSlugState({
             slug: data?.slug || "",
             base: data?.base || "",
-            available: typeof data?.available === "boolean" ? data.available : true,
+            available:
+              typeof data?.available === "boolean" ? data.available : true,
             modified: Boolean(data?.modified),
             loading: false,
           });
-      })
-      .catch((err) => {
+        })
+        .catch((err) => {
           if (axiosClient.isCancel(err) || cancelled) return;
           setSlugError("Không thể sinh slug tự động.");
           setSlugState(initialSlugState);
-      });
+        });
     }, 350);
 
     return () => {
@@ -346,7 +413,6 @@ export default function AdminBrandsPage() {
       clearTimeout(timer);
     };
   }, [editTarget, form.name, formMode, formOpen]);
-
 
   // --- 6. Form Handlers ---
   const handleOpenCreate = () => {
@@ -398,7 +464,50 @@ export default function AdminBrandsPage() {
     event.preventDefault();
     const name = form.name.trim();
     if (!name) {
-      setFormError("Vui long nhap ten thuong hieu.");
+      const message = "Vui long nhap ten thuong hieu.";
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
+      return;
+    }
+    if (hasInvalidChars(name)) {
+      const message =
+        "Ten thuong hieu chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
+      return;
+    }
+    if (name.length > NAME_MAX_LENGTH) {
+      const message = `Ten thuong hieu khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
+      return;
+    }
+    const normalized = normalizeName(name);
+    const isDuplicate = rows.some(
+      (row) =>
+        (formMode !== "edit" || !editTarget || row.id !== editTarget.id) &&
+        normalizeName(row.name || "") === normalized
+    );
+    if (isDuplicate) {
+      const message = "Ten thuong hieu da ton tai.";
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
       return;
     }
 
@@ -421,13 +530,20 @@ export default function AdminBrandsPage() {
       await loadBrands();
       Swal.fire({
         icon: "success",
-        title: action === "edit" ? "Da cap nhat thuong hieu" : "Da them thuong hieu",
-        text: action === "edit" ? "Thong tin thuong hieu da duoc luu." : "Thuong hieu moi da duoc tao.",
+        title:
+          action === "edit" ? "Da cap nhat thuong hieu" : "Da them thuong hieu",
+        text:
+          action === "edit"
+            ? "Thong tin thuong hieu da duoc luu."
+            : "Thuong hieu moi da duoc tao.",
       });
       handleCloseForm();
     } catch (error) {
-      const message = error.response?.data?.message || 
-        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Loi he thong.");
+      const message =
+        error.response?.data?.message ||
+        (error.response?.data?.errors
+          ? Object.values(error.response.data.errors).flat().join(", ")
+          : "Loi he thong.");
       setFormError(message);
       Swal.fire({
         icon: "error",
@@ -438,7 +554,7 @@ export default function AdminBrandsPage() {
       setFormLoading(false);
     }
   };
-// --- 7. Action Handlers (Delete, Restore, Toggle) ---
+  // --- 7. Action Handlers (Delete, Restore, Toggle) ---
   const handleAskDelete = (brand) => {
     if (isDeletedView || !brand) return;
     setDeleteError("");
@@ -461,9 +577,15 @@ export default function AdminBrandsPage() {
       Swal.fire({ icon: "success", title: "Da xoa thuong hieu" });
       setDeleteTarget(null);
     } catch (error) {
-      const message = error.response?.data?.message || "Khong the xoa thuong hieu.";
+      const message = normalizeDeleteError(
+        error.response?.data?.message || "Khong the xoa thuong hieu."
+      );
       setDeleteError(message);
-      Swal.fire({ icon: "error", title: "Khong the xoa thuong hieu", text: message });
+      Swal.fire({
+        icon: "error",
+        title: "Khong the xoa thuong hieu",
+        text: message,
+      });
     } finally {
       setDeleteLoading(false);
     }
@@ -474,11 +596,17 @@ export default function AdminBrandsPage() {
     try {
       const response = await axiosClient.patch(`/brands/${brand.id}/toggle`);
       setRows((prev) =>
-        prev.map((row) => (row.id === brand.id ? { ...row, status: response.data.status } : row))
+        prev.map((row) =>
+          row.id === brand.id ? { ...row, status: response.data.status } : row
+        )
       );
       Swal.fire({ icon: "success", title: "Da cap nhat trang thai" });
     } catch (error) {
-      Swal.fire({ icon: "error", title: "Khong the cap nhat trang thai", text: "Vui long thu lai." });
+      Swal.fire({
+        icon: "error",
+        title: "Khong the cap nhat trang thai",
+        text: "Vui long thu lai.",
+      });
     } finally {
       setTogglingId(null);
     }
@@ -490,7 +618,11 @@ export default function AdminBrandsPage() {
       setRows((prev) => prev.filter((row) => row.id !== brand.id));
       Swal.fire({ icon: "success", title: "Da khoi phuc thuong hieu" });
     } catch (error) {
-      Swal.fire({ icon: "error", title: "Khong the khoi phuc thuong hieu", text: "Vui long thu lai." });
+      Swal.fire({
+        icon: "error",
+        title: "Khong the khoi phuc thuong hieu",
+        text: "Vui long thu lai.",
+      });
     } finally {
       setRestoringId(null);
     }
@@ -673,17 +805,34 @@ export default function AdminBrandsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((brand, index) => (
+                    paginatedRows.map((brand, index) => (
                       <tr
                         key={brand.id}
                         className={index % 2 ? "bg-white" : "bg-slate-50/50"}
                       >
-                        <td className="px-4 py-3 font-medium">{brand.name}</td>
-                        <td className="px-4 py-3 text-slate-500">
-                          {brand.slug}
+                        <td
+                          className="px-4 py-3 font-medium"
+                          title={brand.name}
+                        >
+                          {truncateText(brand.name)}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          {brand.description?.trim() ? brand.description : "--"}
+                          <span title={brand.slug}>
+                            {truncateText(brand.slug)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          <span
+                            title={
+                              brand.description?.trim()
+                                ? brand.description
+                                : "--"
+                            }
+                          >
+                            {brand.description?.trim()
+                              ? truncateText(brand.description)
+                              : "--"}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           {isDeletedView ? (
@@ -780,9 +929,13 @@ export default function AdminBrandsPage() {
                                   title="Xóa"
                                   intent="danger"
                                   onClick={() => handleAskDelete(brand)}
-                                  disabled={deleteLoading && deleteTarget?.id === brand.id}
+                                  disabled={
+                                    deleteLoading &&
+                                    deleteTarget?.id === brand.id
+                                  }
                                 >
-                                  {deleteLoading && deleteTarget?.id === brand.id ? (
+                                  {deleteLoading &&
+                                  deleteTarget?.id === brand.id ? (
                                     <Loader2
                                       size={16}
                                       className="animate-spin"
@@ -800,6 +953,30 @@ export default function AdminBrandsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+            <div className="flex flex-col gap-2 border-t bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+              <span>{pageSummary(page, PAGE_SIZE, filteredRows.length)}</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span aria-hidden="true">&lt;</span>
+                </button>
+                <span className="px-2 text-xs font-semibold text-slate-800">
+                  {page} / {totalPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <span aria-hidden="true">&gt;</span>
+                </button>
+              </div>
             </div>
           </section>
         </main>
@@ -859,8 +1036,12 @@ function DeleteBrandModal({ open, brand, onClose, onConfirm, loading, error }) {
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Xoa thuong hieu</h2>
-            <p className="text-sm text-slate-500">Thuong hieu se duoc xoa mem va an khoi danh sach hien thi.</p>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Xoa thuong hieu
+            </h2>
+            <p className="text-sm text-slate-500">
+              Thuong hieu se duoc xoa mem va an khoi danh sach hien thi.
+            </p>
           </div>
           <button
             type="button"
@@ -874,9 +1055,14 @@ function DeleteBrandModal({ open, brand, onClose, onConfirm, loading, error }) {
         <div className="mt-4 space-y-3 text-sm text-slate-600">
           <p>
             Ban co chac muon xoa thuong hieu{" "}
-            <span className="font-semibold text-slate-800">{brand.name}</span>?
+            <span className="font-semibold text-slate-800 break-words">
+              {brand.name}
+            </span>
+            ?
           </p>
-          <p className="text-xs text-amber-600">Luu y: Khong the xoa khi thuong hieu dang duoc su dung.</p>
+          <p className="text-xs text-amber-600">
+            Luu y: Khong the xoa khi thuong hieu dang duoc su dung.
+          </p>
         </div>
         {error && (
           <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
@@ -1107,7 +1293,7 @@ function ImportBrandsModal({
                             />
                           </td>
                           <td className="px-3 py-2 align-top text-xs text-slate-500">
-                            #{index}
+                            #{index - 1}
                           </td>
                           <td className="px-3 py-2 align-top">
                             <p className="text-sm font-medium text-slate-700">
@@ -1309,26 +1495,26 @@ function BrandViewModal({ brand, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Ten thuong hieu
             </p>
-            <p className="text-base font-semibold text-slate-800">
+            <p className="text-base font-semibold text-slate-800 break-words">
               {name || "(Khong co ten)"}
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Slug
               </p>
-              <p className="font-medium text-slate-700">
+              <p className="font-medium text-slate-700 break-all">
                 {slug || "(Khong co)"}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Trang thai
               </p>
               <StatusBadge status={status} />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Ngay tao
               </p>
@@ -1361,7 +1547,7 @@ function BrandViewModal({ brand, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Mo ta
             </p>
-            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600">
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words">
               {description?.trim() ? description : "Khong co mo ta"}
             </p>
           </div>
@@ -1433,7 +1619,7 @@ function BrandFormModal({
                 <span className="font-medium text-slate-700">
                   Slug dự kiến:
                 </span>{" "}
-                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px]">
+                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] break-all">
                   {slugState.slug || "(Chưa xác định)"}
                 </code>
                 {slugState.modified && (
@@ -1505,5 +1691,3 @@ function BrandFormModal({
     </div>
   );
 }
-
-
