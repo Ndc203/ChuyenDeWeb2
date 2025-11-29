@@ -46,6 +46,11 @@ const pageSummary = (page, pageSize, total) => {
   const end = Math.min(total, page * pageSize);
   return `Hien thi ${start} den ${end} trong ${total} muc`;
 };
+const normalizeDeleteError = (message) => {
+  if (!message) return "Khong the xoa danh muc.";
+  if (/no query results/i.test(message)) return "Danh muc khong ton tai hoac da bi xoa.";
+  return message;
+};
 
 export default function AdminCategoriesPage() {
   const [query, setQuery] = useState("");
@@ -585,8 +590,9 @@ export default function AdminCategoriesPage() {
       Swal.fire({ icon: "success", title: "Da xoa danh muc" });
       setDeleteTarget(null);
     } catch (error) {
-      const message =
-        error.response?.data?.message || "Khong the xoa danh muc.";
+      const message = normalizeDeleteError(
+        error.response?.data?.message || "Khong the xoa danh muc."
+      );
       setDeleteError(message);
       Swal.fire({
         icon: "error",
@@ -1263,7 +1269,7 @@ export default function AdminCategoriesPage() {
                   >
                     <span aria-hidden="true">&lt;</span>
                   </button>
-                  <span className="px-2 text-xs font-semibold text-slate-800">
+                  <span className="px-2 text-xs font-semibold text-slate-800 break-words">
                     {page} / {totalPages}
                   </span>
                   <button
@@ -1346,7 +1352,7 @@ function DeleteCategoryModal({
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">
+            <h2 className="text-lg font-semibold text-slate-800 break-words">
               Xóa danh mục
             </h2>
             <p className="text-sm text-slate-500">
@@ -1365,7 +1371,7 @@ function DeleteCategoryModal({
         <div className="mt-4 space-y-3 text-sm text-slate-600">
           <p>
             Bạn có chắc muốn xóa danh mục{" "}
-            <span className="font-semibold text-slate-800">
+            <span className="font-semibold text-slate-800 break-words">
               {category.name}
             </span>
             ?
@@ -1422,7 +1428,7 @@ function CategoryFormModal({
       <div className="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-slate-800">
+            <h2 className="text-xl font-semibold text-slate-800 break-words">
               {isEdit ? "Chinh sua danh muc" : "Them danh muc"}
             </h2>
             <p className="text-sm text-slate-500">
@@ -1587,7 +1593,7 @@ function ImportCategoriesModal({
       <div className="flex w-full max-w-4xl max-h-[90vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         <div className="flex items-start justify-between px-6 py-5 border-b">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">
+            <h2 className="text-lg font-semibold text-slate-800 break-words">
               Nhap danh muc tu Excel
             </h2>
             <p className="text-sm text-slate-500">
@@ -1780,7 +1786,7 @@ function ImportCategoriesModal({
                             />
                           </td>
                           <td className="px-3 py-2 align-top text-xs text-slate-500">
-                            #{index}
+                            #{index - 1}
                           </td>
                           <td className="px-3 py-2 align-top">
                             <p className="text-sm font-medium text-slate-700">
@@ -1937,7 +1943,7 @@ function ViewCategoryModal({ category, onClose }) {
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">
+            <h2 className="text-lg font-semibold text-slate-800 break-words">
               Thong tin danh muc
             </h2>
             <p className="text-sm text-slate-500">
