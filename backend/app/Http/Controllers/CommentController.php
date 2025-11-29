@@ -2,13 +2,36 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Comment;
 use Illuminate\Http\Request;
+use App\Models\Comment;
+use PDF;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CommentsExport;
 use Illuminate\Support\Facades\Validator;
 use Purifier;
 
 class CommentController extends Controller
 {
+    public function export(Request $request)
+    {
+        $format = $request->query('format', 'excel'); // excel | pdf
+        $comments = Comment::with(['post', 'user'])
+            ->orderByDesc('comment_id')
+            ->get();
+
+        if ($format === 'pdf') {
+            $pdf = PDF::loadView('comments_pdf', compact('comments'))
+                      ->setPaper('a4', 'portrait');
+
+            return $pdf->download('comments.pdf');
+        }
+
+        if ($format === 'excel') {
+            return Excel::download(new CommentsExport, 'comments.xlsx');
+        }
+
+        return response()->json(['error' => 'Invalid format'], 400);
+    }
     protected function jsonError($message, $status = 400)
     {
         return response()->json(['success' => false, 'message' => $message], $status);
@@ -16,7 +39,7 @@ class CommentController extends Controller
 
     public function __construct()
     {
-        $this->middleware('auth:sanctum')->except(['index', 'show', 'getCommentsByPost']);
+        $this->middleware('auth:sanctum')->except(['index', 'show', 'getCommentsByPost','export']);
     }
 
     // ============================================================
@@ -232,4 +255,5 @@ class CommentController extends Controller
             'created_at' => $comment->created_at,
         ]);
     }
+    
 }
