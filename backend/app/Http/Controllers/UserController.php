@@ -159,7 +159,7 @@ class UserController extends Controller
 
     public function monthlyUserStatistics()
     {
-        $monthlyStats = User::selectRaw('YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as newUsers')
+        $monthlyStats = User::selectRaw("strftime('%Y', created_at) as year, strftime('%m', created_at) as month, COUNT(*) as newUsers")
             ->where('created_at', '>=', now()->subMonths(12))
             ->groupBy('year', 'month')
             ->orderBy('year', 'asc')
