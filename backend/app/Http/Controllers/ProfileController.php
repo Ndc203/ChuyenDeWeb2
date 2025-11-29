@@ -31,6 +31,7 @@ class ProfileController extends Controller
             'date_of_birth' => 'nullable|date',
             'gender' => ['nullable', Rule::in(['male', 'female', 'other'])],
             'avatar' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'about_me' => 'nullable|string|max:1000', // Thêm Giới thiệu
         ]);
 
         // 2. Cập nhật bảng Users
@@ -62,6 +63,7 @@ class ProfileController extends Controller
                 'date_of_birth' => $validated['date_of_birth'],
                 'gender' => $validated['gender'],
                 'avatar' => $avatarPath,
+                'about_me' => $validated['about_me'], // Thêm Giới thiệu
             ]
         );
 
