@@ -123,9 +123,18 @@ export default function AdminProductsPage() {
       alert("Xóa sản phẩm thành công!");
     } catch (error) {
       console.error("Error deleting product:", error);
-      const message =
-        error.response?.data?.message || "Không thể xóa sản phẩm.";
-      alert(message);
+      const status = error.response?.status;
+      if (status === 403 || status === 419) {
+        alert('Bạn không có quyền thực hiện hành động này hoặc phiên đã hết hạn.');
+      } else if (status === 409) {
+        alert(error.response?.data?.message || 'Không thể xóa vì có ràng buộc dữ liệu.');
+      } else if (status === 404) {
+        alert('Sản phẩm không tồn tại hoặc đã bị xóa.');
+        loadProducts();
+      } else {
+        const message = error.response?.data?.message || "Không thể xóa sản phẩm.";
+        alert(message);
+      }
     } finally {
       setDeleting(false);
     }
@@ -271,12 +280,14 @@ export default function AdminProductsPage() {
                                 alt={product.name}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
-                                  e.target.style.display = "none";
-                                  e.target.parentElement.innerHTML = "IMG";
+                                  // If image fails to load, replace with placeholder icon/text
+                                  e.target.style.display = 'none';
+                                  const parent = e.target.parentElement;
+                                  parent.innerHTML = '<span class="text-xs text-slate-400">IMG</span>';
                                 }}
                               />
                             ) : (
-                              "IMG"
+                              <span className="text-xs text-slate-400">IMG</span>
                             )}
                           </div>
                           <div>

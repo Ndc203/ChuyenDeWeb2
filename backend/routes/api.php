@@ -68,7 +68,7 @@ Route::get('/brands/slugify', [BrandController::class, 'slugify']);
 
 // Products (Xem sản phẩm)
 Route::get('/products', [ProductController::class, 'index']);
-Route::get('/products/{id}', [ProductController::class, 'show']);
+Route::get('/products/{id}', [ProductController::class, 'show'])->where('id', '[a-zA-Z0-9\-_]+');
 Route::get('/products/slugify', [ProductController::class, 'slugify']);
 Route::get('/reviews', [ProductReviewController::class, 'index']);
 
@@ -153,10 +153,10 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Products Management
     Route::post('/products', [ProductController::class, 'store']);
-    Route::put('/products/{id}', [ProductController::class, 'update']);
-    Route::delete('/products/{id}', [ProductController::class, 'destroy']);
-    Route::patch('/products/{id}/toggle', [ProductController::class, 'toggleStatus']);
-    Route::patch('/products/{id}/restore', [ProductController::class, 'restore']);
+    Route::put('/products/{id}', [ProductController::class, 'update'])->where('id', '[a-zA-Z0-9\-_]+');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->where('id', '[a-zA-Z0-9\-_]+');
+    Route::patch('/products/{id}/toggle', [ProductController::class, 'toggleStatus'])->where('id', '[a-zA-Z0-9\-_]+');
+    Route::patch('/products/{id}/restore', [ProductController::class, 'restore'])->where('id', '[a-zA-Z0-9\-_]+');
     Route::get('/products/trashed', [ProductController::class, 'trashed']);
 
     // Categories Management
@@ -218,7 +218,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/postcategories/{id}', [PostCategoryController::class, 'destroy']);
 
     // Product History (Admin)
-    Route::get('/products/{productId}/history', [ProductHistoryController::class, 'index']);
+    Route::get('/products/{productId}/history', [ProductHistoryController::class, 'index'])->where('productId', '[a-zA-Z0-9\-_]+');
     Route::get('/product-history', [ProductHistoryController::class, 'all']);
     Route::get('/product-history/statistics', [ProductHistoryController::class, 'statistics']);
     Route::get('/product-history/compare/{id1}/{id2}', [ProductHistoryController::class, 'compare']);
@@ -248,8 +248,8 @@ Route::prefix('api-tokens')->controller(ApiTokenController::class)->middleware('
 // External API v1 (Protected by Custom Token Middleware)
 Route::prefix('v1')->middleware('api.token')->group(function () {
     Route::get('/products', [ProductController::class, 'index'])->middleware('api.token:products.read');
-    Route::get('/products/{id}', [ProductController::class, 'show'])->middleware('api.token:products.read');
+    Route::get('/products/{id}', [ProductController::class, 'show'])->middleware('api.token:products.read')->where('id', '[a-zA-Z0-9\-_]+');
     Route::post('/products', [ProductController::class, 'store'])->middleware('api.token:products.create');
-    Route::put('/products/{id}', [ProductController::class, 'update'])->middleware('api.token:products.update');
-    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware('api.token:products.delete');
+    Route::put('/products/{id}', [ProductController::class, 'update'])->middleware('api.token:products.update')->where('id', '[a-zA-Z0-9\-_]+');
+    Route::delete('/products/{id}', [ProductController::class, 'destroy'])->middleware('api.token:products.delete')->where('id', '[a-zA-Z0-9\-_]+');
 });

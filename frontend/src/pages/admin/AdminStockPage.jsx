@@ -47,17 +47,20 @@ export default function AdminStockPage() {
 
   // Filter stocks
   const filteredStocks = stocks.filter((stock) => {
-    const query = searchQuery.toLowerCase();
+    const query = (searchQuery || '').toLowerCase();
+    const name = (stock?.name || '').toLowerCase();
+    const brand = (stock?.brand || '').toLowerCase();
+    const category = (stock?.category || '').toLowerCase();
     return (
-      stock.name.toLowerCase().includes(query) ||
-      (stock.brand && stock.brand.toLowerCase().includes(query)) ||
-      (stock.category && stock.category.toLowerCase().includes(query))
+      name.includes(query) ||
+      brand.includes(query) ||
+      category.includes(query)
     );
   });
 
   // Filter history
   const filteredHistory = history.filter((item) =>
-    item.product_name.toLowerCase().includes(searchQuery.toLowerCase())
+    (item?.product_name || '').toLowerCase().includes((searchQuery || '').toLowerCase())
   );
 
   const getStatusBadge = (status, color) => {
