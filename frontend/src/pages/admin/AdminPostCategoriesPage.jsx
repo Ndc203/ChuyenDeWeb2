@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from "react"
 import { Plus, Download, Search, Edit, Trash2, X } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient";
+import Swal from "sweetalert2";     // ✅ THÊM DÒNG NÀY
 
 /* ============================================================
    PAGE CHÍNH
@@ -49,6 +50,7 @@ export default function AdminPostCategoriesPage() {
     setFormError("");
     setOpenCreate(true);
   }
+
   function handleCloseCreate() {
     setOpenCreate(false);
     setFormError("");
@@ -67,6 +69,8 @@ export default function AdminPostCategoriesPage() {
       await axiosClient.post("/postcategories", form);
       await loadCategories();
       handleCloseCreate();
+
+      Swal.fire("Thành công", "Đã tạo danh mục mới!", "success"); // ✅
     } catch (err) {
       const message =
         err.response?.data?.message || "Không thể tạo danh mục mới.";
@@ -78,18 +82,31 @@ export default function AdminPostCategoriesPage() {
 
   /* === 3. Xoá === */
   async function handleDelete(post_category_id) {
-    if (!confirm("Bạn có chắc muốn xoá danh mục này?")) return;
+    // ❌ confirm → SweetAlert2
+    const result = await Swal.fire({
+      title: "Xác nhận xoá?",
+      text: "Bạn có chắc muốn xoá danh mục này?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Xoá",
+      cancelButtonText: "Huỷ",
+    });
+
+    if (!result.isConfirmed) return;
 
     try {
       await axiosClient.delete(`/postcategories/${post_category_id}`);
+
       setRows((prev) =>
         prev.filter((it) => it.post_category_id !== post_category_id)
       );
-      alert("Đã xoá danh mục thành công!");
+
+      Swal.fire("Đã xoá", "Danh mục đã được xoá thành công!", "success"); // ✅
     } catch (err) {
       const message =
         err.response?.data?.message || "Không thể xóa danh mục.";
-      alert(message);
+
+      Swal.fire("Lỗi", message, "error"); // ✅
     }
   }
 
@@ -102,7 +119,7 @@ export default function AdminPostCategoriesPage() {
       setEditCategory(res.data);
       setOpenEdit(true);
     } catch (err) {
-      alert("Không thể tải thông tin danh mục.");
+      Swal.fire("Lỗi", "Không thể tải thông tin danh mục.", "error"); // ✅
     }
   }
 
@@ -115,7 +132,7 @@ export default function AdminPostCategoriesPage() {
   async function handleSubmitEdit(e) {
     e.preventDefault();
     if (!editCategory?.name.trim()) {
-      alert("Vui lòng nhập tên danh mục.");
+      Swal.fire("Lỗi", "Vui lòng nhập tên danh mục.", "error"); // ✅
       return;
     }
 
@@ -128,13 +145,15 @@ export default function AdminPostCategoriesPage() {
         }
       );
 
-      alert("Đã cập nhật danh mục thành công!");
+      Swal.fire("Thành công", "Đã cập nhật danh mục!", "success"); // ✅
+
       handleCloseEdit();
       loadCategories();
     } catch (err) {
       const message =
         err.response?.data?.message || "Không thể cập nhật danh mục.";
-      alert(message);
+
+      Swal.fire("Lỗi", message, "error"); // ✅
     }
   }
 
@@ -167,9 +186,11 @@ export default function AdminPostCategoriesPage() {
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
+
+      Swal.fire("Thành công", "Xuất file thành công!", "success"); // ✅
     } catch (error) {
       console.error("Export error:", error);
-      alert("Xuất file thất bại.");
+      Swal.fire("Lỗi", "Xuất file thất bại.", "error"); // ✅
     }
   };
 

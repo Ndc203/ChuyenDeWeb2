@@ -8,6 +8,7 @@ import React, {
 import { Download, Search, Trash2, Eye } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient"; // Import axiosClient
+import Swal from "sweetalert2";
 
 export default function AdminCommentPage() {
   const [query, setQuery] = useState("");
@@ -42,20 +43,18 @@ export default function AdminCommentPage() {
   }, [loadComments]);
 
   // === 2. Xem chi tiết (Dùng axiosClient) ===
-async function handleViewDetail(id) {
-  try {
-    const res = await axiosClient.get(`/comments/${id}`);
+  async function handleViewDetail(id) {
+    try {
+      const res = await axiosClient.get(`/comments/${id}`);
 
-    // 🔥 Chuẩn cấu trúc
-    setDetailComment(res.data.data || res.data);
+      setDetailComment(res.data.data || res.data);
+      setOpenDetail(true);
+    } catch (err) {
+      const message = err.response?.data?.message || "Lỗi kết nối máy chủ";
 
-    setOpenDetail(true);
-  } catch (err) {
-    const message = err.response?.data?.message || "Lỗi kết nối máy chủ";
-    alert(message);
+      Swal.fire("Lỗi", message, "error");
+    }
   }
-}
-
 
   function handleCloseDetail() {
     setOpenDetail(false);
@@ -63,21 +62,30 @@ async function handleViewDetail(id) {
   }
 
   // === 3. Xoá bình luận (Dùng axiosClient) ===
-async function handleDelete(id) {
-  if (!confirm("Bạn có chắc chắn muốn xoá bình luận này?")) return;
+  async function handleDelete(id) {
+    const result = await Swal.fire({
+      title: "Bạn có chắc chắn muốn xoá?",
+      text: "Hành động này không thể hoàn tác.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Xoá",
+      cancelButtonText: "Hủy",
+    });
 
-  try {
-    await axiosClient.delete(`/comments/${id}`);
+    if (!result.isConfirmed) return;
 
-    // 🔥 Cập nhật UI đúng id
-    setRows(prev => prev.filter(it => it.id !== id));
+    try {
+      await axiosClient.delete(`/comments/${id}`);
 
-    alert("✅ Đã xoá bình luận thành công!");
-  } catch (err) {
-    const message = err.response?.data?.message || "Không thể xóa bình luận.";
-    alert(message);
+      // Cập nhật UI
+      setRows((prev) => prev.filter((it) => it.id !== id));
+
+      Swal.fire("Thành công", "Đã xoá bình luận!", "success");
+    } catch (err) {
+      const message = err.response?.data?.message || "Không thể xóa bình luận.";
+      Swal.fire("Lỗi", message, "error");
+    }
   }
-}
 
   // === 4. Xuất file (Dùng Blob để bảo mật Token) ===
   const [openExport, setOpenExport] = useState(false);
@@ -113,7 +121,7 @@ async function handleDelete(id) {
       link.parentNode.removeChild(link);
     } catch (error) {
       console.error("Export error:", error);
-      alert("Xuất file thất bại. Vui lòng thử lại.");
+      Swal.fire("Lỗi", "Xuất file thất bại. Vui lòng thử lại.", "error");
     }
   };
 

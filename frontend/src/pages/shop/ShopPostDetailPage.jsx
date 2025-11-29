@@ -3,17 +3,20 @@ import { useParams } from "react-router-dom";
 import ReactQuill from "react-quill-new";
 import ShopHeader from "../../components/shop/ShopHeader";
 import "react-quill-new/dist/quill.snow.css";
+import Swal from "sweetalert2";
 
 // --- Helper ---
 function decodeHtml(html) {
-  let txt = document.createElement("textarea");
+  const txt = document.createElement("textarea");
   txt.innerHTML = html;
   let decoded = txt.value;
 
-  // Lặp lại để xử lý double-encoded HTML
-  if (decoded.includes("&lt;")) {
-    txt.innerHTML = decoded;
-    decoded = txt.value;
+  // Giải mã nhiều lớp (2-3 lần)
+  for (let i = 0; i < 3; i++) {
+    if (decoded.includes("&lt;") || decoded.includes("&gt;")) {
+      txt.innerHTML = decoded;
+      decoded = txt.value;
+    }
   }
 
   return decoded;
@@ -146,12 +149,21 @@ export default function ShopPostDetailPage() {
   // --- Submit comment ---
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
-    if (!authToken) return alert("Bạn cần đăng nhập để bình luận.");
+    if (!authToken)
+      return Swal.fire(
+        "Thông báo",
+        "Bạn cần đăng nhập để bình luận.",
+        "warning"
+      );
     if (submitting) return;
 
     const content = normalizeFullWidthNumbers(commentContent);
     if (isHtmlEmpty(content))
-      return alert("Nội dung bình luận không được để trống.");
+      return Swal.fire(
+        "Lỗi",
+        "Nội dung bình luận không được để trống.",
+        "error"
+      );
 
     setSubmitting(true);
     try {
@@ -186,10 +198,14 @@ export default function ShopPostDetailPage() {
         return;
       }
       if (err.status === 422) {
-        alert("Nội dung bình luận không hợp lệ hoặc bài viết đã bị xoá.");
+        Swal.fire(
+          "Lỗi",
+          "Nội dung bình luận không hợp lệ hoặc bài viết đã bị xoá.",
+          "error"
+        );
         return;
       }
-      alert(err.message || "Lỗi khi gửi bình luận.");
+      Swal.fire("Lỗi", err.message || "Lỗi khi gửi bình luận.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -197,12 +213,13 @@ export default function ShopPostDetailPage() {
 
   // --- Reply ---
   const handleReplySubmit = async (parentId) => {
-    if (!authToken) return alert("Bạn cần đăng nhập để trả lời.");
+    if (!authToken)
+      return Swal.fire("Thông báo", "Bạn cần đăng nhập để trả lời.", "warning");
     if (replyingTo === parentId) return;
 
     const content = normalizeFullWidthNumbers(replyContent);
     if (isHtmlEmpty(content))
-      return alert("Nội dung trả lời không được để trống.");
+      return Swal.fire("Lỗi", "Nội dung trả lời không được để trống.", "error");
 
     setReplyingTo(parentId);
     try {
@@ -238,7 +255,7 @@ export default function ShopPostDetailPage() {
         markPostAsDeleted();
         return;
       }
-      alert(err.message || "Lỗi khi gửi trả lời.");
+      Swal.fire("Lỗi", err.message || "Lỗi khi gửi trả lời.", "error");
     } finally {
       setReplyingTo(null);
     }
@@ -254,7 +271,7 @@ export default function ShopPostDetailPage() {
     if (updatingId === commentId) return;
 
     if (isHtmlEmpty(editingContent))
-      return alert("Nội dung không được để trống.");
+      return Swal.fire("Lỗi", "Nội dung không được để trống.", "error");
 
     setUpdatingId(commentId);
 
@@ -262,7 +279,7 @@ export default function ShopPostDetailPage() {
       const original = comments.find((c) => c.id === commentId);
 
       if (!original) {
-        alert("Không tìm thấy comment cần sửa.");
+        Swal.fire("Lỗi", "Không tìm thấy comment cần sửa.", "error");
         return;
       }
 
@@ -300,7 +317,7 @@ export default function ShopPostDetailPage() {
         markPostAsDeleted();
         return;
       }
-      alert(err.message || "Lỗi khi cập nhật bình luận.");
+      Swal.fire("Lỗi", err.message || "Lỗi khi cập nhật bình luận.", "error");
     } finally {
       setUpdatingId(null);
     }
@@ -308,7 +325,15 @@ export default function ShopPostDetailPage() {
 
   // --- Delete ---
   const handleDeleteComment = async (commentId) => {
-    if (!window.confirm("Bạn chắc chắn muốn xóa?")) return;
+    const result = await Swal.fire({
+      title: "Bạn chắc chắn muốn xóa?",
+      text: "Hành động này không thể hoàn tác.",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Xóa",
+      cancelButtonText: "Hủy",
+    });
+    if (!result.isConfirmed) return;
     if (deletingId === commentId) return;
 
     setDeletingId(commentId);
@@ -327,7 +352,7 @@ export default function ShopPostDetailPage() {
         markPostAsDeleted();
         return;
       }
-      alert(err.message || "Lỗi khi xóa bình luận.");
+      Swal.fire("Lỗi", err.message || "Lỗi khi xóa bình luận.", "error");
     } finally {
       setDeletingId(null);
     }
@@ -386,7 +411,7 @@ export default function ShopPostDetailPage() {
               <div
                 className="prose mt-2"
                 dangerouslySetInnerHTML={{
-                  __html: decodeHtml(c.content || ""),
+                  __html: decodeHtml(post.content || ""),
                 }}
               />
             )}
@@ -484,7 +509,9 @@ export default function ShopPostDetailPage() {
 
         <div
           className="prose max-w-full mt-4"
-          dangerouslySetInnerHTML={{ __html: post.content || "" }}
+          dangerouslySetInnerHTML={{
+            __html: decodeHtml(post.content || ""),
+          }}
         />
 
         {/* Comment form */}
