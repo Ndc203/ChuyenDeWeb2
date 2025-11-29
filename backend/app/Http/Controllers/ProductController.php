@@ -17,11 +17,78 @@ class ProductController extends Controller
     {
         // Thử decode hashed ID trước
         $realId = Product::decodeHashedId($id);
-        
-        // Nếu decode thành công, dùng real ID, nếu không dùng ID gốc
-        $productId = $realId ?? $id;
-        
-        return Product::findOrFail($productId);
+
+        // Nếu decode thành công, lấy theo ID
+        if ($realId) {
+            return Product::findOrFail($realId);
+        }
+
+        // Nếu $id là số nguyên (string số) thì tìm theo khoá chính
+        if (is_numeric($id) && ctype_digit((string) $id)) {
+            return Product::findOrFail((int) $id);
+        }
+
+        // Nếu không phải numeric, thử tìm theo slug
+        $bySlug = Product::where('slug', $id)->first();
+        if ($bySlug) {
+            return $bySlug;
+        }
+
+        // Không tìm thấy: trả 404 với message rõ ràng
+        abort(response()->json(['message' => 'Không tìm thấy trang'], 404));
+    }
+
+    /**
+     * Normalize full-width digits and unicode spaces to ASCII and trim strings
+     */
+    private function normalizeRequestInput(Request $request)
+    {
+        $data = $request->all();
+
+        // Fields expected to be numeric that may contain full-width digits
+        $numericFields = ['price', 'discount', 'stock', 'category_id', 'brand_id'];
+        foreach ($numericFields as $f) {
+            if (isset($data[$f]) && is_string($data[$f])) {
+                // Convert full-width digits to ASCII
+                $data[$f] = $this->toAsciiDigits($data[$f]);
+                // Remove surrounding unicode spaces
+                $data[$f] = $this->normalizeWhitespace($data[$f]);
+            }
+        }
+
+        // Fields expected to be textual — normalize whitespace and trim
+        $textFields = ['name', 'description', 'tags', 'status'];
+        foreach ($textFields as $f) {
+            if (isset($data[$f]) && is_string($data[$f])) {
+                $data[$f] = $this->normalizeWhitespace($data[$f]);
+                $data[$f] = trim($data[$f]);
+            }
+        }
+
+        $request->merge($data);
+    }
+
+    private function toAsciiDigits(string $s): string
+    {
+        $full = ['０','１','２','３','４','５','６','７','８','９'];
+        $ascii = ['0','1','2','3','4','5','6','7','8','9'];
+        return str_replace($full, $ascii, $s);
+    }
+
+    private function normalizeWhitespace(string $s): string
+    {
+        // Replace full-width space U+3000 with normal space and collapse multiple spaces
+        $s = str_replace("\xE3\x80\x80", ' ', $s); // utf-8 of U+3000
+        // Also normalize other unicode whitespace characters to ASCII space
+        $s = preg_replace('/[\x{00A0}\x{2000}-\x{200B}\x{202F}\x{205F}\x{3000}]+/u', ' ', $s);
+        // Collapse multiple spaces
+        $s = preg_replace('/\s+/u', ' ', $s);
+        return $s;
+    }
+
+    private function containsHtml(string $s): bool
+    {
+        return $s !== strip_tags($s);
     }
 
     /**
@@ -29,6 +96,13 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
+        // Validate page param if provided
+        if ($request->has('page')) {
+            $page = $request->page;
+            if (!ctype_digit((string) $page) || (int) $page <= 0) {
+                return response()->json(['message' => 'Tham số page không hợp lệ.'], 400);
+            }
+        }
         $query = Product::with(['category:category_id,name', 'brand:brand_id,name'])
             ->withCount('reviews')
             ->orderBy('product_id', 'desc');
@@ -95,7 +169,7 @@ class ProductController extends Controller
                 'rating' => round($avgRating, 1),
                 'reviews' => $totalReviews,
                 'badges' => $badges,
-                'image' => $product->image ? url('images/products/' . $product->image) : null,
+                'image' => ($product->image && file_exists(public_path('images/products/' . $product->image))) ? url('images/products/' . $product->image) : null,
                 'created_at' => optional($product->created_at)?->format('Y-m-d H:i'),
                 'updated_at' => optional($product->updated_at)?->format('Y-m-d H:i'),
             ];
@@ -109,9 +183,12 @@ class ProductController extends Controller
      */
     public function store(Request $request)
     {
-        $data = $request->validate([
+        // Normalize inputs: full-width digits, unicode spaces, trim
+        $this->normalizeRequestInput($request);
+
+        $validatedData = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'price' => ['required', 'numeric', 'min:0'],
             'discount' => ['nullable', 'integer', 'min:0', 'max:100'],
             'stock' => ['required', 'integer', 'min:0'],
@@ -122,7 +199,54 @@ class ProductController extends Controller
             'tags' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+        ], [
+            'name.required' => 'Tên sản phẩm là bắt buộc.',
+            'name.string' => 'Tên sản phẩm phải là chuỗi ký tự.',
+            'name.max' => 'Tên sản phẩm không được vượt quá 255 ký tự.',
+            'price.required' => 'Giá sản phẩm là bắt buộc.',
+            'price.numeric' => 'Giá sản phẩm phải là một số.',
+            'price.min' => 'Giá sản phẩm phải lớn hơn hoặc bằng 0.',
+            'discount.integer' => 'Chiết khấu phải là số nguyên.',
+            'discount.min' => 'Chiết khấu phải lớn hơn hoặc bằng 0.',
+            'discount.max' => 'Chiết khấu không được lớn hơn 100.',
+            'stock.required' => 'Số lượng tồn kho là bắt buộc.',
+            'stock.integer' => 'Số lượng tồn kho phải là số nguyên.',
+            'stock.min' => 'Số lượng tồn kho phải lớn hơn hoặc bằng 0.',
+            'category_id.integer' => 'ID danh mục phải là số nguyên.',
+            'category_id.exists' => 'Danh mục được chọn không hợp lệ.',
+            'brand_id.integer' => 'ID thương hiệu phải là số nguyên.',
+            'brand_id.exists' => 'Thương hiệu được chọn không hợp lệ.',
+            'is_flash_sale.boolean' => 'Giá trị "Flash Sale" không hợp lệ.',
+            'is_new.boolean' => 'Giá trị "Sản phẩm mới" không hợp lệ.',
+            'image.image' => 'Tệp tải lên phải là hình ảnh.',
+            'image.mimes' => 'Hình ảnh phải có định dạng: jpeg, jpg, png, gif, webp.',
+            'image.max' => 'Kích thước hình ảnh không được vượt quá 2MB.',
+            'status.in' => 'Trạng thái không hợp lệ.',
         ]);
+        $data = $validatedData;
+
+        // Additional checks: reject HTML in text fields
+        if (isset($data['name']) && $this->containsHtml($data['name'])) {
+            return response()->json(['message' => 'Tên sản phẩm không được chứa thẻ HTML.'], 422);
+        }
+        if (isset($data['description']) && $this->containsHtml($data['description'])) {
+            return response()->json(['message' => 'Mô tả không được chứa thẻ HTML.'], 422);
+        }
+
+        // Reject whitespace-only inputs (after normalization)
+        if (isset($data['name']) && trim($data['name']) === '') {
+            return response()->json(['message' => 'Tên sản phẩm là bắt buộc.'], 422);
+        }
+
+        // Heuristic duplicate-check to avoid double-submit creating multiple records
+        $recentDuplicate = Product::where('name', $data['name'])
+            ->where('brand_id', $data['brand_id'] ?? null)
+            ->where('category_id', $data['category_id'] ?? null)
+            ->where('created_at', '>=', now()->subSeconds(5))
+            ->exists();
+        if ($recentDuplicate) {
+            return response()->json(['message' => 'Bản ghi có vẻ đã được lưu. Vui lòng kiểm tra danh sách để tránh tạo trùng.'], 409);
+        }
 
         // Handle file upload
         if ($request->hasFile('image')) {
@@ -207,7 +331,7 @@ class ProductController extends Controller
             'is_flash_sale' => (bool) $product->is_flash_sale,
             'is_new' => (bool) $product->is_new,
             'tags' => $product->tags,
-            'image' => $product->image,
+            'image' => ($product->image && file_exists(public_path('images/products/' . $product->image))) ? url('images/products/' . $product->image) : null,
             
             'created_at' => $product->created_at ? $product->created_at->format('Y-m-d H:i') : null,
             'updated_at' => $product->updated_at ? $product->updated_at->format('Y-m-d H:i') : null,
@@ -221,9 +345,12 @@ class ProductController extends Controller
     {
         $product = $this->findProduct($id);
 
-        $data = $request->validate([
+        // Normalize inputs first
+        $this->normalizeRequestInput($request);
+
+        $validatedData = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:5000'],
             'price' => ['sometimes', 'required', 'numeric', 'min:0'],
             'discount' => ['nullable', 'integer', 'min:0', 'max:100'],
             'stock' => ['sometimes', 'required', 'integer', 'min:0'],
@@ -234,7 +361,60 @@ class ProductController extends Controller
             'tags' => ['nullable', 'string'],
             'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,gif,webp', 'max:2048'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+        ], [
+            'name.required' => 'Tên sản phẩm là bắt buộc.',
+            'name.string' => 'Tên sản phẩm phải là chuỗi ký tự.',
+            'name.max' => 'Tên sản phẩm không được vượt quá 255 ký tự.',
+            'price.required' => 'Giá sản phẩm là bắt buộc.',
+            'price.numeric' => 'Giá sản phẩm phải là một số.',
+            'price.min' => 'Giá sản phẩm phải lớn hơn hoặc bằng 0.',
+            'discount.integer' => 'Chiết khấu phải là số nguyên.',
+            'discount.min' => 'Chiết khấu phải lớn hơn hoặc bằng 0.',
+            'discount.max' => 'Chiết khấu không được lớn hơn 100.',
+            'stock.required' => 'Số lượng tồn kho là bắt buộc.',
+            'stock.integer' => 'Số lượng tồn kho phải là số nguyên.',
+            'stock.min' => 'Số lượng tồn kho phải lớn hơn hoặc bằng 0.',
+            'category_id.integer' => 'ID danh mục phải là số nguyên.',
+            'category_id.exists' => 'Danh mục được chọn không hợp lệ.',
+            'brand_id.integer' => 'ID thương hiệu phải là số nguyên.',
+            'brand_id.exists' => 'Thương hiệu được chọn không hợp lệ.',
+            'is_flash_sale.boolean' => 'Giá trị "Flash Sale" không hợp lệ.',
+            'is_new.boolean' => 'Giá trị "Sản phẩm mới" không hợp lệ.',
+            'image.image' => 'Tệp tải lên phải là hình ảnh.',
+            'image.mimes' => 'Hình ảnh phải có định dạng: jpeg, jpg, png, gif, webp.',
+            'image.max' => 'Kích thước hình ảnh không được vượt quá 2MB.',
+            'status.in' => 'Trạng thái không hợp lệ.',
         ]);
+        $data = $validatedData;
+
+        // Cast numeric-like strings to proper types
+        foreach (['price','discount','stock','category_id','brand_id'] as $n) {
+            if (isset($data[$n]) && $data[$n] === '') {
+                unset($data[$n]);
+            }
+        }
+
+        // Optimistic lock: if client provides updated_at, ensure it matches current value
+        if ($request->has('updated_at')) {
+            $clientTs = (string) $request->input('updated_at');
+            $serverTs = $product->updated_at ? $product->updated_at->format('Y-m-d H:i') : null;
+            if ($serverTs && $clientTs !== $serverTs) {
+                return response()->json([
+                    'message' => 'Dữ liệu đã được thay đổi. Vui lòng tải lại trang trước khi cập nhật.'
+                ], 409);
+            }
+        }
+
+        // Validate HTML and whitespace-only
+        if (isset($data['name']) && $this->containsHtml($data['name'])) {
+            return response()->json(['message' => 'Tên sản phẩm không được chứa thẻ HTML.'], 422);
+        }
+        if (isset($data['description']) && $this->containsHtml($data['description'])) {
+            return response()->json(['message' => 'Mô tả không được chứa thẻ HTML.'], 422);
+        }
+        if (isset($data['name']) && trim($data['name']) === '') {
+            return response()->json(['message' => 'Tên sản phẩm là bắt buộc.'], 422);
+        }
 
         // Handle file upload
         if ($request->hasFile('image')) {
@@ -244,9 +424,24 @@ class ProductController extends Controller
             }
             
             $image = $request->file('image');
+            // Double-check uploaded file is an image via getimagesize
+            $size = @getimagesize($image->getPathname());
+            if ($size === false) {
+                return response()->json(['message' => 'Tệp tải lên không phải là hình ảnh hợp lệ.'], 422);
+            }
+            $mime = $image->getClientMimeType();
+            if (!str_starts_with($mime, 'image/')) {
+                return response()->json(['message' => 'Tệp tải lên không phải là hình ảnh.'], 422);
+            }
+
             $filename = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
             $image->move(public_path('images/products'), $filename);
             $data['image'] = $filename;
+        }
+
+        // Reject HTML in tags
+        if (isset($data['tags']) && is_string($data['tags']) && $this->containsHtml($data['tags'])) {
+            return response()->json(['message' => 'Tags không được chứa thẻ HTML.'], 422);
         }
 
         // Lưu giá trị cũ trước khi cập nhật
@@ -268,6 +463,12 @@ class ProductController extends Controller
      */
     public function destroy($id)
     {
+        // Ensure dangerous GET deletes are not allowed
+        $request = request();
+        if ($request->isMethod('get')) {
+            return response()->json(['message' => 'Method Not Allowed'], 405);
+        }
+
         $product = $this->findProduct($id);
         
         // Lưu thông tin sản phẩm trước khi xóa
