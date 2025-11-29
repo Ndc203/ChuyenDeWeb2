@@ -140,26 +140,50 @@ class PostController extends Controller
     // 🧩 Xóa bài viết
     public function destroy($id)
     {
-        $post = Post::findOrFail($id);
-        $user = auth()->user();
-
-        if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+        if (!ctype_digit((string)$id)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bạn không có quyền xóa bài viết này!',
-            ], 403);
+                'message' => 'ID không hợp lệ'
+            ], 400);
         }
 
-       if ($post->image && file_exists(public_path('images/posts/' . $post->image))) {
-    unlink(public_path('images/posts/' . $post->image));
-}
+        $post = Post::find($id);
 
+        if (!$post) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bài viết không tồn tại hoặc đã bị xóa'
+            ], 404);
+        }
+
+        $user = auth()->user();
+        if ($user && property_exists($user, 'role')) {
+            if ($user->role !== 'admin' && $post->user_id !== $user->user_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền xóa bài viết này!'
+                ], 403);
+            }
+        } else {
+            if ($post->user_id !== ($user ? $user->user_id : null)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bạn không có quyền xóa bài viết này!'
+                ], 403);
+            }
+        }
+
+        // xóa ảnh trên đĩa nếu tồn tại
+        $imagePath = public_path('images/posts/'.$post->image);
+        if ($post->image && file_exists($imagePath)) {
+            try { unlink($imagePath); } catch (\Throwable $e) { /* ignore unlink errors */ }
+        }
 
         $post->delete();
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã xóa bài viết thành công',
+            'message' => 'Xóa bài viết thành công'
         ]);
     }
 
