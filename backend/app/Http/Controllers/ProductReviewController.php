@@ -16,12 +16,27 @@ class ProductReviewController extends Controller
         $query = ProductReview::with(['product', 'user'])
             ->orderBy('created_at', 'desc');
 
-        // Tìm kiếm
+        // Lọc theo product_id (dùng cho shop khi hiển thị review của 1 sản phẩm)
+        if ($request->has('product_id') && $request->product_id) {
+            $query->where('product_id', $request->product_id);
+        }
+
+        // Kiểm tra xem có phải request từ shop/public không
+        // Nếu không phải admin, chỉ hiển thị review đã approved
+        $user = auth('sanctum')->user();
+        $isAdmin = $user && $user->role === 'admin';
+        
+        if (!$isAdmin && !$request->has('admin')) {
+            // Người dùng thường hoặc guest: chỉ xem approved reviews
+            $query->where('status', 'approved');
+        }
+
+        // Tìm kiếm (chỉ dành cho admin)
         if ($request->has('search') && $request->search) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->whereHas('product', function($pq) use ($search) {
-                    $pq->where('product_name', 'like', "%{$search}%");
+                    $pq->where('name', 'like', "%{$search}%");
                 })
                 ->orWhereHas('user', function($uq) use ($search) {
                     $uq->where('name', 'like', "%{$search}%");
@@ -30,7 +45,7 @@ class ProductReviewController extends Controller
             });
         }
 
-        // Lọc theo trạng thái
+        // Lọc theo trạng thái (chỉ dành cho admin)
         if ($request->has('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
@@ -43,6 +58,56 @@ class ProductReviewController extends Controller
         $reviews = $query->paginate($request->get('per_page', 10));
 
         return response()->json($reviews);
+    }
+
+    /**
+     * Tạo đánh giá mới (từ khách hàng)
+     */
+    public function store(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,product_id',
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'required|string|min:10|max:1000',
+        ]);
+
+        // Lấy user_id từ token đăng nhập
+        $userId = auth('sanctum')->id();
+        
+        if (!$userId) {
+            return response()->json([
+                'message' => 'Vui lòng đăng nhập để đánh giá'
+            ], 401);
+        }
+
+        // Kiểm tra xem user đã đánh giá sản phẩm này chưa
+        $existingReview = ProductReview::where('product_id', $request->product_id)
+            ->where('user_id', $userId)
+            ->first();
+
+        if ($existingReview) {
+            return response()->json([
+                'message' => 'Bạn đã đánh giá sản phẩm này rồi'
+            ], 422);
+        }
+
+        // Tạo đánh giá mới
+        $review = ProductReview::create([
+            'product_id' => $request->product_id,
+            'user_id' => $userId,
+            'rating' => $request->rating,
+            'comment' => $request->comment,
+            'status' => 'pending', // Mặc định chờ duyệt
+            'helpful_count' => 0,
+        ]);
+
+        // Load relationships để trả về
+        $review->load(['product', 'user']);
+
+        return response()->json([
+            'message' => 'Đánh giá của bạn đã được gửi và đang chờ duyệt',
+            'review' => $review
+        ], 201);
     }
 
     /**
