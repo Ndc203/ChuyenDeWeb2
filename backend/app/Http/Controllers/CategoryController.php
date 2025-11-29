@@ -15,9 +15,13 @@ use Illuminate\Support\Facades\DB;
 class CategoryController extends Controller
 {
     public function __construct(private CategoryImportService $importService)
-    {
-    }
-
+{
+    $this->middleware('auth:sanctum')->except([
+        'index',
+        'export',
+        'slugify',
+    ]);
+}
     public function index()
     {
         $rows = Category::with('parent:category_id,name')

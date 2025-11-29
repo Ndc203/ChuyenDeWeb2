@@ -14,6 +14,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\BrandController;
 use App\Http\Controllers\PostController;
+use App\Http\Controllers\PostExportController;
 use App\Http\Controllers\PostCategoryController;
 use App\Http\Controllers\CommentController;
 use App\Http\Controllers\OrderController;
@@ -71,8 +72,11 @@ Route::get('/products/{id}', [ProductController::class, 'show']);
 Route::get('/products/slugify', [ProductController::class, 'slugify']);
 Route::get('/reviews', [ProductReviewController::class, 'index']);
 
+// Post categories
+Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
+
 // Posts
-Route::get('/posts/export', [PostController::class, 'export']);
+Route::get('/posts/export', [PostExportController::class, 'export']);
 Route::get('/posts', [PostController::class, 'index']);
 Route::get('/posts/{id}', [PostController::class, 'show']);
 Route::get('/posts/{id}/comments', [CommentController::class, 'getCommentsByPost']);
@@ -81,7 +85,7 @@ Route::get('/post-statistics', [PostController::class, 'statistics']);
 Route::get('/postcategories', [PostCategoryController::class, 'index']);
 Route::get('/postcategories/{id}', [PostCategoryController::class, 'show']);
 // Comment routes
-Route::get('/comments/export', [CommentController::class, 'export']);      // Nếu sau này bạn thêm export
+Route::get('/comments/export', [CommentController::class, 'export']);      
 Route::apiResource('comments', CommentController::class);
 
 // Quick Counts (Thống kê nhanh cho trang chủ)
@@ -208,14 +212,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/reviews/{id}', [ProductReviewController::class, 'destroy']);
     Route::get('/reviews/statistics', [ProductReviewController::class, 'statistics']);
 
-    // Route đặc biệt đặt trước route resource
-    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
-
     // Route CRUD chuẩn
     Route::post('/postcategories', [PostCategoryController::class, 'store']);
     Route::put('/postcategories/{id}', [PostCategoryController::class, 'update']);
     Route::delete('/postcategories/{id}', [PostCategoryController::class, 'destroy']);
-    Route::get('/postcategories/export', [PostCategoryController::class, 'export']);
 
     // Product History (Admin)
     Route::get('/products/{productId}/history', [ProductHistoryController::class, 'index']);

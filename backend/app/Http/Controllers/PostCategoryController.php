@@ -2,12 +2,35 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\PostCategory;
 use Illuminate\Http\Request;
+use App\Models\PostCategory;
+use PDF;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\PostCategoriesExport;
 use Illuminate\Support\Facades\DB;
 
 class PostCategoryController extends Controller
 {
+     public function export(Request $request)
+    {
+        $format = $request->query('format', 'excel'); // excel | pdf
+        $categories = PostCategory::orderByDesc('post_category_id')->get();
+
+        if ($format === 'pdf') {
+            // View Blade phải dùng đúng key: post_category_id
+            $pdf = PDF::loadView('postcategories_pdf', compact('categories'))
+                ->setPaper('a4', 'portrait');
+
+            return $pdf->download('postcategories.pdf');
+        }
+
+        if ($format === 'excel') {
+            return Excel::download(new PostCategoriesExport, 'postcategories.xlsx');
+        }
+
+        return response()->json(['error' => 'Invalid format'], 400);
+    }
+
     /**
      * Danh sách
      */
