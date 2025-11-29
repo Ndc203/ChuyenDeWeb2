@@ -65,20 +65,32 @@ const OrderStatusBadge = ({ status }) => {
 const Pagination = ({ pagination, onPageChange }) => {
     if (!pagination || pagination.total <= pagination.per_page) return null;
     return (
-        <div className="p-4 flex items-center justify-between flex-wrap gap-4">
-            <p className="text-sm text-slate-600">
-                Hiển thị {pagination.from} đến {pagination.to} trong tổng số {pagination.total} đơn hàng
-            </p>
+        <div className="flex flex-col gap-2 border-t bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <span>
+                Hien thi {pagination.from} den {pagination.to} trong tong so {pagination.total} don hang
+            </span>
             <div className="flex items-center gap-2">
-                <button onClick={() => onPageChange(pagination.current_page - 1)} disabled={pagination.current_page === 1} className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronLeft size={20} /></button>
-                <span className="text-sm font-medium">{pagination.current_page} / {pagination.last_page}</span>
-                <button onClick={() => onPageChange(pagination.current_page + 1)} disabled={pagination.current_page === pagination.last_page} className="p-2 rounded-md hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"><ChevronRight size={20} /></button>
+                <button
+                    onClick={() => onPageChange(pagination.current_page - 1)}
+                    disabled={pagination.current_page === 1}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    <ChevronLeft size={18} />
+                </button>
+                <span className="px-2 text-xs font-semibold text-slate-800">
+                    {pagination.current_page} / {pagination.last_page}
+                </span>
+                <button
+                    onClick={() => onPageChange(pagination.current_page + 1)}
+                    disabled={pagination.current_page === pagination.last_page}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                    <ChevronRight size={18} />
+                </button>
             </div>
         </div>
     );
-};
-
-function Th({ children, className = "" }) {
+};function Th({ children, className = "" }) {
     return <th scope="col" className={`px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ${className}`}>{children}</th>;
 }
 
@@ -313,3 +325,6 @@ export default function AdminOrdersPage() {
         </Fragment>
     );
 }
+
+
+

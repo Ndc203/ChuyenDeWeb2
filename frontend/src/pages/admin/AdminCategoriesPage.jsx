@@ -30,9 +30,22 @@ const emptyCategoryForm = () => ({
   parentId: "",
   status: "active",
 });
-const ROOT_PARENT_LABEL = "Danh mục gốc";
-const ALL_PARENT_FILTER = "Tất cả danh mục cha";
-
+const ROOT_PARENT_LABEL = "Danh muc goc";
+const ALL_PARENT_FILTER = "Tat ca danh muc cha";
+const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
+const NAME_MAX_LENGTH = 100;
+const truncateText = (value, max = 15) => {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  return str.length > max ? `${str.slice(0, max)}...` : str;
+};
+const PAGE_SIZE = 10;
+const pageSummary = (page, pageSize, total) => {
+  if (total === 0) return "Khong co muc nao";
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+  return `Hien thi ${start} den ${end} trong ${total} muc`;
+};
 
 export default function AdminCategoriesPage() {
   const [query, setQuery] = useState("");
@@ -73,6 +86,7 @@ export default function AdminCategoriesPage() {
   const rowsSnapshotRef = useRef(null);
   const treeNoticeTimeout = useRef(null);
   const importInputRef = useRef(null);
+  const [page, setPage] = useState(1);
   const slugifyText = useCallback((text = "") => {
     return text
       .toLowerCase()
@@ -81,8 +95,22 @@ export default function AdminCategoriesPage() {
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
   }, []);
-  const slugPreviewCreate = useMemo(() => slugifyText(form.name || ""), [form.name, slugifyText]);
-  const slugPreviewEdit = useMemo(() => slugifyText(editForm.name || ""), [editForm.name, slugifyText]);
+  const normalizeName = useCallback(
+    (text = "") => slugifyText(text || "").replace(/-/g, ""),
+    [slugifyText]
+  );
+  const hasInvalidChars = useCallback(
+    (text = "") => !NAME_PATTERN.test(text),
+    []
+  );
+  const slugPreviewCreate = useMemo(
+    () => slugifyText(form.name || ""),
+    [form.name, slugifyText]
+  );
+  const slugPreviewEdit = useMemo(
+    () => slugifyText(editForm.name || ""),
+    [editForm.name, slugifyText]
+  );
 
   const isDeletedView = viewMode === "deleted";
 
@@ -102,10 +130,11 @@ export default function AdminCategoriesPage() {
   const loadCategories = useCallback(() => {
     setLoading(true);
     const endpoint = isDeletedView ? "/categories/trashed" : "/categories";
-    
-    axiosClient.get(endpoint)
+
+    axiosClient
+      .get(endpoint)
       .then((res) => {
-        const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        const list = Array.isArray(res.data) ? res.data : res.data.data || [];
         setRows(list);
         if (!isDeletedView) {
           setTreeData(buildCategoryTree(list));
@@ -162,6 +191,29 @@ export default function AdminCategoriesPage() {
       Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
       return;
     }
+    if (hasInvalidChars(name)) {
+      const msg =
+        "Ten danh muc chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
+      setFormError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
+    if (name.length > NAME_MAX_LENGTH) {
+      const msg = `Ten danh muc khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
+      setFormError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
+    const normalized = normalizeName(name);
+    const isDuplicate = rows.some(
+      (row) => normalizeName(row.name) === normalized
+    );
+    if (isDuplicate) {
+      const msg = "Ten danh muc da ton tai.";
+      setFormError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
     if (!["active", "inactive"].includes(status)) {
       const msg = "Trang thai khong hop le.";
       setFormError(msg);
@@ -189,8 +241,11 @@ export default function AdminCategoriesPage() {
       });
       handleCloseCreate();
     } catch (error) {
-      const message = error.response?.data?.message ||
-        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Khong the tao danh muc.");
+      const message =
+        error.response?.data?.message ||
+        (error.response?.data?.errors
+          ? Object.values(error.response.data.errors).flat().join(", ")
+          : "Khong the tao danh muc.");
       setFormError(message);
       Swal.fire({
         icon: "error",
@@ -201,7 +256,7 @@ export default function AdminCategoriesPage() {
       setCreateLoading(false);
     }
   };
-// === 3. Edit Category ===
+  // === 3. Edit Category ===
   const updateEditFormValue = (key, value) => {
     setEditForm((prev) => ({ ...prev, [key]: value }));
   };
@@ -243,6 +298,30 @@ export default function AdminCategoriesPage() {
       Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
       return;
     }
+    if (hasInvalidChars(name)) {
+      const msg =
+        "Ten danh muc chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
+      setEditError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
+    if (name.length > NAME_MAX_LENGTH) {
+      const msg = `Ten danh muc khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
+      setEditError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
+    const normalized = normalizeName(name);
+    const isDuplicate = rows.some(
+      (row) =>
+        row.id !== editTarget.id && normalizeName(row.name) === normalized
+    );
+    if (isDuplicate) {
+      const msg = "Ten danh muc da ton tai.";
+      setEditError(msg);
+      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      return;
+    }
     if (!["active", "inactive"].includes(status)) {
       const msg = "Trang thai khong hop le.";
       setEditError(msg);
@@ -255,7 +334,9 @@ export default function AdminCategoriesPage() {
 
     const payload = {
       name,
-      description: editForm.description?.trim() ? editForm.description.trim() : null,
+      description: editForm.description?.trim()
+        ? editForm.description.trim()
+        : null,
       parent_id: editForm.parentId ? Number(editForm.parentId) : null,
       status,
     };
@@ -270,7 +351,8 @@ export default function AdminCategoriesPage() {
       });
       handleCloseEdit();
     } catch (error) {
-      const message = error.response?.data?.message || "Khong the cap nhat danh muc.";
+      const message =
+        error.response?.data?.message || "Khong the cap nhat danh muc.";
       setEditError(message);
       Swal.fire({
         icon: "error",
@@ -316,9 +398,13 @@ export default function AdminCategoriesPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await axiosClient.post("/categories/import/preview", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = await axiosClient.post(
+        "/categories/import/preview",
+        formData,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
 
       const data = response.data;
       setImportPreview(data);
@@ -350,7 +436,9 @@ export default function AdminCategoriesPage() {
     setImportResult(null);
     setImportError("");
     setImportSelected((prev) =>
-      prev.includes(index) ? prev.filter((item) => item !== index) : [...prev, index]
+      prev.includes(index)
+        ? prev.filter((item) => item !== index)
+        : [...prev, index]
     );
   };
 
@@ -392,33 +480,48 @@ export default function AdminCategoriesPage() {
 
     const formData = new FormData();
     formData.append("file", importFile);
-    importSelected.forEach((index) => formData.append("selected[]", String(index)));
+    importSelected.forEach((index) =>
+      formData.append("selected[]", String(index))
+    );
 
     try {
       const response = await axiosClient.post("/categories/import", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setImportResult(response.data);
-      Swal.fire({ icon: "success", title: "Nhap file thanh cong", text: "Danh muc hop le da duoc nhap." });
+      Swal.fire({
+        icon: "success",
+        title: "Nhap file thanh cong",
+        text: "Danh muc hop le da duoc nhap.",
+      });
       await loadCategories();
     } catch (error) {
-      const message = error.response?.data?.message || "Khong the nhap danh muc.";
+      const message =
+        error.response?.data?.message || "Khong the nhap danh muc.";
       setImportError(message);
       Swal.fire({ icon: "error", title: "Nhap file that bai", text: message });
     } finally {
       setImportSubmitting(false);
     }
   };
-// === 5. Toggle Status & Restore ===
+  // === 5. Toggle Status & Restore ===
   async function handleToggleStatus(id) {
-    setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _updating: true } : it)));
+    setRows((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, _updating: true } : it))
+    );
     try {
       const res = await axiosClient.patch(`/categories/${id}/toggle`);
       const data = res.data;
       setRows((prev) =>
         prev.map((it) =>
           it.id === id
-            ? { ...it, status: data?.status || (it.status === "active" ? "inactive" : "active"), _updating: false }
+            ? {
+                ...it,
+                status:
+                  data?.status ||
+                  (it.status === "active" ? "inactive" : "active"),
+                _updating: false,
+              }
             : it
         )
       );
@@ -429,12 +532,16 @@ export default function AdminCategoriesPage() {
         title: "Khong the doi trang thai",
         text: "Vui long thu lai.",
       });
-      setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _updating: false } : it)));
+      setRows((prev) =>
+        prev.map((it) => (it.id === id ? { ...it, _updating: false } : it))
+      );
     }
   }
 
-async function handleRestore(id) {
-    setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _restoring: true } : it)));
+  async function handleRestore(id) {
+    setRows((prev) =>
+      prev.map((it) => (it.id === id ? { ...it, _restoring: true } : it))
+    );
     try {
       await axiosClient.patch(`/categories/${id}/restore`);
       await loadCategories();
@@ -445,10 +552,12 @@ async function handleRestore(id) {
         title: "Khong the khoi phuc danh muc",
         text: "Vui long thu lai.",
       });
-      setRows((prev) => prev.map((it) => (it.id === id ? { ...it, _restoring: false } : it)));
+      setRows((prev) =>
+        prev.map((it) => (it.id === id ? { ...it, _restoring: false } : it))
+      );
     }
   }
-// === 6. Delete Category ===
+  // === 6. Delete Category ===
   const handleAskDelete = (category) => {
     if (!category || deleteLoading) return;
     setDeleteError("");
@@ -476,14 +585,19 @@ async function handleRestore(id) {
       Swal.fire({ icon: "success", title: "Da xoa danh muc" });
       setDeleteTarget(null);
     } catch (error) {
-      const message = error.response?.data?.message || "Khong the xoa danh muc.";
+      const message =
+        error.response?.data?.message || "Khong the xoa danh muc.";
       setDeleteError(message);
-      Swal.fire({ icon: "error", title: "Khong the xoa danh muc", text: message });
+      Swal.fire({
+        icon: "error",
+        title: "Khong the xoa danh muc",
+        text: message,
+      });
     } finally {
       setDeleteLoading(false);
     }
   };
-// === 7. Export File (Blob Download) ===
+  // === 7. Export File (Blob Download) ===
   const [openExport, setOpenExport] = useState(false);
   const exportRef = useRef(null);
   useEffect(() => {
@@ -496,13 +610,19 @@ async function handleRestore(id) {
   const handleExport = async (format) => {
     try {
       setOpenExport(false);
-      const response = await axiosClient.get(`/categories/export?format=${format}`, {
-        responseType: 'blob',
-      });
+      const response = await axiosClient.get(
+        `/categories/export?format=${format}`,
+        {
+          responseType: "blob",
+        }
+      );
       const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', `categories_export.${format === 'excel' ? 'xlsx' : 'pdf'}`);
+      link.setAttribute(
+        "download",
+        `categories_export.${format === "excel" ? "xlsx" : "pdf"}`
+      );
       document.body.appendChild(link);
       link.click();
       link.parentNode.removeChild(link);
@@ -553,19 +673,40 @@ async function handleRestore(id) {
 
   const filtered = useMemo(() => {
     return rows.filter((r) => {
-      const matchQuery = (r.name || "").toLowerCase().includes(query.toLowerCase());
+      const matchQuery = (r.name || "")
+        .toLowerCase()
+        .includes(query.toLowerCase());
       if (isDeletedView) return matchQuery;
       const matchParent =
         parentFilter === "all" ||
-        (parentFilter === ROOT_PARENT_LABEL ? !r.parent : r.parent === parentFilter);
+        (parentFilter === ROOT_PARENT_LABEL
+          ? !r.parent
+          : r.parent === parentFilter);
       const matchStatus = statusFilter === "all" || r.status === statusFilter;
       return matchQuery && matchParent && matchStatus;
     });
   }, [rows, query, parentFilter, statusFilter, isDeletedView]);
 
-  useEffect(() => () => {
+  useEffect(() => {
+    setPage(1);
+  }, [query, parentFilter, statusFilter, isDeletedView]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paginated = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
+
+  useEffect(
+    () => () => {
       if (treeNoticeTimeout.current) clearTimeout(treeNoticeTimeout.current);
-  }, []);
+    },
+    []
+  );
 
   const emitTreeMessage = useCallback((msg) => {
     if (treeNoticeTimeout.current) clearTimeout(treeNoticeTimeout.current);
@@ -597,12 +738,10 @@ async function handleRestore(id) {
     setDragOver({ id: null, type: null });
   }, []);
 
-  const persistMoves = useCallback(
-    async (moves) => {
-      // Dùng axiosClient.put để lưu thứ tự mới
-      await axiosClient.put("/categories/reorder", { moves });
-    }, []
-  );
+  const persistMoves = useCallback(async (moves) => {
+    // Dùng axiosClient.put để lưu thứ tự mới
+    await axiosClient.put("/categories/reorder", { moves });
+  }, []);
 
   const applyMove = useCallback(
     async ({ nodeId, newParentId, position }) => {
@@ -617,7 +756,7 @@ async function handleRestore(id) {
       setRows(updateRowsForMove(rows, nodeId, newParentId));
       setTreeLock(true);
       setDragOver({ id: null, type: null });
-      
+
       try {
         await persistMoves([
           {
@@ -654,7 +793,10 @@ async function handleRestore(id) {
         parentId = parent ? parent.id : null;
         const siblings = parent ? parent.children : treeData;
         const targetIndex = siblings.findIndex((x) => x.id === target.id);
-        position = dropType === "before" ? targetIndex : Math.min(siblings.length, targetIndex + 1);
+        position =
+          dropType === "before"
+            ? targetIndex
+            : Math.min(siblings.length, targetIndex + 1);
       }
 
       if (draggingId === parentId) {
@@ -696,7 +838,8 @@ async function handleRestore(id) {
     const selectedIds = Array.from(bulkSelected);
 
     const invalid = selectedIds.some(
-      (id) => id === targetParentId || isDescendant(treeData, id, targetParentId)
+      (id) =>
+        id === targetParentId || isDescendant(treeData, id, targetParentId)
     );
     if (invalid) {
       emitTreeMessage("Không thể di chuyển vào chính nó hoặc nhánh con.");
@@ -813,7 +956,9 @@ async function handleRestore(id) {
           </div>
 
           <div className="w-full px-10 pb-3 flex flex-wrap items-center gap-3">
-            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Chế độ hiển thị</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Chế độ hiển thị
+            </span>
             <div className="inline-flex rounded-full border bg-white p-1 text-xs shadow-sm">
               <button
                 type="button"
@@ -902,7 +1047,8 @@ async function handleRestore(id) {
                         Cây danh mục nâng cao
                       </h3>
                       <p className="mt-1 text-xs text-slate-500">
-                        Kéo thả để đổi thứ tự/cha-con. Chọn nhiều để di chuyển nhóm.
+                        Kéo thả để đổi thứ tự/cha-con. Chọn nhiều để di chuyển
+                        nhóm.
                       </p>
                     </div>
                     {treeLock && (
@@ -972,7 +1118,9 @@ async function handleRestore(id) {
                     <Th>Slug</Th>
                     <Th>Danh mục cha</Th>
                     <Th className="w-48">Trạng thái</Th>
-                    <Th className="w-40">{isDeletedView ? "Ngày xóa" : "Ngày tạo"}</Th>
+                    <Th className="w-40">
+                      {isDeletedView ? "Ngày xóa" : "Ngày tạo"}
+                    </Th>
                     <Th className="w-40 text-right pr-4">Thao tác</Th>
                   </tr>
                 </thead>
@@ -988,15 +1136,21 @@ async function handleRestore(id) {
                     </tr>
                   )}
                   {!loading &&
-                    filtered.map((r, i) => (
+                    paginated.map((r, i) => (
                       <tr
                         key={r.id}
                         className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                       >
-                        <td className="px-4 py-3 font-medium">{r.name}</td>
-                        <td className="px-4 py-3 text-slate-500">{r.slug}</td>
+                        <td className="px-4 py-3 font-medium" title={r.name}>
+                          {truncateText(r.name)}
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          <span title={r.slug}>{truncateText(r.slug)}</span>
+                        </td>
                         <td className="px-4 py-3">
-                          {r.parent || ROOT_PARENT_LABEL}
+                          <span title={r.parent || ROOT_PARENT_LABEL}>
+                            {truncateText(r.parent || ROOT_PARENT_LABEL)}
+                          </span>
                         </td>
 
                         {/* === Trạng thái === */}
@@ -1022,7 +1176,9 @@ async function handleRestore(id) {
                         </td>
 
                         <td className="px-4 py-3">
-                          {formatDate(isDeletedView ? r.deleted_at : r.created_at)}
+                          {formatDate(
+                            isDeletedView ? r.deleted_at : r.created_at
+                          )}
                         </td>
 
                         {/* === Thao tác === */}
@@ -1054,7 +1210,9 @@ async function handleRestore(id) {
                                       ? "Chuyển sang tạm dừng"
                                       : "Kích hoạt danh mục"
                                   }
-                                  intent={r.status === "active" ? "danger" : "primary"}
+                                  intent={
+                                    r.status === "active" ? "danger" : "primary"
+                                  }
                                   disabled={r._updating}
                                   onClick={() => handleToggleStatus(r.id)}
                                 >
@@ -1094,6 +1252,30 @@ async function handleRestore(id) {
                     ))}
                 </tbody>
               </table>
+              <div className="flex flex-col gap-2 border-t bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+                <span>{pageSummary(page, PAGE_SIZE, filtered.length)}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span aria-hidden="true">&lt;</span>
+                  </button>
+                  <span className="px-2 text-xs font-semibold text-slate-800">
+                    {page} / {totalPages}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <span aria-hidden="true">&gt;</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1150,23 +1332,47 @@ async function handleRestore(id) {
   );
 }
 
-function DeleteCategoryModal({ open, category, onClose, onConfirm, loading, error }) {
+function DeleteCategoryModal({
+  open,
+  category,
+  onClose,
+  onConfirm,
+  loading,
+  error,
+}) {
   if (!open || !category) return null;
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-slate-800">Xóa danh mục</h2>
-            <p className="text-sm text-slate-500">Danh mục sẽ được xóa mềm và ẩn khỏi danh sách hiển thị.</p>
+            <h2 className="text-lg font-semibold text-slate-800">
+              Xóa danh mục
+            </h2>
+            <p className="text-sm text-slate-500">
+              Danh mục sẽ được xóa mềm và ẩn khỏi danh sách hiển thị.
+            </p>
           </div>
-          <button type="button" onClick={onClose} disabled={loading} className="rounded-full p-2 text-slate-500 hover:bg-slate-100">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-full p-2 text-slate-500 hover:bg-slate-100"
+          >
             <X size={18} />
           </button>
         </div>
         <div className="mt-4 space-y-3 text-sm text-slate-600">
-          <p>Bạn có chắc muốn xóa danh mục <span className="font-semibold text-slate-800">{category.name}</span>?</p>
-          <p className="text-xs text-amber-600">Lưu ý: Không thể xóa khi danh mục con đang tồn tại.</p>
+          <p>
+            Bạn có chắc muốn xóa danh mục{" "}
+            <span className="font-semibold text-slate-800">
+              {category.name}
+            </span>
+            ?
+          </p>
+          <p className="text-xs text-amber-600">
+            Lưu ý: Không thể xóa khi danh mục con đang tồn tại.
+          </p>
         </div>
         {error && (
           <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-600">
@@ -1174,8 +1380,20 @@ function DeleteCategoryModal({ open, category, onClose, onConfirm, loading, erro
           </div>
         )}
         <div className="mt-6 flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={loading} className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50">Hủy</button>
-          <button type="button" onClick={onConfirm} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
+          >
+            Hủy
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-rose-700"
+          >
             {loading ? "Đang xóa..." : "Xác nhận xóa"}
           </button>
         </div>
@@ -1223,7 +1441,9 @@ function CategoryFormModal({
 
         <form onSubmit={onSubmit} className="mt-6 space-y-5">
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Ten danh muc</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Ten danh muc
+            </label>
             <input
               value={form.name}
               onChange={(e) => onChange("name", e.target.value)}
@@ -1232,14 +1452,18 @@ function CategoryFormModal({
           </div>
 
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-            <span className="font-medium text-slate-700 mr-2">Slug du kien:</span>
-            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+            <span className="font-medium text-slate-700 mr-2">
+              Slug du kien:
+            </span>
+            <span className="inline-flex items-center rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700 break-all">
               {slugPreview || "(Chua co)"}
             </span>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-slate-700">Mo ta</label>
+            <label className="mb-1 block text-sm font-medium text-slate-700">
+              Mo ta
+            </label>
             <textarea
               value={form.description}
               onChange={(e) => onChange("description", e.target.value)}
@@ -1249,7 +1473,9 @@ function CategoryFormModal({
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Danh muc cha</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Danh muc cha
+              </label>
               <select
                 value={form.parentId}
                 onChange={(e) => onChange("parentId", e.target.value)}
@@ -1263,7 +1489,9 @@ function CategoryFormModal({
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700">Trang thai</label>
+              <label className="mb-1 block text-sm font-medium text-slate-700">
+                Trang thai
+              </label>
               <select
                 value={form.status}
                 onChange={(e) => onChange("status", e.target.value)}
@@ -1299,8 +1527,8 @@ function CategoryFormModal({
                   ? "Dang luu..."
                   : "Dang tao..."
                 : isEdit
-                  ? "Luu danh muc"
-                  : "Tao danh muc"}
+                ? "Luu danh muc"
+                : "Tao danh muc"}
             </button>
           </div>
         </form>
@@ -1332,7 +1560,9 @@ function ImportCategoriesModal({
   const duplicateDbCount = rows.filter(
     (row) => Array.isArray(row?.existing) && row.existing.length > 0
   ).length;
-  const duplicateFileCount = rows.filter((row) => row?.duplicate_in_file).length;
+  const duplicateFileCount = rows.filter(
+    (row) => row?.duplicate_in_file
+  ).length;
   const validCount = rows.filter(
     (row) =>
       row?.is_valid &&
@@ -1507,17 +1737,28 @@ function ImportCategoriesModal({
                           : parent.type === "existing"
                           ? `${parent.label} (ID ${parent.id})`
                           : `${parent.label} (dong ${parent.index})`;
-                      const existing = Array.isArray(row.existing) ? row.existing : [];
+                      const existing = Array.isArray(row.existing)
+                        ? row.existing
+                        : [];
                       const isDuplicateFile = !!row.duplicate_in_file;
-                      const isSelectable = !!row.is_valid && !isDuplicateFile && existing.length === 0;
+                      const isSelectable =
+                        !!row.is_valid &&
+                        !isDuplicateFile &&
+                        existing.length === 0;
                       const checked = isSelectable && selected.includes(index);
                       const disabled = !isSelectable || submitting;
-                      const errorMessages = Array.isArray(row.errors) ? [...row.errors] : [];
+                      const errorMessages = Array.isArray(row.errors)
+                        ? [...row.errors]
+                        : [];
                       if (existing.length) {
-                        errorMessages.push("Ten danh muc da ton tai trong he thong.");
+                        errorMessages.push(
+                          "Ten danh muc da ton tai trong he thong."
+                        );
                       }
                       if (isDuplicateFile) {
-                        errorMessages.push("Ten danh muc bi trung trong file import.");
+                        errorMessages.push(
+                          "Ten danh muc bi trung trong file import."
+                        );
                       }
 
                       return (
@@ -1717,34 +1958,34 @@ function ViewCategoryModal({ category, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Ten danh muc
             </p>
-            <p className="text-base font-semibold text-slate-800">
+            <p className="text-base font-semibold text-slate-800 break-words">
               {name || "(Khong co ten)"}
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Slug
               </p>
-              <p className="font-medium text-slate-700">
+              <p className="font-medium text-slate-700 break-all">
                 {slug || "(Khong co)"}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Trang thai
               </p>
               <StatusBadge status={status} />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Danh muc cha
               </p>
-              <p className="font-medium text-slate-700">
+              <p className="font-medium text-slate-700 break-words">
                 {parent || "Danh muc goc"}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Ngay tao
               </p>
@@ -1777,7 +2018,7 @@ function ViewCategoryModal({ category, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Mo ta
             </p>
-            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600">
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words">
               {description ? description : "Khong co mo ta"}
             </p>
           </div>
@@ -1974,7 +2215,8 @@ function CategoryTreeNode({
   const isOpen = expanded.has(node.id);
   const isDragging = draggingId === node.id;
   const isDragOver =
-    dragOver?.id === node.id && ["before", "after", "inside"].includes(dragOver?.type);
+    dragOver?.id === node.id &&
+    ["before", "after", "inside"].includes(dragOver?.type);
   const selected = bulkSelected.has(node.id);
 
   const handleDrop = (type) => {
@@ -2087,13 +2329,13 @@ function CategoryTreeNode({
 function buildCategoryTree(items) {
   if (!Array.isArray(items)) return [];
   const nodeMap = new Map();
-  
+
   // Tạo map và khởi tạo children
   items.forEach((item) => {
     if (!item || typeof item.id === "undefined") return;
-    nodeMap.set(item.id, { 
-      ...item, 
-      children: [] // Khởi tạo mảng con rỗng
+    nodeMap.set(item.id, {
+      ...item,
+      children: [], // Khởi tạo mảng con rỗng
     });
   });
 
@@ -2170,17 +2412,17 @@ function removeNodeFromTree(nodes, id) {
   nodes.forEach((node) => {
     if (node.id === id) {
       removed = { ...node }; // Tìm thấy node cần xóa
-      return; 
+      return;
     }
-    
+
     // Đệ quy tìm trong con
     const { tree: childTree, removed: childRemoved } = removeNodeFromTree(
       node.children || [],
       id
     );
-    
+
     const newNode = { ...node, children: childTree }; // Tạo node mới với children đã cập nhật
-    
+
     if (childRemoved) {
       removed = childRemoved;
     }
@@ -2195,7 +2437,8 @@ function insertNodeIntoTree(nodes, node, parentId, position = null) {
   // Trường hợp chèn vào gốc (parentId = null)
   if (!parentId) {
     const roots = [...nodes];
-    const insertPos = position !== null ? Math.min(position, roots.length) : roots.length;
+    const insertPos =
+      position !== null ? Math.min(position, roots.length) : roots.length;
     roots.splice(insertPos, 0, node);
     return roots;
   }
@@ -2204,11 +2447,14 @@ function insertNodeIntoTree(nodes, node, parentId, position = null) {
   return nodes.map((n) => {
     if (n.id === parentId) {
       const children = [...(n.children || [])];
-      const insertPos = position !== null ? Math.min(position, children.length) : children.length;
+      const insertPos =
+        position !== null
+          ? Math.min(position, children.length)
+          : children.length;
       children.splice(insertPos, 0, node);
       return { ...n, children };
     }
-    
+
     // Đệ quy tìm parentId ở các cấp sâu hơn
     if (n.children && n.children.length > 0) {
       const updatedChildren = insertNodeIntoTree(
@@ -2229,13 +2475,13 @@ function insertNodeIntoTree(nodes, node, parentId, position = null) {
 function moveNodeInTree(tree, nodeId, newParentId, position) {
   // Bước 1: Xóa node khỏi vị trí cũ
   const { tree: withoutNode, removed } = removeNodeFromTree(tree, nodeId);
-  
+
   if (!removed) return null; // Không tìm thấy node để di chuyển
 
   // Bước 2: Cập nhật parent_id cho node đó
-  const movedNode = { 
-    ...removed, 
-    parent_id: newParentId ?? null 
+  const movedNode = {
+    ...removed,
+    parent_id: newParentId ?? null,
   };
 
   // Bước 3: Chèn vào vị trí mới
@@ -2247,7 +2493,7 @@ function updateRowsForMove(rows, id, parentId) {
   const parentName = parentId
     ? rows.find((r) => r.id === parentId)?.name || null
     : null;
-    
+
   return rows.map((r) =>
     r.id === id
       ? {
@@ -2258,4 +2504,3 @@ function updateRowsForMove(rows, id, parentId) {
       : r
   );
 }
-

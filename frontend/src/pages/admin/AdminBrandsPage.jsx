@@ -41,6 +41,20 @@ const initialSlugState = {
   modified: false,
   loading: false,
 };
+const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
+const NAME_MAX_LENGTH = 100;
+const truncateText = (value, max = 15) => {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  return str.length > max ? `${str.slice(0, max)}...` : str;
+};
+const PAGE_SIZE = 10;
+const pageSummary = (page, pageSize, total) => {
+  if (total === 0) return "Khong co muc nao";
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+  return `Hien thi ${start} den ${end} trong ${total} muc`;
+};
 
 export default function AdminBrandsPage() {
   const [rows, setRows] = useState([]);
@@ -48,6 +62,7 @@ export default function AdminBrandsPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("active");
+  const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [form, setForm] = useState(emptyBrandForm);
@@ -75,6 +90,17 @@ export default function AdminBrandsPage() {
   const importInputRef = useRef(null);
 
   const isDeletedView = viewMode === "deleted";
+
+  const normalizeName = useCallback(
+    (text = "") =>
+      (text || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, ""),
+    []
+  );
+  const hasInvalidChars = useCallback((text = "") => !NAME_PATTERN.test(text), []);
 
   // --- 1. Load Brands ---
   const loadBrands = useCallback(() => {
@@ -292,7 +318,22 @@ export default function AdminBrandsPage() {
 
   useEffect(() => {
     setStatusFilter("all");
+    setPage(1);
   }, [viewMode]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const paginatedRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredRows.slice(start, start + PAGE_SIZE);
+  }, [filteredRows, page]);
 
 
   // --- 5. Slugify Logic ---
@@ -398,7 +439,49 @@ export default function AdminBrandsPage() {
     event.preventDefault();
     const name = form.name.trim();
     if (!name) {
-      setFormError("Vui long nhap ten thuong hieu.");
+      const message = "Vui long nhap ten thuong hieu.";
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
+      return;
+    }
+    if (hasInvalidChars(name)) {
+      const message = "Ten thuong hieu chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
+      return;
+    }
+    if (name.length > NAME_MAX_LENGTH) {
+      const message = `Ten thuong hieu khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
+      return;
+    }
+    const normalized = normalizeName(name);
+    const isDuplicate = rows.some(
+      (row) =>
+        (formMode !== "edit" || !editTarget || row.id !== editTarget.id) &&
+        normalizeName(row.name || "") === normalized
+    );
+    if (isDuplicate) {
+      const message = "Ten thuong hieu da ton tai.";
+      setFormError(message);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: message,
+      });
       return;
     }
 
@@ -673,17 +756,23 @@ export default function AdminBrandsPage() {
                       </td>
                     </tr>
                   ) : (
-                    filteredRows.map((brand, index) => (
+                    paginatedRows.map((brand, index) => (
                       <tr
                         key={brand.id}
                         className={index % 2 ? "bg-white" : "bg-slate-50/50"}
                       >
-                        <td className="px-4 py-3 font-medium">{brand.name}</td>
-                        <td className="px-4 py-3 text-slate-500">
-                          {brand.slug}
+                        <td className="px-4 py-3 font-medium" title={brand.name}>
+                          {truncateText(brand.name)}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          {brand.description?.trim() ? brand.description : "--"}
+                          <span title={brand.slug}>{truncateText(brand.slug)}</span>
+                        </td>
+                        <td className="px-4 py-3 text-slate-500">
+                          <span title={brand.description?.trim() ? brand.description : "--"}>
+                            {brand.description?.trim()
+                              ? truncateText(brand.description)
+                              : "--"}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           {isDeletedView ? (
@@ -801,7 +890,31 @@ export default function AdminBrandsPage() {
                 </tbody>
               </table>
             </div>
-          </section>
+          <div className="flex flex-col gap-2 border-t bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
+            <span>{pageSummary(page, PAGE_SIZE, filteredRows.length)}</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+                className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span aria-hidden="true">&lt;</span>
+              </button>
+              <span className="px-2 text-xs font-semibold text-slate-800">
+                {page} / {totalPages}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page === totalPages}
+                className="flex h-8 w-8 items-center justify-center rounded-full border hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span aria-hidden="true">&gt;</span>
+              </button>
+            </div>
+          </div>
+        </section>
         </main>
       </div>
 
@@ -1309,26 +1422,26 @@ function BrandViewModal({ brand, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Ten thuong hieu
             </p>
-            <p className="text-base font-semibold text-slate-800">
+            <p className="text-base font-semibold text-slate-800 break-words">
               {name || "(Khong co ten)"}
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-4 sm:grid-cols-2 sm:items-start">
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Slug
               </p>
-              <p className="font-medium text-slate-700">
+              <p className="font-medium text-slate-700 break-all">
                 {slug || "(Khong co)"}
               </p>
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Trang thai
               </p>
               <StatusBadge status={status} />
             </div>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase tracking-wide text-slate-400">
                 Ngay tao
               </p>
@@ -1361,7 +1474,7 @@ function BrandViewModal({ brand, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Mo ta
             </p>
-            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600">
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words">
               {description?.trim() ? description : "Khong co mo ta"}
             </p>
           </div>
@@ -1433,7 +1546,7 @@ function BrandFormModal({
                 <span className="font-medium text-slate-700">
                   Slug dự kiến:
                 </span>{" "}
-                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px]">
+                <code className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] break-all">
                   {slugState.slug || "(Chưa xác định)"}
                 </code>
                 {slugState.modified && (
@@ -1505,5 +1618,9 @@ function BrandFormModal({
     </div>
   );
 }
+
+
+
+
 
 
