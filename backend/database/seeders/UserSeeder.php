@@ -2,21 +2,22 @@
 
 namespace Database\Seeders;
 
+use App\Models\User; // <-- THASM: Import model User
+use App\Models\UserProfile; // <-- THASM: Import model UserProfile
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use App\Models\User; // <-- THÊM: Import model User
-use App\Models\UserProfile; // <-- THÊM: Import model UserProfile
+use Illuminate\Support\Facades\Schema;
 
 class UserSeeder extends Seeder
 {
     public function run(): void
     {
-       // 1. Truncate (làm rỗng) cả 2 bảng
-        DB::statement('PRAGMA foreign_keys = OFF;');
-        DB::table('users')->delete();
-        DB::table('userprofile')->delete();
-        DB::statement('PRAGMA foreign_keys = ON;');
+        // 1. Truncate (làm rỗng) cả 2 bảng
+        Schema::disableForeignKeyConstraints();
+        DB::table('userprofile')->truncate();
+        DB::table('users')->truncate();
+        Schema::enableForeignKeyConstraints();
 
         // 2. Admin
         $admin = User::create([
