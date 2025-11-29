@@ -47,6 +47,7 @@ const AdminProfilePage = () => {
           date_of_birth: profile.date_of_birth || raw.date_of_birth,
           gender: profile.gender || raw.gender,
           avatar: profile.avatar || raw.avatar,
+          about_me: profile.about_me || raw.about_me,
         };
         
         setUser(merged);
@@ -120,9 +121,9 @@ const AdminProfilePage = () => {
                         <button onClick={() => setPasswordModalOpen(true)} className="flex items-center gap-2 text-sm bg-white border border-slate-300 rounded-md px-3 py-2 hover:bg-slate-50">
                             <Lock size={16} /> Đổi mật khẩu
                         </button>
-                        <button onClick={() => setEditModalOpen(true)} className="flex items-center gap-2 text-sm bg-indigo-600 text-white rounded-md px-3 py-2 hover:bg-indigo-700">
+                        {/* <button onClick={() => setEditModalOpen(true)} className="flex items-center gap-2 text-sm bg-indigo-600 text-white rounded-md px-3 py-2 hover:bg-indigo-700">
                             <Edit size={16} /> Chỉnh sửa
-                        </button>
+                        </button> */}
                         </>
                     )}
                 </div>
@@ -164,8 +165,8 @@ const AdminProfilePage = () => {
                     <div className="border-b border-slate-200">
                         <nav className="-mb-px flex gap-6 px-6">
                             <TabButton name="overview" activeTab={activeTab} setActiveTab={setActiveTab} icon={<User size={16}/>}>Tổng quan</TabButton>
-                            <TabButton name="activity" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Activity size={16}/>}>Hoạt động</TabButton>
-                            <TabButton name="permissions" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Shield size={16}/>}>Phân quyền</TabButton>
+                            {/* <TabButton name="activity" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Activity size={16}/>}>Hoạt động</TabButton>
+                            <TabButton name="permissions" activeTab={activeTab} setActiveTab={setActiveTab} icon={<Shield size={16}/>}>Phân quyền</TabButton> */}
                         </nav>
                     </div>
                     <div className="p-6">

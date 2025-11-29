@@ -151,6 +151,14 @@ export default function AdminSidebar() {
 
       {/* Controls (theme/lang) inserted before logout */}
       <div className="mt-auto px-4 py-3">
+        <div className="mb-2">
+          <a
+            href="http://localhost:5173/"
+            className="w-full inline-flex items-center justify-center gap-2 rounded-2xl border px-3 py-2 text-sm hover:bg-slate-50"
+          >
+            <Home size={16} /> Xem trang Shop
+          </a>
+        </div>
         <div className="mb-3">
           <SidebarBottomControls />
         </div>
