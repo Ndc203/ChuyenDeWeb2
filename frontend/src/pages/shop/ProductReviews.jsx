@@ -54,17 +54,24 @@ export default function ProductReviews({ productId }) {
                 comment
             });
 
+            // Backend trả về { message, review }
+            const newReview = response.data.review || response.data;
+
             // Thêm review mới vào đầu danh sách ngay lập tức
-            setReviews([response.data, ...reviews]);
+            setReviews([newReview, ...reviews]);
 
             // Reset form
             setComment('');
             setRating(5);
-            alert("Cảm ơn bạn đã đánh giá!");
+            
+            // Hiển thị thông báo từ server hoặc mặc định
+            alert(response.data.message || "Đánh giá của bạn đã được gửi và đang chờ duyệt!");
 
         } catch (err) {
-            setError("Gửi đánh giá thất bại. Vui lòng thử lại.");
+            const errorMsg = err.response?.data?.message || "Gửi đánh giá thất bại. Vui lòng thử lại.";
+            setError(errorMsg);
             console.error(err);
+            alert(errorMsg);
         } finally {
             setLoading(false);
         }
@@ -93,7 +100,7 @@ export default function ProductReviews({ productId }) {
                         <p className="text-gray-500 italic">Chưa có đánh giá nào. Hãy là người đầu tiên!</p>
                     ) : (
                         reviews.map((review) => (
-                            <div key={review.review_id} className="bg-gray-50 p-4 rounded-xl">
+                            <div key={review.product_review_id || review.review_id} className="bg-gray-50 p-4 rounded-xl">
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
                                         {/* Avatar giả lập hoặc thật */}

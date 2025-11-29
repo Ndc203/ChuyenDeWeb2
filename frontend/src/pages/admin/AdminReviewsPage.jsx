@@ -26,6 +26,7 @@ export default function AdminReviewsPage() {
     try {
       const response = await axiosClient.get("/reviews", {
         params: {
+          admin: true, // Thêm param này để backend biết đây là request từ admin
           page: currentPage,
           search: searchTerm,
           status: statusFilter,
@@ -249,7 +250,7 @@ export default function AdminReviewsPage() {
                                 ? review.product.main_image_url 
                                 : `${IMAGE_BASE_URL}${review.product.main_image_url}`
                               }
-                              alt={review.product.product_name}
+                              alt={review.product.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.target.style.display = "none";
@@ -262,7 +263,7 @@ export default function AdminReviewsPage() {
                         </div>
                         <div className="min-w-0">
                           <div className="font-medium text-slate-800 truncate max-w-[150px]">
-                            {review.product?.product_name || "Sản phẩm đã xóa"}
+                            {review.product?.name || "Sản phẩm đã xóa"}
                           </div>
                           <div className="text-xs text-slate-500">
                             {/* Hiển thị ID Review thay vì ID Product nếu muốn debug */}
