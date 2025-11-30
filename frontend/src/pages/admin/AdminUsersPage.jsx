@@ -95,12 +95,21 @@ const AddUserModal = ({ onClose, onSave }) => {
     };
 
     const handleSave = () => {
-        if (!newUser.username || !newUser.email || !newUser.password) {
-            setError('Tên, email, và mật khẩu là bắt buộc.');
+        const username = newUser.username.replace(/\u3000/g, ' ').trim();
+        const email = newUser.email.trim();
+        const password = newUser.password.trim();
+
+        if (!username || !email || !password) {
+            setError('Ten, email, va mat khau la bat buoc.');
             return;
         }
         setError('');
-        onSave(newUser);
+        onSave({
+            ...newUser,
+            username,
+            email,
+            password,
+        });
     };
 
     return (
@@ -134,7 +143,7 @@ const EditUserModal = ({ user, onClose, onSave }) => {
     const [role, setRole] = useState(user.role);
     const [status, setStatus] = useState(user.status);
 
-    const handleSave = () => onSave(user.user_id, { role, status });
+    const handleSave = () => onSave(user.user_id, { role, status, lock_version: user.updated_at });
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center px-4">
@@ -225,21 +234,26 @@ export default function AdminUsersPage() {
   // === 3. Save User (Update) ===
   const handleSaveUser = async (userId, updatedData) => {
     try {
-        // Map dữ liệu hiển thị sang dữ liệu Backend
         const payload = {
-            ...updatedData,
             status: mapLocalStatusToServer(updatedData.status),
             role: mapRoleToServer(updatedData.role),
         };
+
+        if (updatedData.lock_version) {
+            payload.lock_version = updatedData.lock_version;
+        }
         
         await axiosClient.put(`/users/${userId}`, payload);
         
-        // Tải lại danh sách để cập nhật status chuẩn xác
         await fetchUsers();
         alert("Cập nhật người dùng thành công!");
         handleCloseEditModal();
     } catch (err) { 
-        alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message)); 
+        if (err.response?.status === 409) {
+            alert(err.response?.data?.message || "Thong tin da thay doi. Vui long tai lai danh sach truoc khi luu.");
+        } else {
+            alert("Lỗi khi cập nhật người dùng: " + (err.response?.data?.message || err.message));
+        }
     }
   };
 
@@ -247,7 +261,9 @@ export default function AdminUsersPage() {
   const handleAddUser = async (newUserData) => {
     try {
         const payload = {
-          ...newUserData,
+          username: newUserData.username.replace(/\u3000/g, ' ').trim(),
+          email: newUserData.email.trim(),
+          password: newUserData.password.trim(),
           role: mapRoleToServer(newUserData.role),
           status: mapLocalStatusToServer(newUserData.status),
         };

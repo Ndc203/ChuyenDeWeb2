@@ -3,82 +3,112 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\UserProfile; // <-- THÊM Model UserProfile
+use App\Rules\ValidText;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB; // <-- THÊM DB để dùng Transaction
-use Illuminate\Support\Facades\Hash; // <-- THÊM Hash để mã hóa mật khẩu
-use Illuminate\Validation\Rule; // <-- THÊM Rule để validate
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display a listing of the resource with optional filters and pagination.
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Dùng 'with('profile')' để tải kèm dữ liệu từ bảng userprofile
-        $users = User::with('profile')
-                     ->orderBy('created_at', 'desc')
-                     ->get();
-        return response()->json($users);
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:255', new ValidText()],
+            'role' => ['nullable', Rule::in(['admin', 'customer', 'editor'])],
+            'status' => ['nullable', Rule::in(['active', 'banned'])],
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = User::with('profile')->orderBy('created_at', 'desc');
+
+        if (array_key_exists('search', $filters)) {
+            $search = $this->normalizeSearch($filters['search']);
+            if ($search !== '') {
+                $query->where(function ($builder) use ($search) {
+                    $builder->where('username', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhereHas('profile', function ($profile) use ($search) {
+                            $profile->where('full_name', 'like', "%{$search}%");
+                        });
+                });
+            }
+        }
+
+        if (!empty($filters['role'])) {
+            $query->where('role', $filters['role']);
+        }
+
+        if (!empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
+        $shouldPaginate = array_key_exists('page', $filters) || array_key_exists('per_page', $filters);
+        if ($shouldPaginate) {
+            $perPage = $filters['per_page'] ?? 15;
+            return response()->json(
+                $query->paginate($perPage)->withQueryString()
+            );
+        }
+
+        return response()->json($query->get());
     }
 
     /**
-     * Lưu user mới vào cả 2 bảng (users và userprofile)
+     * Persist a new user with profile data.
      */
     public function store(Request $request)
     {
-        // 1. Validate dữ liệu
         $validated = $request->validate([
-            // Bảng 'users'
-            'username' => 'required|string|unique:users,username',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
-            // Accept 'editor' role as well (frontend may send this value)
+            'username' => ['required', 'string', 'min:3', 'max:50', 'regex:/^[A-Za-z0-9._-]+$/', 'unique:users,username', new ValidText()],
+            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
+            'password' => ['required', 'string', 'min:8', 'max:255'],
             'role' => ['required', Rule::in(['admin', 'customer', 'editor'])],
-            // status is stored as 'active' or 'banned'
             'status' => ['required', Rule::in(['active', 'banned'])],
-            
-            // Bảng 'userprofile' - make full_name optional so frontend can create minimal users
-            'full_name' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            // ... thêm các trường profile khác nếu cần
-            
+            'full_name' => ['nullable', 'string', 'max:255', new ValidText()],
+            'phone' => ['nullable', 'string', 'regex:/^[0-9]{9,15}$/'],
+            'address' => ['nullable', 'string', 'max:500', new ValidText()],
         ]);
 
-        // 2. Dùng Transaction để đảm bảo an toàn
-        // Hoặc tạo user, hoặc không tạo gì cả
+        $payload = $this->cleanTextPayload($validated, ['username', 'email', 'full_name', 'address']);
+        if (array_key_exists('phone', $validated)) {
+            $payload['phone'] = $validated['phone'] !== null ? trim($validated['phone']) : null;
+        }
+
         try {
             DB::beginTransaction();
 
-            // 3. Tạo bản ghi trong 'users'
             $user = User::create([
-                'username' => $validated['username'],
-                'email' => $validated['email'],
+                'username' => $payload['username'],
+                'email' => $payload['email'],
                 'password' => Hash::make($validated['password']),
                 'role' => $validated['role'],
                 'status' => $validated['status'],
             ]);
 
-            // 4. Dùng quan hệ 'profile()' để tạo bản ghi trong 'userprofile'
             $user->profile()->create([
-                'full_name' => $validated['full_name'] ?? null,
-                'phone' => $validated['phone'] ?? null,
-                'address' => $validated['address'] ?? null,
-                // ... gán các trường profile khác
+                'full_name' => $payload['full_name'] ?? null,
+                'phone' => $payload['phone'] ?? null,
+                'address' => $payload['address'] ?? null,
             ]);
-            
-            DB::commit(); // Hoàn tất
-            
-            // Tải lại user với profile để trả về
-            $user->load('profile');
 
-            return response()->json($user, 201); // 201 Created
+            DB::commit();
 
-        } catch (\Exception $e) {
-            DB::rollBack(); // Hoàn tác nếu có lỗi
-            return response()->json(['message' => 'Tạo user thất bại', 'error' => $e->getMessage()], 500);
+            return response()->json($user->load('profile'), 201);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Khong the tao nguoi dung moi.',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
         }
     }
 
@@ -87,8 +117,12 @@ class UserController extends Controller
      */
     public function show(string $id)
     {
-        // Dùng 'with('profile')' để lấy cả profile
-        $user = User::with('profile')->findOrFail($id);
+        try {
+            $user = $this->findUserById($id, true);
+        } catch (ModelNotFoundException $e) {
+            return $this->userNotFound();
+        }
+
         return response()->json($user);
     }
 
@@ -97,23 +131,41 @@ class UserController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        $user = User::findOrFail($id);
+        try {
+            $user = $this->findUserById($id);
+        } catch (ModelNotFoundException $e) {
+            return $this->userNotFound();
+        }
 
         $validated = $request->validate([
             'role' => ['nullable', Rule::in(['admin', 'customer', 'editor'])],
             'status' => ['nullable', Rule::in(['active', 'banned'])],
+            'lock_version' => ['nullable', 'date'],
         ]);
 
+        if ($request->filled('lock_version') && $user->updated_at !== null) {
+            $clientVersion = Carbon::parse($request->input('lock_version'));
+            if (!$user->updated_at->equalTo($clientVersion)) {
+                return response()->json([
+                    'message' => 'Thong tin nguoi dung da thay doi. Vui long tai lai trang truoc khi cap nhat.',
+                    'code' => 'VERSION_CONFLICT',
+                ], 409);
+            }
+        }
+
         $data = [];
-        if (array_key_exists('role', $validated)) $data['role'] = $validated['role'];
-        if (array_key_exists('status', $validated)) $data['status'] = $validated['status'];
+        if (array_key_exists('role', $validated)) {
+            $data['role'] = $validated['role'];
+        }
+        if (array_key_exists('status', $validated)) {
+            $data['status'] = $validated['status'];
+        }
 
         if (!empty($data)) {
             $user->update($data);
         }
 
-        $user->load('profile');
-        return response()->json($user);
+        return response()->json($user->fresh('profile'));
     }
 
     /**
@@ -121,20 +173,22 @@ class UserController extends Controller
      */
     public function destroy(string $id)
     {
-        $user = User::findOrFail($id);
+        try {
+            $user = $this->findUserById($id);
+        } catch (ModelNotFoundException $e) {
+            return $this->userNotFound();
+        }
 
-        // Nếu user còn đơn hàng gắn FK, không cho xóa để tránh lỗi 1451
-        $hasOrders = $user->orders()->exists();
-        if ($hasOrders) {
+        if ($user->orders()->exists()) {
             return response()->json([
-                'message' => 'Người dùng này vẫn còn đơn hàng, không thể xóa.',
+                'message' => 'Nguoi dung van con don hang, khong the xoa.',
                 'code' => 'USER_HAS_ORDERS',
             ], 409);
         }
 
-        $user->delete(); // Do 'onDelete('cascade')', profile cũng sẽ bị xóa
-        
-        return response()->json(null, 204); // 204 No Content
+        $user->delete();
+
+        return response()->json(null, 204);
     }
 
     public function userStatistics()
@@ -142,10 +196,9 @@ class UserController extends Controller
         $totalUsers = User::count();
         $activeUsers = User::where('status', 'active')->count();
         $inactiveUsers = User::where('status', 'banned')->count();
-    $adminUsers = User::where('role', 'admin')->count();
-    $customerUsers = User::where('role', 'customer')->count();
-    // Count editors if any
-    $editorUsers = User::where('role', 'editor')->count();
+        $adminUsers = User::where('role', 'admin')->count();
+        $customerUsers = User::where('role', 'customer')->count();
+        $editorUsers = User::where('role', 'editor')->count();
 
         return response()->json([
             'totalUsers' => $totalUsers,
@@ -167,5 +220,59 @@ class UserController extends Controller
             ->get();
 
         return response()->json($monthlyStats);
+    }
+
+    protected function findUserById(string $id, bool $withProfile = false): User
+    {
+        if (!ctype_digit($id) || (int) $id <= 0) {
+            throw new ModelNotFoundException();
+        }
+
+        $query = User::query();
+        if ($withProfile) {
+            $query->with('profile');
+        }
+
+        return $query->findOrFail((int) $id);
+    }
+
+    protected function userNotFound(): JsonResponse
+    {
+        return response()->json([
+            'message' => 'Khong the tim thay nguoi dung hoac da bi xoa.',
+        ], 404);
+    }
+
+    protected function cleanTextPayload(array $input, array $keys): array
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $input)) {
+                $input[$key] = $this->cleanString($input[$key]);
+            }
+        }
+
+        return $input;
+    }
+
+    protected function cleanString(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = preg_replace('/\x{3000}/u', ' ', $value);
+        $value = trim($value);
+
+        return $value === '' ? null : $value;
+    }
+
+    protected function normalizeSearch(?string $value): string
+    {
+        $clean = $this->cleanString($value);
+        if ($clean === null) {
+            return '';
+        }
+
+        return str_replace(['%', '_'], '', $clean);
     }
 }
