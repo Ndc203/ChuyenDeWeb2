@@ -7,6 +7,8 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon; // <-- Import Carbon để xử lý ngày tháng
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\RevenueExport;
 
 class ReportController extends Controller
 {
@@ -81,5 +83,15 @@ class ReportController extends Controller
             'completedOrders' => $completedOrders,
             'productsSold' => $productsSold,
         ]);
+    }
+
+    public function exportRevenue(Request $request)
+    {
+        $type = $request->query('type', 'daily');
+        $date = $request->query('date', now()->toDateString());
+
+        $fileName = "bao_cao_doanh_thu_{$type}_{$date}.xlsx";
+
+        return Excel::download(new RevenueExport($type, $date), $fileName);
     }
 }

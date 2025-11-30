@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Fragment } from "react";
 import AdminSidebar from "../../layout/AdminSidebar.jsx";
-import { DollarSign, ShoppingCart, Package, Mail, Box } from "lucide-react";
+import { DollarSign, ShoppingCart, Package, Mail, Box, Download, Loader2 } from "lucide-react";
 import axiosClient from '../../../api/axiosClient.js'; // Import centralized Axios client
 
 // --- Helper Components ---
@@ -45,6 +45,7 @@ export default function AdminRevenueReportPage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null); // Sẽ lưu { stats, completedOrders, productsSold }
+  const [exporting, setExporting] = useState(false);
 
   // useEffect để tải dữ liệu khi Filter thay đổi
   useEffect(() => {
@@ -67,6 +68,38 @@ export default function AdminRevenueReportPage() {
       
   }, [reportType, selectedDate]); // Chạy lại khi 2 state này thay đổi
 
+  // 2. Hàm Xuất Excel
+  const handleExportExcel = async () => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({
+        type: reportType,
+        date: selectedDate,
+      });
+
+      // Gọi API với responseType: blob
+      const response = await axiosClient.get(`/reports/revenue/export?${params.toString()}`, {
+        responseType: 'blob',
+      });
+
+      // Tạo link tải xuống
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      // Đặt tên file (ví dụ: revenue_daily_2025-11-30.xlsx)
+      link.setAttribute('download', `revenue_${reportType}_${selectedDate}.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.parentNode.removeChild(link);
+
+    } catch (error) {
+      console.error("Lỗi xuất file:", error);
+      alert("Không thể xuất file Excel. Vui lòng thử lại.");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // Lấy dữ liệu từ state (có ?? 0 để tránh lỗi)
   const stats = data?.stats;
   const completedOrders = data?.completedOrders ?? [];
@@ -80,8 +113,21 @@ export default function AdminRevenueReportPage() {
           <div className="w-full px-6 md:px-10 py-6">
             
             {/* 1. Header */}
-            <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Báo cáo Doanh thu</h1>
-            <p className="text-sm text-slate-500 mt-1">Theo dõi doanh thu và sản phẩm đã bán.</p>
+            <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                    <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Báo cáo Doanh thu</h1>
+                    <p className="text-sm text-slate-500 mt-1">Theo dõi doanh thu và sản phẩm đã bán.</p>
+                </div>
+                {/* Nút Xuất Excel */}
+                <button 
+                    onClick={handleExportExcel}
+                    disabled={exporting || loading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-green-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-green-700 shadow-sm disabled:opacity-50 transition-colors"
+                >
+                    {exporting ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                    {exporting ? "Đang xuất..." : "Xuất Excel"}
+                </button>
+            </div>
             
             {/* 2. Filters */}
             <div className="p-4 bg-white rounded-xl shadow-sm my-6 flex flex-wrap items-center gap-4">

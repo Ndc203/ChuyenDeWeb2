@@ -1,12 +1,7 @@
 import React, { useState, useEffect, Fragment } from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { X, User, MapPin, Mail, Phone, Calendar, Printer, CheckCircle, AlertCircle } from "lucide-react";
-
-// Lấy API URL từ biến môi trường
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-
-// *** QUAN TRỌNG: Phải trùng tên với key bên AdminOrdersPage ***
-const TOKEN_KEY = 'authToken'; 
+import axiosClient from "../../../api/axiosClient"; // Import axiosClient
 
 // --- Helper Functions ---
 const formatCurrency = (value) => {
@@ -21,44 +16,28 @@ const formatSimpleDate = (dateString) => {
 };
 // --- Hết Helper Functions ---
 
-
 export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusChange }) {
   const [fullOrder, setFullOrder] = useState(null); 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [currentStatus, setCurrentStatus] = useState("");
 
-  // useEffect để tải chi tiết đơn hàng khi modal mở
+  // 1. Tải chi tiết đơn hàng (Dùng axiosClient)
   useEffect(() => {
-    // Chỉ tải nếu modal đang mở (isOpen) VÀ có orderId
     if (isOpen && orderId) {
       setIsLoading(true);
       setError(null);
       setFullOrder(null); 
       
-      const token = localStorage.getItem(TOKEN_KEY);
-
-      // Thêm headers chứa Authorization vào fetch
-      fetch(`${API_URL}/api/orders/${orderId}`, {
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}` // <--- SỬA QUAN TRỌNG TẠI ĐÂY
-        }
-      })
+      axiosClient.get(`/orders/${orderId}`)
         .then(res => {
-          if (res.status === 401) {
-             throw new Error('Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại.');
-          }
-          if (!res.ok) throw new Error('Không thể tải chi tiết đơn hàng.');
-          return res.json();
-        })
-        .then(data => {
-          setFullOrder(data);
-          setCurrentStatus(data.status); 
+          setFullOrder(res.data);
+          setCurrentStatus(res.data.status); 
         })
         .catch(err => {
-          console.error("Lỗi fetch chi tiết đơn hàng:", err);
-          setError(err.message);
+          console.error("Lỗi tải chi tiết đơn hàng:", err);
+          const message = err.response?.data?.message || "Không thể tải chi tiết đơn hàng.";
+          setError(message);
         })
         .finally(() => {
           setIsLoading(false);
@@ -71,15 +50,29 @@ export default function OrderDetailModal({ isOpen, onClose, orderId, onStatusCha
   };
 
   const handleSaveStatus = () => {
-    // Gọi hàm onStatusChange từ cha (đã bao gồm logic gọi API update)
+    // Gọi hàm onStatusChange từ cha (AdminOrdersPage đã xử lý gọi API update)
     onStatusChange(orderId, currentStatus);
     onClose(); 
   };
   
-  const handlePrint = () => {
-    // Lưu ý: Nếu route in ấn cũng bảo mật, window.open có thể bị chặn.
-    // Tạm thời giữ nguyên, nếu lỗi thì cần dùng axios tải blob về.
-    window.open(`${API_URL}/api/orders/${orderId}/print`, '_blank');
+  // 2. Xử lý in đơn hàng (Dùng Blob)
+  const handlePrint = async () => {
+    try {
+      const response = await axiosClient.get(`/orders/${orderId}/print`, {
+          responseType: 'blob'
+      });
+
+      // Tạo URL ảo từ dữ liệu blob nhận được
+      const file = new Blob([response.data], { type: 'application/pdf' });
+      const fileURL = URL.createObjectURL(file);
+
+      // Mở URL trong tab mới
+      window.open(fileURL, '_blank');
+
+    } catch (error) {
+      console.error("Lỗi in đơn hàng:", error);
+      alert("Không thể in đơn hàng. Vui lòng thử lại.");
+    }
   };
   
   // Tính toán tổng phụ
