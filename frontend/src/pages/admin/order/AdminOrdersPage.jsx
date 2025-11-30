@@ -2,13 +2,7 @@ import React, { useState, useEffect, Fragment } from "react";
 import { Search, Edit, Printer, Package, Clock, RefreshCw, Truck, CheckCircle, ChevronLeft, ChevronRight, XCircle } from "lucide-react";
 import AdminSidebar from "../../layout/AdminSidebar.jsx";
 import OrderDetailModal from "./OrderDetailModal.jsx";
-import axios from 'axios';
-
-// CẤU HÌNH API URL
-const API_URL = (import.meta.env.VITE_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-
-// *** QUAN TRỌNG: Kiểm tra xem lúc Login bạn lưu là 'token' hay 'authToken' nhé ***
-const TOKEN_KEY = 'authToken'; 
+import axiosClient from '../../../api/axiosClient'; // Import axiosClient đã cấu hình
 
 // Helper function to format currency
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -20,7 +14,7 @@ const formatSimpleDate = (dateString) => {
     return new Date(dateString).toLocaleString('vi-VN', options);
 };
 
-// --- CÁC COMPONENT CON ---
+// --- CÁC COMPONENT CON (Giữ nguyên logic UI) ---
 const StatCard = ({ icon, title, value, color, loading }) => (
     <div className="bg-white p-5 rounded-xl shadow-sm flex items-center gap-5">
         <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${color}`}>
@@ -67,7 +61,7 @@ const Pagination = ({ pagination, onPageChange }) => {
     return (
         <div className="flex flex-col gap-2 border-t bg-white px-4 py-3 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
             <span>
-                Hien thi {pagination.from} den {pagination.to} trong tong so {pagination.total} don hang
+                Hiển thị {pagination.from} đến {pagination.to} trong tổng số {pagination.total} đơn hàng
             </span>
             <div className="flex items-center gap-2">
                 <button
@@ -90,7 +84,9 @@ const Pagination = ({ pagination, onPageChange }) => {
             </div>
         </div>
     );
-};function Th({ children, className = "" }) {
+};
+
+function Th({ children, className = "" }) {
     return <th scope="col" className={`px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider ${className}`}>{children}</th>;
 }
 
@@ -109,56 +105,37 @@ export default function AdminOrdersPage() {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [selectedOrder, setSelectedOrder] = useState(null);
 
-    // 1. TẢI DANH SÁCH ĐƠN HÀNG
+    // 1. TẢI DANH SÁCH ĐƠN HÀNG (Dùng axiosClient)
     useEffect(() => {
         setLoading(true);
-        const params = new URLSearchParams({
+        const params = {
             page: currentPage,
             search: searchQuery,
             status: statusFilter,
-        });
+        };
 
-        // Lấy token mới nhất mỗi khi gọi API
-        const token = localStorage.getItem(TOKEN_KEY);
-
-        axios.get(`${API_URL}/api/orders?${params.toString()}`, {
-            headers: {
-                'Authorization': `Bearer ${token}` 
-            }
-        })
-        .then((res) => {
-            setPaginationData(res.data);
-        })
-        .catch((error) => {
-            console.error("Lỗi tải đơn hàng:", error);
-            if (error.response && error.response.status === 401) {
-                // Token hết hạn hoặc chưa đăng nhập -> chuyển về login
-                window.location.href = '/login';
-            }
-            setPaginationData(null);
-        })
-        .finally(() => setLoading(false));
+        axiosClient.get('/orders', { params })
+            .then((res) => {
+                setPaginationData(res.data);
+            })
+            .catch((error) => {
+                console.error("Lỗi tải đơn hàng:", error);
+                setPaginationData(null);
+            })
+            .finally(() => setLoading(false));
     }, [currentPage, searchQuery, statusFilter, refreshTrigger]);
 
-    // 2. TẢI THỐNG KÊ (STATISTICS)
+    // 2. TẢI THỐNG KÊ (Dùng axiosClient)
     useEffect(() => {
         setLoadingStats(true);
-        const token = localStorage.getItem(TOKEN_KEY);
-
-        axios.get(`${API_URL}/api/orders/statistics`, {
-            headers: {
-                'Authorization': `Bearer ${token}`, // Gửi kèm token để tránh lỗi 401/Redirect
-                'Content-Type': 'application/json'
-            }
-        })
-        .then(res => {
-            setStats(res.data);
-        })
-        .catch(error => {
-            console.error("Không thể tải thống kê:", error);
-            // Không redirect ở đây để tránh loop nếu api stats lỗi cục bộ
-        })
-        .finally(() => setLoadingStats(false));
+        axiosClient.get('/orders/statistics')
+            .then(res => {
+                setStats(res.data);
+            })
+            .catch(error => {
+                console.error("Không thể tải thống kê:", error);
+            })
+            .finally(() => setLoadingStats(false));
     }, [refreshTrigger]);
 
     // Xử lý mở modal xem chi tiết
@@ -167,36 +144,40 @@ export default function AdminOrdersPage() {
         setIsViewModalOpen(true);
     };
 
-    const handlePrint = (orderId) => {
-        window.open(`${API_URL}/api/orders/${orderId}/print`, '_blank');
-    };
-
-    // 3. CẬP NHẬT TRẠNG THÁI (Đã sửa thêm Auth header)
-    const handleUpdateOrderStatus = async (orderId, newStatus) => {
+    // 3. IN ĐƠN HÀNG (Dùng axiosClient Blob)
+    const handlePrint = async (orderId) => {
         try {
-            const token = localStorage.getItem(TOKEN_KEY);
-            
-            const response = await fetch(`${API_URL}/api/orders/${orderId}/status`, {
-                method: 'PATCH',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'Authorization': `Bearer ${token}` // <--- Đã thêm dòng này
-                },
-                body: JSON.stringify({ status: newStatus })
+            const response = await axiosClient.get(`/orders/${orderId}/print`, {
+                responseType: 'blob'
             });
 
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.message || 'Cập nhật thất bại!');
-            }
+            // Tạo URL ảo từ dữ liệu blob nhận được
+            const file = new Blob([response.data], { type: 'application/pdf' });
+            const fileURL = URL.createObjectURL(file);
+
+            // Mở URL trong tab mới
+            window.open(fileURL, '_blank');
+
+        } catch (error) {
+            console.error("Lỗi in đơn hàng:", error);
+            alert("Không thể in đơn hàng. Vui lòng kiểm tra lại.");
+        }
+    };
+
+    // 4. CẬP NHẬT TRẠNG THÁI (Dùng axiosClient.patch)
+    const handleUpdateOrderStatus = async (orderId, newStatus) => {
+        try {
+            await axiosClient.patch(`/orders/${orderId}/status`, { 
+                status: newStatus 
+            });
 
             alert('Cập nhật trạng thái thành công!');
             setRefreshTrigger(prev => prev + 1); // Load lại dữ liệu
 
         } catch (error) {
             console.error("Lỗi khi cập nhật trạng thái:", error);
-            alert(`Đã xảy ra lỗi: ${error.message}`);
+            const message = error.response?.data?.message || 'Cập nhật thất bại!';
+            alert(`Đã xảy ra lỗi: ${message}`);
         }
     };
 
@@ -325,6 +306,3 @@ export default function AdminOrdersPage() {
         </Fragment>
     );
 }
-
-
-
