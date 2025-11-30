@@ -132,7 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/orders', [OrderController::class, 'index']);
     Route::post('/orders', [OrderController::class, 'store']);
     Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']); // Admin/Shop update
-    Route::get('/orders/{order}/print', [OrderController::class, 'print']);
+    Route::get('/orders/{id}/print', [OrderController::class, 'print']);
     Route::get('/orders/statistics', [OrderController::class, 'statistics']);
     Route::get('/orders/{order}/status', [OrderController::class, 'checkStatus']);
     Route::get('/orders/{order}', [OrderController::class, 'show']);

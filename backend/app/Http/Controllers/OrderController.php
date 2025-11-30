@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use App\Models\CartItem;
 use App\Models\OrderItem;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class OrderController extends Controller
 {
@@ -163,22 +164,24 @@ class OrderController extends Controller
         return response()->json($order);
     }
 
-    public function print(Order $order)
-    {
-        // 1. Tải tất cả dữ liệu cần thiết cho hóa đơn
-        $order->load('items', 'customer.profile');
-        
-        // 2. Tính toán tổng phụ (giá trị thực của sản phẩm)
-        $subtotal = $order->items->sum(function ($item) {
-            return $item->unit_price * $item->quantity;
-        });
+    public function print($id)
+{
+    $order = Order::with('items')->findOrFail($id); // Tìm đơn hàng
 
-        // 3. Trả về file view 'print.order' và truyền dữ liệu
-        return view('print.order', [
-            'order' => $order,
-            'subtotal' => $subtotal,
-        ]);
-    }
+    // Tính tổng phụ (nếu DB chưa lưu sẵn)
+    $subtotal = $order->items->sum(function($item) {
+        return $item->quantity * $item->unit_price;
+    });
+
+    // Render file blade thành PDF
+    $pdf = Pdf::loadView('print.order', [ // Tên file blade là 'order.blade.php'
+        'order' => $order,
+        'subtotal' => $subtotal
+    ]);
+
+    // Trả về file PDF để frontend tải về (Blob)
+    return $pdf->download("invoice-{$order->order_id}.pdf");
+}
 
     /**
      * API: POST /api/orders
