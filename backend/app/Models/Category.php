@@ -23,6 +23,8 @@ class Category extends Model
         'status'
     ];
 
+    public const SLUG_MAX_LENGTH = 30;
+
     protected static function booted()
     {
         static::creating(function ($category) {
@@ -38,15 +40,25 @@ class Category extends Model
 
     public static function generateUniqueSlug($name, $ignoreId = null)
     {
-        $slug = Str::slug($name);
-        $originalSlug = $slug;
-        $count = 2;
+        $baseSlug = Str::slug(Str::limit($name, self::SLUG_MAX_LENGTH, '')) ?: 'category';
+        $slug = $baseSlug;
+        $suffix = 2;
+
+        $ensureLength = function (string $value, string $suffix) {
+            $maxLength = self::SLUG_MAX_LENGTH - strlen($suffix);
+            if ($maxLength <= 0) {
+                return '';
+            }
+            return Str::limit($value, $maxLength, '');
+        };
 
         while (self::where('slug', $slug)
             ->when($ignoreId, fn($q) => $q->where('category_id', '!=', $ignoreId))
             ->exists()) {
-            $slug = "{$originalSlug}-{$count}";
-            $count++;
+            $suffixStr = "-{$suffix}";
+            $trimmed = $ensureLength($baseSlug, $suffixStr);
+            $slug = ($trimmed ?: Str::slug('category')) . $suffixStr;
+            $suffix++;
         }
 
         return $slug;
