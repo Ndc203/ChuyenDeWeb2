@@ -7,7 +7,7 @@ import axiosClient from "../../api/axiosClient"; // Import axiosClient
 export default function AdminProductAddPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState({});
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
 
@@ -24,6 +24,28 @@ export default function AdminProductAddPage() {
     is_new: false,
     tags: [],
   });
+
+  // Helper: convert full-width digits to ASCII digits
+  const toAsciiDigits = (s) => {
+    if (typeof s !== 'string') return s;
+    const full = ['０','１','２','３','４','５','６','７','８','９'];
+    const ascii = ['0','1','2','3','4','5','6','7','8','9'];
+    return full.reduce((acc, ch, i) => acc.split(ch).join(ascii[i]), s);
+  };
+
+  const normalizeWhitespace = (s) => {
+    if (typeof s !== 'string') return s;
+    // replace full-width space and other unicode spaces with normal space
+    let out = s.replace(/\u3000/g, ' ');
+    out = out.replace(/[\u00A0\u2000-\u200B\u202F\u205F]+/g, ' ');
+    out = out.replace(/\s+/g, ' ').trim();
+    return out;
+  };
+
+  const containsHtml = (s) => {
+    if (typeof s !== 'string') return false;
+    return s !== s.replace(/<[^>]*>/g, '');
+  };
 
   const [imagePreview, setImagePreview] = useState(null);
 
@@ -85,51 +107,72 @@ export default function AdminProductAddPage() {
   // === 2. Submit Form (Dùng axiosClient + FormData) ===
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
+    setErrors({}); // Xóa lỗi cũ khi submit
     setLoading(true);
 
-    // Validate
-    if (!formData.name.trim()) {
-      setError("Tên sản phẩm không được để trống");
+    // Client-side normalize inputs before sending
+    const normalized = { ...formData };
+    normalized.name = normalizeWhitespace(String(normalized.name || ''));
+    normalized.description = normalizeWhitespace(String(normalized.description || ''));
+    normalized.price = toAsciiDigits(String(normalized.price || '')).trim();
+    normalized.discount = toAsciiDigits(String(normalized.discount || '')).trim();
+    normalized.stock = toAsciiDigits(String(normalized.stock || '')).trim();
+
+    // Reject HTML in name/description early
+    if (containsHtml(normalized.name)) {
+      setErrors({ general: 'Tên sản phẩm không được chứa thẻ HTML.' });
+      setLoading(false);
+      return;
+    }
+    if (containsHtml(normalized.description)) {
+      setErrors({ general: 'Mô tả không được chứa thẻ HTML.' });
       setLoading(false);
       return;
     }
 
-    if (!formData.price || parseFloat(formData.price) <= 0) {
-      setError("Giá bán phải lớn hơn 0");
+    // Trim and required check
+    if (!normalized.name || normalized.name.trim() === '') {
+      setErrors({ name: ['Tên sản phẩm là bắt buộc.'] });
       setLoading(false);
       return;
     }
 
-    // Prepare FormData
+    // Chuẩn bị dữ liệu form để gửi đi
     const formPayload = new FormData();
-    formPayload.append("name", formData.name.trim());
-    formPayload.append("description", formData.description.trim());
-    formPayload.append("price", parseFloat(formData.price));
-    if (formData.discount) formPayload.append("discount", parseInt(formData.discount));
-    if (formData.category_id) formPayload.append("category_id", parseInt(formData.category_id));
-    if (formData.brand_id) formPayload.append("brand_id", parseInt(formData.brand_id));
-    formPayload.append("stock", formData.stock ? parseInt(formData.stock) : 0);
-    formPayload.append("is_flash_sale", formData.is_flash_sale ? 1 : 0);
-    formPayload.append("is_new", formData.is_new ? 1 : 0);
-    if (formData.tags.length > 0) formPayload.append("tags", formData.tags.join(","));
-    formPayload.append("status", "active");
-    
-    if (formData.image) {
-      formPayload.append("image", formData.image);
-    }
+    Object.keys(normalized).forEach(key => {
+      const val = normalized[key];
+      if (key === 'image' && formData.image) {
+        formPayload.append('image', formData.image);
+      } else if (key === 'tags') {
+        formPayload.append('tags', formData.tags.join(','));
+      } else if (typeof val === 'boolean') {
+        formPayload.append(key, val ? '1' : '0');
+      } else {
+        formPayload.append(key, val);
+      }
+    });
 
     try {
-      // axiosClient tự động xử lý Content-Type: multipart/form-data
-      await axiosClient.post('/products', formPayload);
+      // Gửi request lên server
+      await axiosClient.post('/products', formPayload, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
 
-      // Thành công - chuyển về trang danh sách
+      // Nếu thành công, chuyển hướng về trang danh sách sản phẩm
       navigate("/admin/products");
-    } catch (error) {
-      // Xử lý lỗi chuẩn từ Laravel (message hoặc errors array)
-      const message = error.response?.data?.message || 
-        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Không thể tạo sản phẩm mới.");
-      setError(message);
+
+    } catch (err) {
+      // Xử lý lỗi
+      const status = err.response?.status;
+      if (status === 422) {
+        setErrors(err.response.data.errors || { general: 'Dữ liệu không hợp lệ.' });
+      } else if (status === 409) {
+        setErrors({ general: err.response?.data?.message || 'Bản ghi trùng lặp. Vui lòng kiểm tra danh sách.' });
+      } else {
+        setErrors({ general: err.response?.data?.message || "Đã có lỗi không mong muốn xảy ra." });
+      }
     } finally {
       setLoading(false);
     }
@@ -163,10 +206,10 @@ export default function AdminProductAddPage() {
         <div className="p-6">
           <form onSubmit={handleSubmit} className="max-w-4xl">
             <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-6">
-              {/* Error message */}
-              {error && (
+              {/* General error message */}
+              {errors.general && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-                  {error}
+                  {errors.general}
                 </div>
               )}
 
@@ -184,9 +227,9 @@ export default function AdminProductAddPage() {
                       value={formData.name}
                       onChange={handleInputChange}
                       placeholder="Nhập tên sản phẩm"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.name ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                     />
+                    {errors.name && <p className="text-sm text-red-600 mt-1">{errors.name[0]}</p>}
                   </div>
 
                   {/* Giá bán */}
@@ -202,10 +245,10 @@ export default function AdminProductAddPage() {
                       placeholder="0"
                       min="0"
                       step="1000"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.price ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                     />
-                    {formData.price && (
+                    {errors.price && <p className="text-sm text-red-600 mt-1">{errors.price[0]}</p>}
+                    {formData.price && !errors.price && (
                       <p className="text-sm text-blue-600 mt-1">
                         {new Intl.NumberFormat("vi-VN", {
                           style: "currency",
@@ -241,8 +284,7 @@ export default function AdminProductAddPage() {
                       name="category_id"
                       value={formData.category_id}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.category_id ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                     >
                       <option value="">Chọn danh mục</option>
                       {categories.map((cat) => (
@@ -251,6 +293,7 @@ export default function AdminProductAddPage() {
                         </option>
                       ))}
                     </select>
+                    {errors.category_id && <p className="text-sm text-red-600 mt-1">{errors.category_id[0]}</p>}
                   </div>
 
                   {/* Thương hiệu */}
@@ -262,8 +305,7 @@ export default function AdminProductAddPage() {
                       name="brand_id"
                       value={formData.brand_id}
                       onChange={handleInputChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.brand_id ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                     >
                       <option value="">Chọn thương hiệu</option>
                       {brands.map((brand) => (
@@ -272,6 +314,7 @@ export default function AdminProductAddPage() {
                         </option>
                       ))}
                     </select>
+                    {errors.brand_id && <p className="text-sm text-red-600 mt-1">{errors.brand_id[0]}</p>}
                   </div>
 
                   {/* Số lượng tồn kho */}
@@ -286,9 +329,9 @@ export default function AdminProductAddPage() {
                       onChange={handleInputChange}
                       placeholder="0"
                       min="0"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 ${errors.stock ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                     />
+                    {errors.stock && <p className="text-sm text-red-600 mt-1">{errors.stock[0]}</p>}
                   </div>
 
                   {/* Hình ảnh sản phẩm */}
@@ -300,8 +343,9 @@ export default function AdminProductAddPage() {
                       type="file"
                       accept="image/*"
                       onChange={handleImageChange}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 ${errors.image ? 'border-red-500 focus:ring-red-500' : 'border-slate-300 focus:ring-blue-500'}`}
                     />
+                    {errors.image && <p className="text-sm text-red-600 mt-1">{errors.image[0]}</p>}
                     <p className="text-xs text-slate-500 mt-1">
                       Định dạng: JPG, PNG, GIF, WEBP. Tối đa 2MB
                     </p>

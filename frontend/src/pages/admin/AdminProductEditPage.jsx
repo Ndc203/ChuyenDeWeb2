@@ -52,6 +52,7 @@ export default function AdminProductEditPage() {
     stock: "",
     image: null,
     currentImage: "", // Lưu tên ảnh cũ
+    updated_at: null,
     is_flash_sale: false,
     is_new: false,
     tags: [],
@@ -90,9 +91,17 @@ export default function AdminProductEditPage() {
           });
 
           // Hiển thị ảnh cũ
-          if (data.image) {
-            setImagePreview(`${IMAGE_BASE_URL}/images/products/${data.image}`);
-          }
+            // Hiển thị ảnh cũ; backend có thể trả về URL hoặc filename hoặc null
+            if (data.image) {
+              const imageUrl = typeof data.image === 'string' && data.image.startsWith('http')
+                ? data.image
+                : `${IMAGE_BASE_URL}/images/products/${data.image}`;
+              setImagePreview(imageUrl);
+            } else {
+              setImagePreview(null);
+            }
+            // Lưu timestamp updated_at để dùng cho optimistic locking
+            setFormData(prev => ({ ...prev, updated_at: data.updated_at ?? null }));
         }
 
         // 2. Setup Categories
@@ -105,7 +114,13 @@ export default function AdminProductEditPage() {
 
       } catch (err) {
         console.error("Error loading data:", err);
-        setError("Không thể tải thông tin sản phẩm. Vui lòng thử lại.");
+        const status = err.response?.status;
+        const serverMsg = err.response?.data?.message;
+        if (status === 404) {
+          setError(serverMsg || 'Không tìm thấy trang');
+        } else {
+          setError(serverMsg || "Không thể tải thông tin sản phẩm. Vui lòng thử lại.");
+        }
       } finally {
         setLoadingData(false);
       }
@@ -120,6 +135,27 @@ export default function AdminProductEditPage() {
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
+  };
+
+  // Client-side normalization helpers (same logic as Add page)
+  const toAsciiDigits = (s) => {
+    if (typeof s !== 'string') return s;
+    const full = ['０','１','２','３','４','５','６','７','８','９'];
+    const ascii = ['0','1','2','3','4','5','6','7','8','9'];
+    return full.reduce((acc, ch, i) => acc.split(ch).join(ascii[i]), s);
+  };
+
+  const normalizeWhitespace = (s) => {
+    if (typeof s !== 'string') return s;
+    let out = s.replace(/\u3000/g, ' ');
+    out = out.replace(/[\u00A0\u2000-\u200B\u202F\u205F]+/g, ' ');
+    out = out.replace(/\s+/g, ' ').trim();
+    return out;
+  };
+
+  const containsHtml = (s) => {
+    if (typeof s !== 'string') return false;
+    return s !== s.replace(/<[^>]*>/g, '');
   };
 
   const handleImageChange = (e) => {
@@ -163,19 +199,42 @@ export default function AdminProductEditPage() {
       return;
     }
 
+    // Client-side normalization and checks
+    const normalized = { ...formData };
+    normalized.name = normalizeWhitespace(String(normalized.name || ''));
+    normalized.description = normalizeWhitespace(String(normalized.description || ''));
+    normalized.price = toAsciiDigits(String(normalized.price || '')).trim();
+    normalized.discount = toAsciiDigits(String(normalized.discount || '')).trim();
+    normalized.stock = toAsciiDigits(String(normalized.stock || '')).trim();
+
+    if (containsHtml(normalized.name)) {
+      setError('Tên sản phẩm không được chứa thẻ HTML.');
+      setLoading(false);
+      return;
+    }
+    if (containsHtml(normalized.description)) {
+      setError('Mô tả không được chứa thẻ HTML.');
+      setLoading(false);
+      return;
+    }
+
     // Tạo FormData
     const formPayload = new FormData();
-    formPayload.append("name", formData.name.trim());
-    formPayload.append("description", formData.description.trim());
-    formPayload.append("price", parseFloat(formData.price));
-    formPayload.append("discount", formData.discount ? parseInt(formData.discount) : 0);
-    formPayload.append("category_id", formData.category_id ? parseInt(formData.category_id) : "");
-    formPayload.append("brand_id", formData.brand_id ? parseInt(formData.brand_id) : "");
-    formPayload.append("stock", formData.stock ? parseInt(formData.stock) : 0);
-    formPayload.append("is_flash_sale", formData.is_flash_sale ? 1 : 0);
-    formPayload.append("is_new", formData.is_new ? 1 : 0);
-    formPayload.append("tags", formData.tags.join(","));
+    formPayload.append("name", normalized.name.trim());
+    formPayload.append("description", normalized.description.trim());
+    formPayload.append("price", normalized.price ? parseFloat(normalized.price) : '');
+    formPayload.append("discount", normalized.discount ? parseInt(normalized.discount) : 0);
+    formPayload.append("category_id", normalized.category_id ? parseInt(normalized.category_id) : "");
+    formPayload.append("brand_id", normalized.brand_id ? parseInt(normalized.brand_id) : "");
+    formPayload.append("stock", normalized.stock ? parseInt(normalized.stock) : 0);
+    formPayload.append("is_flash_sale", normalized.is_flash_sale ? 1 : 0);
+    formPayload.append("is_new", normalized.is_new ? 1 : 0);
+    formPayload.append("tags", normalized.tags.join(","));
     formPayload.append("status", "active");
+    // Gửi updated_at để server kiểm tra optimistic lock (nếu có)
+    if (normalized.updated_at) {
+      formPayload.append("updated_at", normalized.updated_at);
+    }
     
     // QUAN TRỌNG: Laravel không hỗ trợ PUT với Multipart form-data trực tiếp
     // Phải dùng POST và thêm _method = PUT
@@ -187,14 +246,27 @@ export default function AdminProductEditPage() {
 
     try {
       // Dùng axiosClient.post (vì có _method: PUT bên trong body)
-      await axiosClient.post(`/products/${hashedId}`, formPayload);
+      const res = await axiosClient.post(`/products/${hashedId}`, formPayload);
 
       // Thành công -> Quay về danh sách
       navigate("/admin/products");
-    } catch (error) {
-      const message = error.response?.data?.message || 
-        (error.response?.data?.errors ? Object.values(error.response.data.errors).flat().join(", ") : "Không thể cập nhật sản phẩm.");
-      setError(message);
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 409) {
+        setError(err.response?.data?.message || 'Dữ liệu đã được thay đổi. Vui lòng tải lại trang trước khi cập nhật.');
+      } else if (status === 422) {
+        const errors = err.response?.data?.errors;
+        if (errors) {
+          const flat = Object.values(errors).flat().join(" ");
+          setError(flat || 'Dữ liệu không hợp lệ.');
+        } else {
+          setError(err.response?.data?.message || 'Dữ liệu không hợp lệ.');
+        }
+      } else {
+        const message = err.response?.data?.message ||
+          (err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join(", ") : "Không thể cập nhật sản phẩm.");
+        setError(message);
+      }
     } finally {
       setLoading(false);
     }
@@ -455,6 +527,10 @@ export default function AdminProductEditPage() {
                               src={imagePreview}
                               alt="Preview"
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                setImagePreview(null);
+                              }}
                             />
                           ) : (
                             <Upload className="w-6 h-6 text-slate-400" />
