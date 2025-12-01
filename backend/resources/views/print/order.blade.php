@@ -2,131 +2,121 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
     <title>Hóa đơn #{{ $order->order_id }}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body {
-            font-family: 'Be Vietnam Pro', 'Arial', sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
+            font-family: 'DejaVu Sans', sans-serif;
+            font-size: 12px;
+            line-height: 1.4;
             color: #333;
-            margin: 0;
-            padding: 0;
         }
         .invoice-container {
-            width: 800px;
-            margin: 20px auto;
-            padding: 30px;
-            border: 1px solid #eee;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            margin: 0 auto;
         }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 30px;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            color: #000;
-        }
-        .header .company-details {
-            text-align: right;
-        }
-        .customer-details {
-            margin-bottom: 30px;
-        }
-        .customer-details strong {
-            display: block;
-            margin-bottom: 5px;
-        }
-        table {
+        
+        /* --- SỬA CSS BẢNG HEADER --- */
+        .header-table {
             width: 100%;
             border-collapse: collapse;
             margin-bottom: 20px;
         }
-        table th, table td {
-            border: 1px solid #ddd;
-            padding: 10px;
+        .header-table td {
+            border: none; /* Không kẻ khung cho header */
+            padding: 0;
+            vertical-align: top;
+        }
+        .header-left {
+            width: 60%;
             text-align: left;
         }
-        table th {
-            background-color: #f9f9f9;
+        .header-right {
+            width: 40%;
+            text-align: right;
         }
+        /* --------------------------- */
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            color: #000;
+            text-transform: uppercase;
+        }
+
+        /* CSS cho bảng sản phẩm */
+        .product-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .product-table th, .product-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .product-table th {
+            background-color: #f0f0f0;
+            font-weight: bold;
+        }
+
         .text-right {
             text-align: right;
         }
+        
         .totals {
-            width: 50%;
+            width: 40%;
             margin-left: auto;
         }
         .totals td {
             border: none;
             padding: 5px 0;
         }
-        .totals .total-row td {
+        .total-row td {
             font-weight: bold;
-            font-size: 1.2em;
-            border-top: 2px solid #333;
+            font-size: 14px;
+            border-top: 1px solid #333;
         }
         .footer {
-            margin-top: 30px;
+            margin-top: 50px;
             text-align: center;
-            font-size: 12px;
+            font-size: 10px;
             color: #777;
-        }
-        
-        /* CSS cho bản in */
-        @media print {
-            body {
-                print-color-adjust: exact; /* Chuẩn (browsers hỗ trợ thuộc tính chuẩn) */
-                -webkit-print-color-adjust: exact; /* Đảm bảo màu nền được in (Chrome) */
-            }
-            .invoice-container {
-                width: 100%;
-                margin: 0;
-                padding: 0;
-                border: none;
-                box-shadow: none;
-            }
-            .no-print {
-                display: none; /* Ẩn các nút khi in */
-            }
+            border-top: 1px solid #eee;
+            padding-top: 10px;
         }
     </style>
 </head>
 <body>
     <div class="invoice-container">
-        <div class="header">
-            <div>
-                <h1>HÓA ĐƠN</h1>
-                <p>Mã đơn hàng: <strong>#{{ $order->order_id }}</strong></p>
-                <p>Ngày đặt: {{ $order->created_at->format('d/m/Y H:i') }}</p>
-                <p>Trạng thái: <strong>{{ $order->status }}</strong></p>
-            </div>
-            <div class="company-details">
-                <strong>Tên Shop Của Bạn</strong><br>
-                123 Đường ABC, Quận 1<br>
-                TP. Hồ Chí Minh<br>
-                (028) 1234 5678
-            </div>
-        </div>
-
-        <div class="customer-details">
+        
+        <table class="header-table">
+            <tr>
+                <td class="header-left">
+                    <h1>HÓA ĐƠN</h1>
+                    <p style="margin: 2px 0;">Mã đơn hàng: <strong>#{{ $order->order_id }}</strong></p>
+                    <p style="margin: 2px 0;">Ngày đặt: {{ $order->created_at ? $order->created_at->format('d/m/Y H:i') : '' }}</p>
+                    <p style="margin: 2px 0;">Trạng thái: {{ $order->status }}</p>
+                </td>
+                <td class="header-right">
+                    <strong>Techshop nhóm B</strong><br>
+                    123 Đường ABC, Quận 1<br>
+                    TP. Hồ Chí Minh<br>
+                    (028) 1234 5678
+                </td>
+            </tr>
+        </table>
+        <div style="margin-bottom: 20px;">
             <strong>Thông tin khách hàng:</strong>
-            <p>
-                {{ $order->customer_name }}<br>
-                {{ $order->customer_email }}<br>
-                {{ $order->customer_phone }}<br>
-                {{ $order->shipping_address }}
-            </p>
+            <div style="margin-top: 5px;">
+                Tên: {{ $order->customer_name }}<br>
+                Email: {{ $order->customer_email }}<br>
+                SĐT: {{ $order->customer_phone }}<br>
+                Địa chỉ: {{ $order->shipping_address }}
+            </div>
         </div>
 
-        <table>
+        <table class="product-table">
             <thead>
                 <tr>
                     <th>Sản phẩm</th>
@@ -150,38 +140,23 @@
         <table class="totals">
             <tbody>
                 <tr>
-                    <td>Tổng phụ (sản phẩm)</td>
+                    <td>Tổng phụ</td>
                     <td class="text-right">{{ number_format($subtotal, 0, ',', '.') }} đ</td>
                 </tr>
                 <tr>
-                    <td>Giảm giá (Coupon: {{ $order->coupon_code ?? 'N/A' }})</td>
+                    <td>Giảm giá ({{ $order->coupon_code ?? 'None' }})</td>
                     <td class="text-right">- {{ number_format($order->discount_amount, 0, ',', '.') }} đ</td>
                 </tr>
-                <tr>
-                    <td>Phí vận chuyển (Giả định)</td>
-                    <td class="text-right">0 đ</td>
-                </tr>
                 <tr class="total-row">
-                    <td><strong>Tổng cộng</strong></td>
-                    <td class="text-right"><strong>{{ number_format($order->final_amount, 0, ',', '.') }} đ</strong></td>
+                    <td>Tổng cộng</td>
+                    <td class="text-right">{{ number_format($order->final_amount, 0, ',', '.') }} đ</td>
                 </tr>
             </tbody>
         </table>
 
         <div class="footer">
-            <p>Cảm ơn bạn đã mua hàng!</p>
+            <p>Cảm ơn quý khách đã mua hàng!</p>
         </div>
     </div>
-
-    <script>
-        window.onload = function() {
-            window.print();
-            
-            // Cung cấp một chút thời gian cho cửa sổ in mở ra trước khi đóng
-            setTimeout(function() {
-                window.close();
-            }, 500);
-        }
-    </script>
 </body>
 </html>
