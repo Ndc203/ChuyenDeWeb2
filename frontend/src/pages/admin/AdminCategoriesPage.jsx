@@ -2128,7 +2128,7 @@ function ViewCategoryModal({ category, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Mo ta
             </p>
-            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words">
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words" max-h-48 overflow-y-auto>
               {description ? description : "Khong co mo ta"}
             </p>
           </div>
@@ -2618,6 +2618,7 @@ function updateRowsForMove(rows, id, parentId) {
       : r
   );
 }
+
 
 
 

@@ -123,6 +123,10 @@ class BrandImportService
                 $errors[] = 'Thiếu tên thương hiệu.';
             }
 
+            if (Str::length($description) > 255) {
+                $errors[] = 'Mo ta khong duoc vuot 255 ky tu.';
+            }
+
             $existingMatches = new Collection();
             if ($name !== '') {
                 $existingMatches = $existingByName->get(Str::lower($name)) ?? new Collection();
@@ -300,3 +304,5 @@ class BrandImportService
         return true;
     }
 }
+
+

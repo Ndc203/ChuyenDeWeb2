@@ -44,7 +44,7 @@ const initialSlugState = {
 };
 const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
 const NAME_MAX_LENGTH = 100;
-const DESCRIPTION_MAX_LENGTH = 10000;
+const DESCRIPTION_MAX_LENGTH = 255;
 const NAME_REQUIRED_ERROR = "Ten khong duoc de trong.";
 const INVALID_VALUE_ERROR = "Vui long nhap gia tri hop le.";
 const LENGTH_ERROR = "Gia tri qua dai.";
@@ -1737,6 +1737,7 @@ function BrandFormModal({
             <textarea
               value={form.description}
               onChange={(e) => onChange("description", e.target.value)}
+              maxLength={DESCRIPTION_MAX_LENGTH}
               rows={4}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               placeholder="Mô tả ngắn gọn về thương hiệu"
@@ -1785,3 +1786,4 @@ function BrandFormModal({
     </div>
   );
 }
+

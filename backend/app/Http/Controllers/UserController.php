@@ -30,22 +30,33 @@ class UserController extends Controller
     {
         // 1. Validate dữ liệu
         $validated = $request->validate([
-            // Bảng 'users'
-            'username' => 'required|string|unique:users,username',
-            'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:8',
-            // Accept 'editor' role as well (frontend may send this value)
-            'role' => ['required', Rule::in(['admin', 'customer', 'editor'])],
-            // status is stored as 'active' or 'banned'
-            'status' => ['required', Rule::in(['active', 'banned'])],
-            
-            // Bảng 'userprofile' - make full_name optional so frontend can create minimal users
+            'username' => 'required|string|max:255|unique:users,username',
+            'email' => 'required|email|max:255|unique:users,email',
+            'password' => 'required|string|min:8|max:255',
+            'role' => ['nullable', Rule::in(['admin', 'customer', 'editor'])],
+            'status' => ['nullable', Rule::in(['active', 'banned'])],
             'full_name' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string',
-            // ... thêm các trường profile khác nếu cần
-            
+        ], [
+            'username.required' => 'Ten nguoi dung khong duoc de trong.',
+            'username.unique' => 'Ten nguoi dung da ton tai.',
+            'username.max' => 'Ten nguoi dung khong duoc vuot 255 ky tu.',
+            'email.required' => 'Email khong duoc de trong.',
+            'email.email' => 'Email khong hop le.',
+            'email.unique' => 'Email da ton tai.',
+            'email.max' => 'Email khong duoc vuot 255 ky tu.',
+            'password.required' => 'Mat khau khong duoc de trong.',
+            'password.min' => 'Mat khau phai co it nhat 8 ky tu.',
+            'password.max' => 'Mat khau khong duoc vuot 255 ky tu.',
+            'role.in' => 'Vai tro khong hop le.',
+            'status.in' => 'Trang thai chi chap nhan active hoac banned.',
+            'full_name.max' => 'Ho ten khong duoc vuot 255 ky tu.',
+            'phone.max' => 'So dien thoai khong duoc vuot 20 ky tu.',
         ]);
+
+        $validated['role'] = $validated['role'] ?? 'customer';
+        $validated['status'] = $validated['status'] ?? 'active';
 
         // 2. Dùng Transaction để đảm bảo an toàn
         // Hoặc tạo user, hoặc không tạo gì cả
@@ -187,3 +198,5 @@ class UserController extends Controller
         return response()->json($monthlyStats);
     }
 }
+
+
