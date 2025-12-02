@@ -11,6 +11,7 @@ use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Csv;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
@@ -46,10 +47,26 @@ class CategoryController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:255'],
             'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+        ], [
+            'name.required' => 'Ten danh muc khong duoc de trong.',
+            'name.string' => 'Ten danh muc khong hop le.',
+            'name.max' => 'Ten danh muc khong duoc vuot 255 ky tu.',
+            'description.string' => 'Mo ta phai la chuoi ky tu.',
+            'description.max' => 'Mo ta khong duoc vuot 255 ky tu.',
+            'parent_id.integer' => 'Danh muc cha khong hop le.',
+            'parent_id.exists' => 'Danh muc cha khong ton tai.',
+            'status.in' => 'Trang thai chi chap nhan active hoac inactive.',
         ]);
+
+        if (isset($data['description'])) {
+            $data['description'] = Str::limit(strip_tags($data['description']), 255, '');
+            if ($data['description'] === '') {
+                $data['description'] = null;
+            }
+        }
 
         $category = Category::create($data);
 
@@ -65,10 +82,21 @@ class CategoryController extends Controller
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'description' => ['nullable', 'string'],
+            'description' => ['nullable', 'string', 'max:255'],
             'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
             'updated_at' => ['required', 'date_format:Y-m-d H:i:s'],
+        ], [
+            'name.required' => 'Ten danh muc khong duoc de trong.',
+            'name.string' => 'Ten danh muc khong hop le.',
+            'name.max' => 'Ten danh muc khong duoc vuot 255 ky tu.',
+            'description.string' => 'Mo ta phai la chuoi ky tu.',
+            'description.max' => 'Mo ta khong duoc vuot 255 ky tu.',
+            'parent_id.integer' => 'Danh muc cha khong hop le.',
+            'parent_id.exists' => 'Danh muc cha khong ton tai.',
+            'status.in' => 'Trang thai chi chap nhan active hoac inactive.',
+            'updated_at.required' => 'Thieu phien ban du lieu. Vui long tai lai trang.',
+            'updated_at.date_format' => 'Du lieu cap nhat khong hop le.',
         ]);
 
         $currentVersion = optional($category->updated_at)?->format('Y-m-d H:i:s');
@@ -79,6 +107,13 @@ class CategoryController extends Controller
         }
 
         unset($data['updated_at']);
+
+        if (isset($data['description'])) {
+            $data['description'] = Str::limit(strip_tags($data['description']), 255, '');
+            if ($data['description'] === '') {
+                $data['description'] = null;
+            }
+        }
 
         $category->update($data);
 

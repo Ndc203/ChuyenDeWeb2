@@ -1,4 +1,4 @@
-﻿import React, {
+import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -501,10 +501,7 @@ export default function AdminBrandsPage() {
 
     const rawName = form.name ?? "";
     const name = rawName.trim();
-    const description = (form.description ?? "").slice(
-      0,
-      DESCRIPTION_MAX_LENGTH
-    );
+    const description = form.description ?? "";
 
     if (!rawName) {
       setFormError(NAME_REQUIRED_ERROR);
@@ -542,8 +539,7 @@ export default function AdminBrandsPage() {
       });
       return;
     }
-    const sanitizedDescription = description.trim();
-    if (sanitizedDescription.length > DESCRIPTION_MAX_LENGTH) {
+    if (description.length > DESCRIPTION_MAX_LENGTH) {
       setFormError(LENGTH_ERROR);
       Swal.fire({
         icon: "error",
@@ -582,6 +578,7 @@ export default function AdminBrandsPage() {
       return;
     }
 
+    const sanitizedDescription = description.trim();
     const payload = {
       name,
       description: sanitizedDescription ? sanitizedDescription : null,
@@ -1739,20 +1736,12 @@ function BrandFormModal({
             </label>
             <textarea
               value={form.description}
-              onChange={(e) =>
-                onChange(
-                  "description",
-                  e.target.value.slice(0, DESCRIPTION_MAX_LENGTH)
-                )
-              }
-              rows={4}
+              onChange={(e) => onChange("description", e.target.value)}
               maxLength={DESCRIPTION_MAX_LENGTH}
+              rows={4}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               placeholder="Mô tả ngắn gọn về thương hiệu"
             />
-            <div className="mt-1 text-right text-xs text-slate-500">
-              {(form.description?.length || 0)}/{DESCRIPTION_MAX_LENGTH} ký tự
-            </div>
           </div>
 
           <div>
@@ -1797,3 +1786,4 @@ function BrandFormModal({
     </div>
   );
 }
+
