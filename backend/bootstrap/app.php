@@ -1,0 +1,37 @@
+<?php
+
+use App\Models\Brand;
+use App\Models\Category;
+use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Foundation\Application;
+use Illuminate\Foundation\Configuration\Exceptions;
+use Illuminate\Foundation\Configuration\Middleware;
+
+return Application::configure(basePath: dirname(__DIR__))
+    ->withRouting(
+        web: __DIR__.'/../routes/web.php',
+        api: __DIR__.'/../routes/api.php',
+        commands: __DIR__.'/../routes/console.php',
+        health: '/up',
+    )
+    ->withMiddleware(function (Middleware $middleware): void {
+        // Register API Token Auth Middleware
+        $middleware->alias([
+            'api.token' => \App\Http\Middleware\ApiTokenAuth::class,
+            'xss.protection' => \App\Http\Middleware\XssProtection::class,
+        ]);
+
+        // Apply XSS Protection to all API routes
+        $middleware->appendToGroup('api', [
+            \App\Http\Middleware\XssProtection::class,
+        ]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+        $schedule->call(function (): void {
+            Brand::pruneTrashedOlderThanDays();
+            Category::pruneTrashedOlderThanDays();
+        })->daily();
+    })
+    ->withExceptions(function (Exceptions $exceptions): void {
+        //
+    })->create();
