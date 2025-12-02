@@ -200,6 +200,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Reports
     Route::get('/reports/revenue', [ReportController::class, 'revenueReport']);
+    Route::get('/reports/revenue/export', [ReportController::class, 'exportRevenue']);
 
     // Inventory / Stock
     Route::get('/stock', [StockController::class, 'index']);

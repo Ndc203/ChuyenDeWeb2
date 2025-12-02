@@ -10,27 +10,27 @@
   </style>
 </head>
 <body>
-  <h3>Danh sách thương hiệu</h3>
+  <h3>Danh sach thuong hieu</h3>
   <table>
     <thead>
       <tr>
         <th>ID</th>
-        <th>Tên thương hiệu</th>
+        <th>Ten thuong hieu</th>
         <th>Slug</th>
-        <th>Trạng thái</th>
-        <th>Mô tả</th>
-        <th>Ngày tạo</th>
+        <th>Trang thai</th>
+        <th>Mo ta</th>
+        <th>Ngay tao</th>
       </tr>
     </thead>
     <tbody>
-      @foreach ($rows as $r)
+      @foreach ($rows as $row)
         <tr>
-          <td>{{ $r['ID'] }}</td>
-          <td>{{ $r['Tên thương hiệu'] }}</td>
-          <td>{{ $r['Slug'] }}</td>
-          <td>{{ $r['Trạng thái'] }}</td>
-          <td>{{ $r['Mô tả'] }}</td>
-          <td>{{ $r['Ngày tạo'] }}</td>
+          <td>{{ $row['ID'] }}</td>
+          <td>{{ $row['Ten thuong hieu'] }}</td>
+          <td>{{ $row['Slug'] }}</td>
+          <td>{{ $row['Trang thai'] }}</td>
+          <td>{{ $row['Mo ta'] }}</td>
+          <td>{{ $row['Ngay tao'] }}</td>
         </tr>
       @endforeach
     </tbody>

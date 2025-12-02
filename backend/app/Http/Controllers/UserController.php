@@ -159,7 +159,25 @@ class UserController extends Controller
 
     public function monthlyUserStatistics()
     {
-        $monthlyStats = User::selectRaw("strftime('%Y', created_at) as year, strftime('%m', created_at) as month, COUNT(*) as newUsers")
+        // Build a driver-agnostic query for year/month
+        try {
+            $driver = DB::getPdo()->getAttribute(\PDO::ATTR_DRIVER_NAME);
+        } catch (\Throwable $e) {
+            $driver = config('database.default');
+        }
+
+        if ($driver === 'sqlite') {
+            $select = "strftime('%Y', created_at) as year, strftime('%m', created_at) as month, COUNT(*) as newUsers";
+        } elseif ($driver === 'mysql') {
+            $select = "YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as newUsers";
+        } elseif ($driver === 'pgsql' || $driver === 'postgres') {
+            $select = "date_part('year', created_at) as year, date_part('month', created_at) as month, COUNT(*) as newUsers";
+        } else {
+            // Fallback to MySQL-style which works on many DBs, but may fail on some
+            $select = "YEAR(created_at) as year, MONTH(created_at) as month, COUNT(*) as newUsers";
+        }
+
+        $monthlyStats = User::selectRaw($select)
             ->where('created_at', '>=', now()->subMonths(12))
             ->groupBy('year', 'month')
             ->orderBy('year', 'asc')

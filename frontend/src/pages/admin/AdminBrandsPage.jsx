@@ -1,10 +1,11 @@
-import React, {
+﻿import React, {
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   RefreshCcw,
@@ -43,6 +44,16 @@ const initialSlugState = {
 };
 const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
 const NAME_MAX_LENGTH = 100;
+const DESCRIPTION_MAX_LENGTH = 255;
+const NAME_REQUIRED_ERROR = "Ten khong duoc de trong.";
+const INVALID_VALUE_ERROR = "Vui long nhap gia tri hop le.";
+const LENGTH_ERROR = "Gia tri qua dai.";
+const SLUG_DUPLICATE_ERROR = "Slug da ton tai.";
+const STALE_DATA_MESSAGE =
+  "Du lieu da thay doi. Vui long tai lai trang roi thao tac lai.";
+const INVALID_PARAM_MESSAGE = "Tham so khong hop le.";
+const MAX_PAGE_PARAM = 1000;
+const isBlank = (value = "") => /^\s*$/u.test(value);
 const truncateText = (value, max = 15) => {
   if (value === null || value === undefined) return "";
   const str = String(value);
@@ -68,6 +79,8 @@ export default function AdminBrandsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("active");
   const [page, setPage] = useState(1);
+  const [pageError, setPageError] = useState("");
+  const [searchParams] = useSearchParams();
   const [formOpen, setFormOpen] = useState(false);
   const [formMode, setFormMode] = useState("create");
   const [form, setForm] = useState(emptyBrandForm);
@@ -129,6 +142,28 @@ export default function AdminBrandsPage() {
   useEffect(() => {
     loadBrands();
   }, [loadBrands]);
+
+  useEffect(() => {
+    const pageParam = searchParams.get("page");
+    if (!pageParam) {
+      setPageError("");
+      setPage(1);
+      return;
+    }
+    if (!/^\d+$/.test(pageParam)) {
+      setPageError(INVALID_PARAM_MESSAGE);
+      setPage(1);
+      return;
+    }
+    const numeric = Number(pageParam);
+    if (numeric <= 0 || numeric > MAX_PAGE_PARAM) {
+      setPageError(INVALID_PARAM_MESSAGE);
+      setPage(1);
+      return;
+    }
+    setPageError("");
+    setPage(numeric);
+  }, [searchParams]);
 
   // Click outside export dropdown
   useEffect(() => {
@@ -462,35 +497,71 @@ export default function AdminBrandsPage() {
 
   const handleSubmitForm = async (event) => {
     event.preventDefault();
-    const name = form.name.trim();
-    if (!name) {
-      const message = "Vui long nhap ten thuong hieu.";
-      setFormError(message);
+    if (formLoading) return;
+
+    const rawName = form.name ?? "";
+    const name = rawName.trim();
+    const description = (form.description ?? "").slice(
+      0,
+      DESCRIPTION_MAX_LENGTH
+    );
+
+    if (!rawName) {
+      setFormError(NAME_REQUIRED_ERROR);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: message,
+        text: NAME_REQUIRED_ERROR,
+      });
+      return;
+    }
+    if (isBlank(rawName)) {
+      setFormError(INVALID_VALUE_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: INVALID_VALUE_ERROR,
       });
       return;
     }
     if (hasInvalidChars(name)) {
-      const message =
-        "Ten thuong hieu chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
-      setFormError(message);
+      setFormError(INVALID_VALUE_ERROR);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: message,
+        text: INVALID_VALUE_ERROR,
       });
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      const message = `Ten thuong hieu khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
-      setFormError(message);
+      setFormError(LENGTH_ERROR);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: message,
+        text: LENGTH_ERROR,
+      });
+      return;
+    }
+    const sanitizedDescription = description.trim();
+    if (sanitizedDescription.length > DESCRIPTION_MAX_LENGTH) {
+      setFormError(LENGTH_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: LENGTH_ERROR,
+      });
+      return;
+    }
+    if (slugState.loading) {
+      setFormError("Dang kiem tra slug, vui long cho...");
+      return;
+    }
+    if (!slugState.available) {
+      setFormError(SLUG_DUPLICATE_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: SLUG_DUPLICATE_ERROR,
       });
       return;
     }
@@ -513,9 +584,23 @@ export default function AdminBrandsPage() {
 
     const payload = {
       name,
-      description: form.description.trim() ? form.description.trim() : null,
+      description: sanitizedDescription ? sanitizedDescription : null,
       status: form.status === "inactive" ? "inactive" : "active",
     };
+
+    if (formMode === "edit" && editTarget) {
+      if (!editTarget.updated_at) {
+        const message = "Khong xac dinh phien ban du lieu. Vui long tai lai.";
+        setFormError(message);
+        Swal.fire({
+          icon: "error",
+          title: "Khong the luu thuong hieu",
+          text: message,
+        });
+        return;
+      }
+      payload.updated_at = editTarget.updated_at;
+    }
 
     setFormLoading(true);
     setFormError("");
@@ -539,17 +624,24 @@ export default function AdminBrandsPage() {
       });
       handleCloseForm();
     } catch (error) {
+      const isConflict = error.response?.status === 409;
       const message =
+        (isConflict && STALE_DATA_MESSAGE) ||
         error.response?.data?.message ||
         (error.response?.data?.errors
           ? Object.values(error.response.data.errors).flat().join(", ")
           : "Loi he thong.");
+
       setFormError(message);
       Swal.fire({
         icon: "error",
-        title: "Khong the luu thuong hieu",
+        title: isConflict ? "Du lieu thay doi" : "Khong the luu thuong hieu",
         text: message,
       });
+
+      if (isConflict) {
+        await loadBrands();
+      }
     } finally {
       setFormLoading(false);
     }
@@ -644,6 +736,11 @@ export default function AdminBrandsPage() {
         />
         <AdminSidebar />
         <main className="flex-1 px-4 py-6 sm:px-8">
+          {pageError && (
+            <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+              {pageError}
+            </div>
+          )}
           <header className="mb-6 space-y-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -1642,11 +1739,20 @@ function BrandFormModal({
             </label>
             <textarea
               value={form.description}
-              onChange={(e) => onChange("description", e.target.value)}
+              onChange={(e) =>
+                onChange(
+                  "description",
+                  e.target.value.slice(0, DESCRIPTION_MAX_LENGTH)
+                )
+              }
               rows={4}
+              maxLength={DESCRIPTION_MAX_LENGTH}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
               placeholder="Mô tả ngắn gọn về thương hiệu"
             />
+            <div className="mt-1 text-right text-xs text-slate-500">
+              {(form.description?.length || 0)}/{DESCRIPTION_MAX_LENGTH} ký tự
+            </div>
           </div>
 
           <div>

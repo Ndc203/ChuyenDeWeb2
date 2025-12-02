@@ -5,6 +5,7 @@ import React, {
   useState,
   useRef,
 } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Download,
@@ -34,11 +35,24 @@ const ROOT_PARENT_LABEL = "Danh muc goc";
 const ALL_PARENT_FILTER = "Tat ca danh muc cha";
 const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
 const NAME_MAX_LENGTH = 100;
+const SLUG_MAX_LENGTH = 30;
+const DESCRIPTION_MAX_LENGTH = 255;
+const NAME_REQUIRED_ERROR = "Ten khong duoc de trong.";
+const INVALID_VALUE_ERROR = "Vui long nhap gia tri hop le.";
+const INVALID_NUMBER_ERROR = "Vui long nhap so hop le.";
+const LENGTH_ERROR = "Gia tri qua dai.";
+const INVALID_PARAM_MESSAGE = "Tham so khong hop le.";
+const MAX_PAGE_PARAM = 1000;
+const STALE_DATA_MESSAGE =
+  "Du lieu da thay doi. Vui long tai lai trang roi thao tac lai.";
+const isBlank = (value = "") => /^\s*$/u.test(value);
+const isDigitsOnly = (value = "") => /^\d+$/.test(value);
 const truncateText = (value, max = 15) => {
   if (value === null || value === undefined) return "";
   const str = String(value);
   return str.length > max ? `${str.slice(0, max)}...` : str;
 };
+const TABLE_TEXT_MAX = 10;
 const PAGE_SIZE = 10;
 const pageSummary = (page, pageSize, total) => {
   if (total === 0) return "Khong co muc nao";
@@ -57,6 +71,8 @@ export default function AdminCategoriesPage() {
   const [parentFilter, setParentFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [viewMode, setViewMode] = useState("active");
+  const [pageError, setPageError] = useState("");
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openCreate, setOpenCreate] = useState(false);
@@ -93,12 +109,13 @@ export default function AdminCategoriesPage() {
   const importInputRef = useRef(null);
   const [page, setPage] = useState(1);
   const slugifyText = useCallback((text = "") => {
-    return text
+    const slug = text
       .toLowerCase()
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
+    return slug.slice(0, SLUG_MAX_LENGTH);
   }, []);
   const normalizeName = useCallback(
     (text = "") => slugifyText(text || "").replace(/-/g, ""),
@@ -161,6 +178,28 @@ export default function AdminCategoriesPage() {
   }, [loadCategories]);
 
   useEffect(() => {
+    const pageParam = searchParams.get("page");
+    if (!pageParam) {
+      setPageError("");
+      setPage(1);
+      return;
+    }
+    if (!/^\d+$/.test(pageParam)) {
+      setPageError(INVALID_PARAM_MESSAGE);
+      setPage(1);
+      return;
+    }
+    const numeric = Number(pageParam);
+    if (numeric <= 0 || numeric > MAX_PAGE_PARAM) {
+      setPageError(INVALID_PARAM_MESSAGE);
+      setPage(1);
+      return;
+    }
+    setPageError("");
+    setPage(numeric);
+  }, [searchParams]);
+
+  useEffect(() => {
     if (isDeletedView) {
       setParentFilter("all");
       setStatusFilter("all");
@@ -188,25 +227,55 @@ export default function AdminCategoriesPage() {
 
   const handleSubmitCreate = async (event) => {
     event.preventDefault();
-    const name = form.name.trim();
+    if (createLoading) return;
+    const rawName = form.name ?? "";
+    const name = rawName.trim();
     const status = form.status === "inactive" ? "inactive" : "active";
-    if (!name) {
-      const msg = "Vui long nhap ten danh muc.";
-      setFormError(msg);
-      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+    const description = form.description ?? "";
+
+    if (!rawName) {
+      setFormError(NAME_REQUIRED_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: NAME_REQUIRED_ERROR,
+      });
+      return;
+    }
+    if (isBlank(rawName)) {
+      setFormError(INVALID_VALUE_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: INVALID_VALUE_ERROR,
+      });
       return;
     }
     if (hasInvalidChars(name)) {
-      const msg =
-        "Ten danh muc chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
-      setFormError(msg);
-      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      setFormError(INVALID_VALUE_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: INVALID_VALUE_ERROR,
+      });
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      const msg = `Ten danh muc khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
-      setFormError(msg);
-      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      setFormError(LENGTH_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: LENGTH_ERROR,
+      });
+      return;
+    }
+    if (description.length > DESCRIPTION_MAX_LENGTH) {
+      setFormError(LENGTH_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: LENGTH_ERROR,
+      });
       return;
     }
     const normalized = normalizeName(name);
@@ -229,9 +298,11 @@ export default function AdminCategoriesPage() {
     setCreateLoading(true);
     setFormError("");
 
+    const sanitizedDescription = description.trim();
+
     const payload = {
       name,
-      description: form.description?.trim() ? form.description.trim() : null,
+      description: sanitizedDescription ? sanitizedDescription : null,
       parent_id: form.parentId ? Number(form.parentId) : null,
       status,
     };
@@ -294,26 +365,56 @@ export default function AdminCategoriesPage() {
 
   const handleSubmitEdit = async (event) => {
     event.preventDefault();
+    if (editLoading) return;
     if (!editTarget) return;
-    const name = editForm.name.trim();
+    const rawName = editForm.name ?? "";
+    const name = rawName.trim();
     const status = editForm.status === "inactive" ? "inactive" : "active";
-    if (!name) {
-      const msg = "Vui long nhap ten danh muc.";
-      setEditError(msg);
-      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+    const description = editForm.description ?? "";
+
+    if (!rawName) {
+      setEditError(NAME_REQUIRED_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: NAME_REQUIRED_ERROR,
+      });
+      return;
+    }
+    if (isBlank(rawName)) {
+      setEditError(INVALID_VALUE_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: INVALID_VALUE_ERROR,
+      });
       return;
     }
     if (hasInvalidChars(name)) {
-      const msg =
-        "Ten danh muc chi duoc chua chu, so, dau cach, dau nhay don va dau gach ngang.";
-      setEditError(msg);
-      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      setEditError(INVALID_VALUE_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: INVALID_VALUE_ERROR,
+      });
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      const msg = `Ten danh muc khong duoc vuot ${NAME_MAX_LENGTH} ky tu.`;
-      setEditError(msg);
-      Swal.fire({ icon: "error", title: "Khong hop le", text: msg });
+      setEditError(LENGTH_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: LENGTH_ERROR,
+      });
+      return;
+    }
+    if (description.length > DESCRIPTION_MAX_LENGTH) {
+      setEditError(LENGTH_ERROR);
+      Swal.fire({
+        icon: "error",
+        title: "Khong hop le",
+        text: LENGTH_ERROR,
+      });
       return;
     }
     const normalized = normalizeName(name);
@@ -334,17 +435,30 @@ export default function AdminCategoriesPage() {
       return;
     }
 
-    setEditLoading(true);
-    setEditError("");
+    const sanitizedDescription = description.trim();
 
     const payload = {
       name,
-      description: editForm.description?.trim()
-        ? editForm.description.trim()
-        : null,
+      description: sanitizedDescription ? sanitizedDescription : null,
       parent_id: editForm.parentId ? Number(editForm.parentId) : null,
       status,
     };
+
+    if (!editTarget.updated_at) {
+      const msg = "Khong xac dinh phien ban du lieu. Vui long tai lai.";
+      setEditError(msg);
+      Swal.fire({
+        icon: "error",
+        title: "Khong the cap nhat danh muc",
+        text: msg,
+      });
+      return;
+    }
+
+    payload.updated_at = editTarget.updated_at;
+
+    setEditLoading(true);
+    setEditError("");
 
     try {
       await axiosClient.put(`/categories/${editTarget.id}`, payload);
@@ -356,14 +470,22 @@ export default function AdminCategoriesPage() {
       });
       handleCloseEdit();
     } catch (error) {
+      const isConflict = error.response?.status === 409;
       const message =
-        error.response?.data?.message || "Khong the cap nhat danh muc.";
+        (isConflict && STALE_DATA_MESSAGE) ||
+        error.response?.data?.message ||
+        "Khong the cap nhat danh muc.";
+
       setEditError(message);
       Swal.fire({
         icon: "error",
-        title: "Khong the cap nhat danh muc",
+        title: isConflict ? "Du lieu thay doi" : "Khong the cap nhat danh muc",
         text: message,
       });
+
+      if (isConflict) {
+        await loadCategories();
+      }
     } finally {
       setEditLoading(false);
     }
@@ -908,6 +1030,11 @@ export default function AdminCategoriesPage() {
       <AdminSidebar />
 
       <main className="flex-1 w-full min-w-0 overflow-x-hidden">
+        {pageError && (
+          <div className="mx-6 mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm text-rose-600">
+            {pageError}
+          </div>
+        )}
         {/* Header */}
         <div className="sticky top-0 z-10 bg-slate-50/80 backdrop-blur border-b">
           <div className="w-full px-10 py-4 flex items-center justify-between">
@@ -1065,14 +1192,14 @@ export default function AdminCategoriesPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <select
-                      className="rounded-lg border px-2 py-1 text-xs"
+                      className="rounded-lg border px-2 py-1 text-xs max-w-[200px]"
                       value={bulkTarget}
                       onChange={(e) => setBulkTarget(e.target.value)}
                     >
                       <option value="">Chọn gốc</option>
                       {rows.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
+                        <option key={r.id} value={r.id} title={r.name}>
+                          {truncateText(r.name, 15)}
                         </option>
                       ))}
                     </select>
@@ -1148,14 +1275,19 @@ export default function AdminCategoriesPage() {
                         className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                       >
                         <td className="px-4 py-3 font-medium" title={r.name}>
-                          {truncateText(r.name)}
+                          {truncateText(r.name, TABLE_TEXT_MAX)}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          <span title={r.slug}>{truncateText(r.slug)}</span>
+                          <span title={r.slug}>
+                            {truncateText(r.slug, TABLE_TEXT_MAX)}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span title={r.parent || ROOT_PARENT_LABEL}>
-                            {truncateText(r.parent || ROOT_PARENT_LABEL)}
+                            {truncateText(
+                              r.parent || ROOT_PARENT_LABEL,
+                              TABLE_TEXT_MAX
+                            )}
                           </span>
                         </td>
 
@@ -1472,9 +1604,18 @@ function CategoryFormModal({
             </label>
             <textarea
               value={form.description}
-              onChange={(e) => onChange("description", e.target.value)}
+              onChange={(e) =>
+                onChange(
+                  "description",
+                  e.target.value.slice(0, DESCRIPTION_MAX_LENGTH)
+                )
+              }
+              maxLength={DESCRIPTION_MAX_LENGTH}
               className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             />
+            <div className="mt-1 text-right text-xs text-slate-500">
+              {(form.description?.length || 0)}/{DESCRIPTION_MAX_LENGTH} ky tu
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -1659,28 +1800,6 @@ function ImportCategoriesModal({
                   So dong that bai: {result.summary?.failed ?? 0}.
                 </div>
               </div>
-              {Array.isArray(result.errors) && result.errors.length > 0 && (
-                <div className="max-h-40 overflow-auto rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                  <p className="font-medium">Chi tiet loi:</p>
-                  <ul className="mt-1 space-y-1 pl-4 list-disc">
-                    {result.errors.map((row) => (
-                      <li key={row.index ?? row.message}>
-                        <span className="font-medium">
-                          Dong {row.index ?? "?"}:
-                        </span>{" "}
-                        {row.message}
-                        {Array.isArray(row.errors) && row.errors.length > 0 && (
-                          <ul className="mt-1 space-y-1 pl-4 list-disc text-amber-600">
-                            {row.errors.map((msg, idx) => (
-                              <li key={idx}>{msg}</li>
-                            ))}
-                          </ul>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
             </div>
           )}
 
@@ -2284,9 +2403,13 @@ function CategoryTreeNode({
         />
         <div className="flex flex-1 items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-medium text-slate-700">{node.name}</p>
-            <p className="text-xs text-slate-400">{node.slug}</p>
-          </div>
+            <p className="text-sm font-medium text-slate-700">
+              {truncateText(node.name, 15)}
+            </p>
+            <p className="text-xs text-slate-400">
+              {truncateText(node.slug, 15)}
+            </p>
+         </div>
           <StatusBadge status={node.status} />
         </div>
       </div>
@@ -2510,3 +2633,13 @@ function updateRowsForMove(rows, id, parentId) {
       : r
   );
 }
+
+
+
+
+
+
+
+
+
+

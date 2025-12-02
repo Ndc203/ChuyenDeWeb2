@@ -35,6 +35,7 @@ class CategoryController extends Controller
                 'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
+                'updated_at' => optional($category->updated_at)?->format('Y-m-d H:i:s'),
                 'created_at' => optional($category->created_at)?->format('Y-m-d H:i'),
             ]);
 
@@ -67,7 +68,17 @@ class CategoryController extends Controller
             'description' => ['nullable', 'string'],
             'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
+            'updated_at' => ['required', 'date_format:Y-m-d H:i:s'],
         ]);
+
+        $currentVersion = optional($category->updated_at)?->format('Y-m-d H:i:s');
+        if ($currentVersion !== $data['updated_at']) {
+            return response()->json([
+                'message' => 'Du lieu da thay doi. Vui long tai lai trang roi thao tac lai.',
+            ], 409, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        unset($data['updated_at']);
 
         $category->update($data);
 
@@ -175,6 +186,7 @@ class CategoryController extends Controller
                 'parent_id' => $category->parent_id,
                 'parent' => optional($category->parent)->name,
                 'status' => $category->status,
+                'updated_at' => optional($category->updated_at)?->format('Y-m-d H:i:s'),
                 'deleted_at' => optional($category->deleted_at)?->format('Y-m-d H:i'),
                 'auto_delete_at' => $category->deleted_at
                     ? $category->deleted_at->copy()->addDays(30)->format('Y-m-d H:i')

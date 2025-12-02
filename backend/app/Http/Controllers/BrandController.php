@@ -28,6 +28,7 @@ class BrandController extends Controller
                 'slug' => $brand->slug,
                 'description' => $brand->description,
                 'status' => $brand->status,
+                'updated_at' => optional($brand->updated_at)?->format('Y-m-d H:i:s'),
                 'created_at' => optional($brand->created_at)?->format('Y-m-d H:i'),
             ]);
 
@@ -59,6 +60,7 @@ class BrandController extends Controller
                 'slug' => $brand->slug,
                 'description' => $brand->description,
                 'status' => $brand->status,
+                'updated_at' => optional($brand->updated_at)?->format('Y-m-d H:i:s'),
                 'created_at' => optional($brand->created_at)?->format('Y-m-d H:i'),
             ],
         ], 201, [], JSON_UNESCAPED_UNICODE);
@@ -80,7 +82,18 @@ class BrandController extends Controller
             ],
             'description' => ['nullable', 'string'],
             'status' => ['sometimes', 'required', 'string', Rule::in(['active', 'inactive'])],
+            'updated_at' => ['required', 'date_format:Y-m-d H:i:s'],
         ]);
+
+        $currentVersion = optional($brand->updated_at)?->format('Y-m-d H:i:s');
+
+        if ($currentVersion !== $data['updated_at']) {
+            return response()->json([
+                'message' => 'Du lieu da thay doi. Vui long tai lai trang roi thao tac lai.',
+            ], 409, [], JSON_UNESCAPED_UNICODE);
+        }
+
+        unset($data['updated_at']);
 
         $brand->update($data);
         $brand->refresh();
@@ -93,6 +106,7 @@ class BrandController extends Controller
                 'slug' => $brand->slug,
                 'description' => $brand->description,
                 'status' => $brand->status,
+                'updated_at' => optional($brand->updated_at)?->format('Y-m-d H:i:s'),
                 'created_at' => optional($brand->created_at)?->format('Y-m-d H:i'),
             ],
         ], 200, [], JSON_UNESCAPED_UNICODE);
@@ -145,6 +159,7 @@ class BrandController extends Controller
                 'slug' => $brand->slug,
                 'description' => $brand->description,
                 'status' => $brand->status,
+                'updated_at' => optional($brand->updated_at)?->format('Y-m-d H:i:s'),
                 'deleted_at' => optional($brand->deleted_at)?->format('Y-m-d H:i'),
                 'auto_delete_at' => $brand->deleted_at
                     ? $brand->deleted_at->copy()->addDays(30)->format('Y-m-d H:i')
@@ -221,7 +236,8 @@ class BrandController extends Controller
         $ignore = $request->query('ignore');
         $ignoreId = $ignore !== null ? (int) $ignore : null;
 
-        $baseSlug = Str::slug($text) ?: 'brand';
+        $limited = Str::limit($text, Brand::SLUG_MAX_LENGTH, '');
+        $baseSlug = Str::slug($limited) ?: 'brand';
         $slug = Brand::generateUniqueSlug($text, $ignoreId);
 
         $exists = Brand::withTrashed()
