@@ -135,7 +135,7 @@ class CommentController extends Controller
 
         $validator = Validator::make($request->all(), [
             'content' => 'required|string|max:5000',
-            'updated_at' => 'required' // 🔥 optimistic locking
+            'updated_at' => 'required' 
         ]);
 
         if ($validator->fails()) {
@@ -211,6 +211,7 @@ class CommentController extends Controller
                 'user_id' => $comment->user_id,
                 'content' => $comment->content, // raw HTML
                 'created_at' => $comment->created_at,
+                'updated_at' => $comment->updated_at,
             ];
         });
 
@@ -234,6 +235,7 @@ class CommentController extends Controller
                 'content'    => $comment->content,
                 'parent_id'  => $comment->parent_id,
                 'created_at' => $comment->created_at,
+                'updated_at' => $comment->updated_at, 
             ];
         });
 

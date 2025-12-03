@@ -9,6 +9,11 @@ import { Download, Search, Trash2, Eye } from "lucide-react";
 import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient"; // Import axiosClient
 import Swal from "sweetalert2";
+function decodeHtml(html) {
+    const txt = document.createElement("textarea");
+    txt.innerHTML = html;
+    return txt.value;
+  }
 
 export default function AdminCommentPage() {
   const [query, setQuery] = useState("");
@@ -41,6 +46,8 @@ export default function AdminCommentPage() {
   useEffect(() => {
     loadComments();
   }, [loadComments]);
+
+  
 
   // === 2. Xem chi tiết (Dùng axiosClient) ===
   async function handleViewDetail(id) {
@@ -225,7 +232,11 @@ export default function AdminCommentPage() {
                       <td className="px-4 py-3 font-medium">{r.user_name}</td>
                       <td className="px-4 py-3">{r.post_title}</td>
                       <td className="px-4 py-3 truncate max-w-xs">
-                        {r.content}
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: decodeHtml(r.content),
+                          }}
+                        />
                       </td>
                       <td className="px-4 py-3">{formatDate(r.created_at)}</td>
                       <td className="px-4 py-3 text-right">
@@ -326,9 +337,10 @@ function CommentDetailModal({ open, onClose, comment }) {
           </div>
           <div>
             <strong className="text-slate-700">Nội dung:</strong>
-            <p className="text-slate-800 mt-1 whitespace-pre-line">
-              {comment.content}
-            </p>
+            <div
+              className="text-slate-800 mt-1"
+              dangerouslySetInnerHTML={{ __html: decodeHtml(comment.content) }}
+            />
           </div>
           <div>
             <strong className="text-slate-700">Ngày tạo:</strong>{" "}
