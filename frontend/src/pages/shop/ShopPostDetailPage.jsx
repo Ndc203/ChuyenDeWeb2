@@ -411,7 +411,7 @@ export default function ShopPostDetailPage() {
               <div
                 className="prose mt-2"
                 dangerouslySetInnerHTML={{
-                  __html: decodeHtml(post.content || ""),
+                  __html: decodeHtml(c.content || ""),
                 }}
               />
             )}
