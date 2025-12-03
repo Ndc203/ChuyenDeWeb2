@@ -255,6 +255,7 @@ class CommentController extends Controller
             'post_title' => $comment->post->title ?? 'Không xác định',
             'content' => $comment->content, // raw HTML
             'created_at' => $comment->created_at,
+            'updated_at' => $comment->updated_at,
         ]);
     }
     

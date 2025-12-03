@@ -285,7 +285,7 @@ export default function ShopPostDetailPage() {
 
       const payload = {
         content: editingContent,
-        updated_at: original.updated_at, // 🔥 BẮT BUỘC
+        updated_at: original.updated_at || original.created_at, // 🔥 BẮT BUỘC
       };
 
       const res = await fetchJSON(
