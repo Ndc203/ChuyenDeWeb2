@@ -44,7 +44,7 @@ class BrandController extends Controller
                 'max:255',
                 Rule::unique('brands', 'name')->whereNull('deleted_at'),
             ],
-            'description' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ], [
             'name.required' => 'Ten thuong hieu khong duoc de trong.',
@@ -52,12 +52,12 @@ class BrandController extends Controller
             'name.max' => 'Ten thuong hieu khong duoc vuot 255 ky tu.',
             'name.unique' => 'Ten thuong hieu da ton tai.',
             'description.string' => 'Mo ta phai la chuoi ky tu.',
-            'description.max' => 'Mo ta khong duoc vuot 255 ky tu.',
+            'description.max' => 'Mo ta khong duoc vuot 1000 ky tu.',
             'status.in' => 'Trang thai chi chap nhan active hoac inactive.',
         ]);
 
         if (isset($data['description'])) {
-            $data['description'] = Str::limit(strip_tags($data['description']), 255, '');
+            $data['description'] = Str::limit(strip_tags($data['description']), 1000, '');
             if ($data['description'] === '') {
                 $data['description'] = null;
             }
@@ -95,7 +95,7 @@ class BrandController extends Controller
                     ->ignore($brand->brand_id, 'brand_id')
                     ->whereNull('deleted_at'),
             ],
-            'description' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'status' => ['sometimes', 'required', 'string', Rule::in(['active', 'inactive'])],
             'updated_at' => ['required', 'date_format:Y-m-d H:i:s'],
         ], [
@@ -104,7 +104,7 @@ class BrandController extends Controller
             'name.max' => 'Ten thuong hieu khong duoc vuot 255 ky tu.',
             'name.unique' => 'Ten thuong hieu da ton tai.',
             'description.string' => 'Mo ta phai la chuoi ky tu.',
-            'description.max' => 'Mo ta khong duoc vuot 255 ky tu.',
+            'description.max' => 'Mo ta khong duoc vuot 1000 ky tu.',
             'status.in' => 'Trang thai chi chap nhan active hoac inactive.',
             'updated_at.required' => 'Thieu phien ban du lieu. Vui long tai lai trang.',
             'updated_at.date_format' => 'Du lieu cap nhat khong hop le.',
@@ -121,7 +121,7 @@ class BrandController extends Controller
         unset($data['updated_at']);
 
         if (isset($data['description'])) {
-            $data['description'] = Str::limit(strip_tags($data['description']), 255, '');
+            $data['description'] = Str::limit(strip_tags($data['description']), 1000, '');
             if ($data['description'] === '') {
                 $data['description'] = null;
             }

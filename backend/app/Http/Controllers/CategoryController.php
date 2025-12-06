@@ -47,7 +47,7 @@ class CategoryController extends Controller
     {
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
         ], [
@@ -55,14 +55,14 @@ class CategoryController extends Controller
             'name.string' => 'Ten danh muc khong hop le.',
             'name.max' => 'Ten danh muc khong duoc vuot 255 ky tu.',
             'description.string' => 'Mo ta phai la chuoi ky tu.',
-            'description.max' => 'Mo ta khong duoc vuot 255 ky tu.',
+            'description.max' => 'Mo ta khong duoc vuot 1000 ky tu.',
             'parent_id.integer' => 'Danh muc cha khong hop le.',
             'parent_id.exists' => 'Danh muc cha khong ton tai.',
             'status.in' => 'Trang thai chi chap nhan active hoac inactive.',
         ]);
 
         if (isset($data['description'])) {
-            $data['description'] = Str::limit(strip_tags($data['description']), 255, '');
+            $data['description'] = Str::limit(strip_tags($data['description']), 1000, '');
             if ($data['description'] === '') {
                 $data['description'] = null;
             }
@@ -82,7 +82,7 @@ class CategoryController extends Controller
 
         $data = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:255'],
-            'description' => ['nullable', 'string', 'max:255'],
+            'description' => ['nullable', 'string', 'max:1000'],
             'parent_id' => ['nullable', 'integer', 'exists:categories,category_id'],
             'status' => ['nullable', 'string', Rule::in(['active', 'inactive'])],
             'updated_at' => ['required', 'date_format:Y-m-d H:i:s'],
@@ -91,7 +91,7 @@ class CategoryController extends Controller
             'name.string' => 'Ten danh muc khong hop le.',
             'name.max' => 'Ten danh muc khong duoc vuot 255 ky tu.',
             'description.string' => 'Mo ta phai la chuoi ky tu.',
-            'description.max' => 'Mo ta khong duoc vuot 255 ky tu.',
+            'description.max' => 'Mo ta khong duoc vuot 1000 ky tu.',
             'parent_id.integer' => 'Danh muc cha khong hop le.',
             'parent_id.exists' => 'Danh muc cha khong ton tai.',
             'status.in' => 'Trang thai chi chap nhan active hoac inactive.',
@@ -109,7 +109,7 @@ class CategoryController extends Controller
         unset($data['updated_at']);
 
         if (isset($data['description'])) {
-            $data['description'] = Str::limit(strip_tags($data['description']), 255, '');
+            $data['description'] = Str::limit(strip_tags($data['description']), 1000, '');
             if ($data['description'] === '') {
                 $data['description'] = null;
             }
