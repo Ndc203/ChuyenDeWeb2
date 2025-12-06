@@ -285,7 +285,7 @@ export default function ShopPostDetailPage() {
 
       const payload = {
         content: editingContent,
-        updated_at: original.updated_at, // 🔥 BẮT BUỘC
+        updated_at: original.updated_at || original.created_at, // 🔥 BẮT BUỘC
       };
 
       const res = await fetchJSON(
@@ -411,7 +411,7 @@ export default function ShopPostDetailPage() {
               <div
                 className="prose mt-2"
                 dangerouslySetInnerHTML={{
-                  __html: decodeHtml(post.content || ""),
+                  __html: decodeHtml(c.content || ""),
                 }}
               />
             )}

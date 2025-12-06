@@ -1,4 +1,4 @@
-import React, {
+﻿import React, {
   useCallback,
   useEffect,
   useMemo,
@@ -28,7 +28,7 @@ import AdminSidebar from "../layout/AdminSidebar.jsx";
 import axiosClient from "../../api/axiosClient"; // Import axiosClient
 import Swal from "sweetalert2";
 
-// Helper để tạo object rỗng
+// Helper de tao object rong
 const emptyBrandForm = () => ({
   name: "",
   description: "",
@@ -44,10 +44,11 @@ const initialSlugState = {
 };
 const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
 const NAME_MAX_LENGTH = 100;
-const DESCRIPTION_MAX_LENGTH = 10000;
+const DESCRIPTION_MAX_LENGTH = 1000;
 const NAME_REQUIRED_ERROR = "Ten khong duoc de trong.";
 const INVALID_VALUE_ERROR = "Vui long nhap gia tri hop le.";
-const LENGTH_ERROR = "Gia tri qua dai.";
+const lengthError = (max) => `Gia tri qua dai. Toi da ${max} ky tu.`;
+const descriptionLengthError = (max) => `Mo ta khong duoc vuot ${max} ky tu.`;
 const SLUG_DUPLICATE_ERROR = "Slug da ton tai.";
 const STALE_DATA_MESSAGE =
   "Du lieu da thay doi. Vui long tai lai trang roi thao tac lai.";
@@ -131,7 +132,7 @@ export default function AdminBrandsPage() {
     axiosClient
       .get(endpoint)
       .then((res) => {
-        // Tùy backend trả về, giả sử là res.data hoặc res.data.data
+        // Tuy backend tra ve, gia su la res.data hoac res.data.data
         const data = Array.isArray(res.data) ? res.data : res.data.data || [];
         setRows(data);
       })
@@ -178,23 +179,21 @@ export default function AdminBrandsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // --- 2. Handle Export (Dùng Axios Blob để bảo mật Token) ---
+  // --- 2. Handle Export ---
   const handleExport = useCallback(async (format) => {
     try {
       setExportOpen(false);
-      // Gọi API lấy file blob
+      // Goi API lay file blob
       const response = await axiosClient.get(
         `/brands/export?format=${format}`,
-        {
-          responseType: "blob", // Quan trọng
-        }
+        { responseType: "blob" }
       );
 
-      // Tạo link tải xuống giả
+      // Tao link tai xuong
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      // Đặt tên file (có thể lấy từ header content-disposition nếu muốn xịn hơn)
+      // Dat ten file tu header neu can thiet
       link.setAttribute(
         "download",
         `brands_export.${format === "excel" ? "xlsx" : "pdf"}`
@@ -250,12 +249,12 @@ export default function AdminBrandsPage() {
       formData.append("file", file);
 
       try {
-        // Dùng axiosClient post FormData
+        // Dung axiosClient post FormData
         const response = await axiosClient.post(
           "/brands/import/preview",
           formData,
           {
-            headers: { "Content-Type": "multipart/form-data" }, // Axios tự set nhưng ghi rõ cũng tốt
+            headers: { "Content-Type": "multipart/form-data" }, // Axios tu set nhung ghi ro cung tot
           }
         );
 
@@ -272,7 +271,7 @@ export default function AdminBrandsPage() {
       } catch (error) {
         const message =
           error.response?.data?.message ||
-          "Không thể đọc file. Vui lòng kiểm tra lại.";
+          "Khong the doc file. Vui long kiem tra lai.";
         setImportError(message);
         setImportPreview(null);
         setImportSelected([]);
@@ -319,11 +318,11 @@ export default function AdminBrandsPage() {
 
   const handleConfirmImport = useCallback(async () => {
     if (!importFile) {
-      setImportError("Vui lòng chọn file Excel trước.");
+      setImportError("Vui long chon file Excel truoc.");
       return;
     }
     if (!importSelected.length) {
-      setImportError("Vui lòng chọn ít nhất một dòng hợp lệ.");
+      setImportError("Vui long chon it nhat mot dong hop le.");
       return;
     }
 
@@ -342,11 +341,11 @@ export default function AdminBrandsPage() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setImportResult(response.data);
-      await loadBrands(); // Reload bảng sau khi import thành công
+      await loadBrands(); // Reload bang sau khi import thanh cong
     } catch (error) {
       const message =
         error.response?.data?.message ||
-        "Không thể nhập thương hiệu. Vui lòng thử lại.";
+        "Khong the nhap thuong hieu. Vui long thu lai.";
       setImportError(message);
     } finally {
       setImportSubmitting(false);
@@ -437,7 +436,7 @@ export default function AdminBrandsPage() {
         })
         .catch((err) => {
           if (axiosClient.isCancel(err) || cancelled) return;
-          setSlugError("Không thể sinh slug tự động.");
+          setSlugError("Khong the sinh slug tu dong.");
           setSlugState(initialSlugState);
         });
     }, 350);
@@ -531,20 +530,22 @@ export default function AdminBrandsPage() {
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      setFormError(LENGTH_ERROR);
+      const msg = lengthError(NAME_MAX_LENGTH);
+      setFormError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
     if (description.length > DESCRIPTION_MAX_LENGTH) {
-      setFormError(LENGTH_ERROR);
+      const msg = descriptionLengthError(DESCRIPTION_MAX_LENGTH);
+      setFormError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
@@ -742,11 +743,11 @@ export default function AdminBrandsPage() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h1 className="text-xl font-semibold text-slate-800">
-                  Quản lý Thương hiệu
+                  Quan ly Thuong hieu
                 </h1>
                 <p className="text-sm text-slate-500">
-                  Dữ liệu đồng bộ từ Laravel API. Quản lý trạng thái và thông
-                  tin thương hiệu.
+                  Du lieu dong bo tu Laravel API. Quan ly trang thai va thong
+                  tin thuong hieu.
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -756,7 +757,7 @@ export default function AdminBrandsPage() {
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
                   >
                     <Download size={16} />
-                    Xuất file
+                    Xuat file
                   </button>
                   {exportOpen && (
                     <div className="absolute right-0 z-50 mt-2 w-48 rounded-xl border border-slate-200 bg-white py-1 shadow-lg">
@@ -764,13 +765,13 @@ export default function AdminBrandsPage() {
                         onClick={() => handleExport("excel")}
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                       >
-                        <span>📊 Tải Excel</span>
+                        <span>Tai Excel</span>
                       </button>
                       <button
                         onClick={() => handleExport("pdf")}
                         className="flex w-full items-center gap-2 px-4 py-2 text-left text-sm text-slate-700 hover:bg-slate-50"
                       >
-                        <span>📄 Tải PDF</span>
+                        <span>Tai PDF</span>
                       </button>
                     </div>
                   )}
@@ -783,14 +784,14 @@ export default function AdminBrandsPage() {
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                 >
                   <Upload size={16} />
-                  Nhập Excel
+                  Nhap Excel
                 </button>
                 <button
                   onClick={handleOpenCreate}
                   className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                 >
                   <Plus size={16} />
-                  Thêm thương hiệu
+                  Them thuong hieu
                 </button>
               </div>
             </div>
@@ -798,7 +799,7 @@ export default function AdminBrandsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Chế độ hiển thị
+                  Che do hien thi
                 </span>
                 <div className="inline-flex rounded-full border bg-white p-1 text-xs shadow-sm">
                   <button
@@ -810,7 +811,7 @@ export default function AdminBrandsPage() {
                         : "bg-indigo-600 text-white shadow"
                     }`}
                   >
-                    Hoạt động
+                    Hoat dong
                   </button>
                   <button
                     type="button"
@@ -821,7 +822,7 @@ export default function AdminBrandsPage() {
                         : "text-slate-600 hover:bg-slate-100"
                     }`}
                   >
-                    Đã xóa
+                    Da xoa
                   </button>
                 </div>
               </div>
@@ -835,7 +836,7 @@ export default function AdminBrandsPage() {
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Tìm kiếm thương hiệu..."
+                    placeholder="Tim kiem thuong hieu..."
                     className="w-full rounded-xl border bg-white pl-10 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
                   />
                 </div>
@@ -845,9 +846,9 @@ export default function AdminBrandsPage() {
                   disabled={isDeletedView}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 pr-8 py-2 text-sm text-slate-600 outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  <option value="all">Tất cả trạng thái</option>
-                  <option value="active">Hoạt động</option>
-                  <option value="inactive">Tạm dừng</option>
+                  <option value="all">Tat ca trang thai</option>
+                  <option value="active">Hoat dong</option>
+                  <option value="inactive">Tam dung</option>
                 </select>
               </div>
             </div>
@@ -858,14 +859,14 @@ export default function AdminBrandsPage() {
               <table className="w-full text-sm">
                 <thead className="bg-slate-50">
                   <tr className="text-left text-slate-600">
-                    <Th>Tên thương hiệu</Th>
+                    <Th>Ten thuong hieu</Th>
                     <Th>Slug</Th>
-                    <Th className="w-1/3">Mô tả</Th>
-                    <Th className="w-32">Trạng thái</Th>
+                    <Th className="w-1/3">Mo ta</Th>
+                    <Th className="w-32">Trang thai</Th>
                     <Th className="w-40">
-                      {isDeletedView ? "Ngày xóa" : "Ngày tạo"}
+                      {isDeletedView ? "Ngay xoa" : "Ngay tao"}
                     </Th>
-                    <Th className="w-40 text-right pr-4">Thao tác</Th>
+                    <Th className="w-40 text-right pr-4">Thao tac</Th>
                   </tr>
                 </thead>
                 <tbody>
@@ -875,7 +876,7 @@ export default function AdminBrandsPage() {
                         colSpan={6}
                         className="p-6 text-center text-slate-500"
                       >
-                        Đang tải dữ liệu...
+                        Dang tai du lieu...
                       </td>
                     </tr>
                   ) : rows.length === 0 ? (
@@ -885,8 +886,8 @@ export default function AdminBrandsPage() {
                         className="p-6 text-center text-slate-400"
                       >
                         {isDeletedView
-                          ? "Không có thương hiệu nào trong thùng rác."
-                          : "Chưa có thương hiệu nào."}
+                          ? "Khong co thuong hieu nao trong thung rac."
+                          : "Chua co thuong hieu nao."}
                       </td>
                     </tr>
                   ) : filteredRows.length === 0 ? (
@@ -895,7 +896,7 @@ export default function AdminBrandsPage() {
                         colSpan={6}
                         className="p-6 text-center text-slate-400"
                       >
-                        Không tìm thấy thương hiệu phù hợp.
+                        Khong tim thay thuong hieu phu hop.
                       </td>
                     </tr>
                   ) : (
@@ -933,13 +934,13 @@ export default function AdminBrandsPage() {
                             <div className="flex flex-col gap-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="inline-flex items-center rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-600">
-                                  Đã xóa
+                                  Da xoa
                                 </span>
                                 <StatusBadge status={brand.status} />
                               </div>
                               {brand.auto_delete_at && (
                                 <p className="text-xs text-slate-500">
-                                  Tự động xóa vĩnh viễn vào{" "}
+                                  Tu dong xoa vinh vien vao{" "}
                                   {formatDate(brand.auto_delete_at)}
                                 </p>
                               )}
@@ -958,14 +959,14 @@ export default function AdminBrandsPage() {
                             {isDeletedView ? (
                               <>
                                 <IconBtn
-                                  title="Xem chi tiết"
+                                  title="Xem chi tiet"
                                   intent="neutral"
                                   onClick={() => handleOpenView(brand)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Khôi phục"
+                                  title="KhAi phac"
                                   intent="primary"
                                   onClick={() => handleRestore(brand)}
                                   disabled={restoringId === brand.id}
@@ -985,8 +986,8 @@ export default function AdminBrandsPage() {
                                 <IconBtn
                                   title={
                                     brand.status === "active"
-                                      ? "Chuyển sang tạm dừng"
-                                      : "Kích hoạt thương hiệu"
+                                      ? "Chuyen sang tam dung"
+                                      : "Kich hoat thuong hieu"
                                   }
                                   intent={
                                     brand.status === "active"
@@ -1006,21 +1007,21 @@ export default function AdminBrandsPage() {
                                   )}
                                 </IconBtn>
                                 <IconBtn
-                                  title="Xem chi tiết"
+                                  title="Xem chi tiat"
                                   intent="neutral"
                                   onClick={() => handleOpenView(brand)}
                                 >
                                   <Eye size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Sửa"
+                                  title="Sua"
                                   intent="primary"
                                   onClick={() => handleOpenEdit(brand)}
                                 >
                                   <Edit size={16} />
                                 </IconBtn>
                                 <IconBtn
-                                  title="Xóa"
+                                  title="Xoa"
                                   intent="danger"
                                   onClick={() => handleAskDelete(brand)}
                                   disabled={
@@ -1119,9 +1120,9 @@ export default function AdminBrandsPage() {
   );
 }
 
-// --- Các Component con ImportBrandsModal, BrandFormModal... giữ nguyên logic UI ---
-// (Mình chỉ paste lại phần ImportBrandsModal để đảm bảo file chạy,
-// các component nhỏ khác như Th, StatusBadge... giữ nguyên như file cũ của bạn)
+// --- Cac component con ImportBrandsModal, BrandFormModal... giu nguyen logic UI ---
+// (Minh chi paste lai phan ImportBrandsModal de dam bao file chay,
+// cac component nho khac nhu Th, StatusBadge... giu nguyen nhu file cu cua ban)
 
 function DeleteBrandModal({ open, brand, onClose, onConfirm, loading, error }) {
   if (!open || !brand) return null;
@@ -1212,10 +1213,10 @@ function ImportBrandsModal({
   const selectedCount = selected.length;
   const hasPreview = rows.length > 0;
   const submitLabel = submitting
-    ? "Đang nhập..."
+    ? "Dang nhap..."
     : result
-    ? "Nhập lại"
-    : "Nhập thương hiệu";
+    ? "Nhap lai"
+    : "Nhap thuong hieu";
 
   return (
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/30 backdrop-blur-sm px-4">
@@ -1223,10 +1224,10 @@ function ImportBrandsModal({
         <div className="flex items-start justify-between border-b px-6 py-5">
           <div>
             <h2 className="text-lg font-semibold text-slate-800">
-              Nhập thương hiệu từ Excel
+              Nhap thuong hieu tu Excel
             </h2>
             <p className="text-sm text-slate-500">
-              Xem trước dữ liệu và chọn những dòng cần thêm vào hệ thống.
+              Xem truoc du lieu va chon nhung dong can them vao he thong.
             </p>
           </div>
           <button
@@ -1242,10 +1243,10 @@ function ImportBrandsModal({
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm font-medium text-slate-700">
-                File đang xử lý
+                File dang xu ly
               </p>
               <p className="text-xs text-slate-500">
-                {fileName || "Chưa chọn file"}
+                {fileName || "Chua chon file"}
               </p>
             </div>
             <div className="flex gap-2">
@@ -1254,14 +1255,14 @@ function ImportBrandsModal({
                 onClick={onPickFile}
                 className="rounded-xl border px-3 py-2 text-sm hover:bg-slate-50"
               >
-                Chọn file khác
+                Chon file khac
               </button>
               <button
                 type="button"
                 onClick={onClose}
                 className="rounded-xl border px-3 py-2 text-sm text-slate-600 hover:bg-slate-50"
               >
-                Đóng
+                Dong
               </button>
             </div>
           </div>
@@ -1276,20 +1277,20 @@ function ImportBrandsModal({
             <div className="space-y-3">
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                  Đã thêm {result.summary?.inserted ?? 0} thương hiệu mới.
+                  Da them {result.summary?.inserted ?? 0} thuong hieu moi.
                 </div>
                 <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                  Số dòng thất bại: {result.summary?.failed ?? 0}.
+                  So dong that bai: {result.summary?.failed ?? 0}.
                 </div>
               </div>
               {Array.isArray(result.errors) && result.errors.length > 0 && (
                 <div className="max-h-40 overflow-auto rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-                  <p className="font-medium">Chi tiết lỗi:</p>
+                  <p className="font-medium">Chi tiet loi:</p>
                   <ul className="mt-1 space-y-1 list-disc pl-4">
                     {result.errors.map((row) => (
                       <li key={row.index ?? row.message}>
                         <span className="font-medium">
-                          Dòng {row.index ?? "?"}:
+                          Dong {row.index ?? "?"}:
                         </span>{" "}
                         {row.message}
                         {Array.isArray(row.errors) && row.errors.length > 0 && (
@@ -1310,28 +1311,28 @@ function ImportBrandsModal({
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="mr-3 h-6 w-6 animate-spin rounded-full border-2 border-indigo-200 border-t-indigo-500" />
-              <p className="text-sm text-slate-500">Đang đọc file...</p>
+              <p className="text-sm text-slate-500">Dang doc file...</p>
             </div>
           ) : hasPreview ? (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
                 <span className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-600">
-                  Tổng dòng: {summary.total ?? rows.length}
+                  Tong dong: {summary.total ?? rows.length}
                 </span>
                 <span className="rounded-full bg-emerald-100 px-3 py-1 font-medium text-emerald-700">
-                  Hợp lệ: {summary.valid ?? 0}
+                  Hop le: {summary.valid ?? 0}
                 </span>
                 <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-700">
-                  Lỗi: {summary.invalid ?? 0}
+                  Loi: {summary.invalid ?? 0}
                 </span>
                 <span className="rounded-full bg-sky-100 px-3 py-1 font-medium text-sky-700">
-                  Trùng DB: {summary.duplicates_in_db ?? 0}
+                  Trung DB: {summary.duplicates_in_db ?? 0}
                 </span>
                 <span className="rounded-full bg-indigo-100 px-3 py-1 font-medium text-indigo-700">
-                  Trùng file: {summary.duplicates_in_file ?? 0}
+                  Trung file: {summary.duplicates_in_file ?? 0}
                 </span>
                 <span className="ml-auto text-slate-600">
-                  Đã chọn {selectedCount} dòng hợp lệ
+                  Da chon {selectedCount} dong hop le
                 </span>
               </div>
 
@@ -1350,12 +1351,12 @@ function ImportBrandsModal({
                           className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
                         />
                       </th>
-                      <th className="px-3 py-2">Dòng</th>
-                      <th className="px-3 py-2">Tên thương hiệu</th>
-                      <th className="px-3 py-2">Mô tả</th>
-                      <th className="px-3 py-2">Trạng thái</th>
-                      <th className="px-3 py-2">Cảnh báo</th>
-                      <th className="px-3 py-2">Lỗi</th>
+                      <th className="px-3 py-2">Dong</th>
+                      <th className="px-3 py-2">Ten thuong hieu</th>
+                      <th className="px-3 py-2">Mo ta</th>
+                      <th className="px-3 py-2">Trang thai</th>
+                      <th className="px-3 py-2">Canh bao</th>
+                      <th className="px-3 py-2">Loi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -1391,11 +1392,11 @@ function ImportBrandsModal({
                           </td>
                           <td className="px-3 py-2 align-top">
                             <p className="text-sm font-medium text-slate-700">
-                              {row?.data?.name || "Chưa có tên"}
+                              {row?.data?.name || "Chua co ten"}
                             </p>
                           </td>
                           <td className="px-3 py-2 align-top text-sm text-slate-600">
-                            {row?.data?.description || "—"}
+                            {row?.data?.description || "--"}
                           </td>
                           <td className="px-3 py-2 align-top text-xs">
                             <span
@@ -1411,12 +1412,12 @@ function ImportBrandsModal({
                           <td className="px-3 py-2 align-top space-y-1 text-xs text-slate-600">
                             {hasDuplicatesInFile && (
                               <span className="inline-block rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-600">
-                                Trùng tên trong file
+                                Trung ten trong file
                               </span>
                             )}
                             {existing.length > 0 && (
                               <span className="block rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">
-                                Trùng DB:{" "}
+                                Trung DB:{" "}
                                 {existing
                                   .map((item) => item?.name)
                                   .filter(Boolean)
@@ -1444,14 +1445,14 @@ function ImportBrandsModal({
             </div>
           ) : (
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-10 text-center text-sm text-slate-500">
-              Không tìm thấy dữ liệu hợp lệ trong file này.
+              Khong tim thay du lieu hop le trong file nay.
             </div>
           )}
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t px-6 py-4">
           <div className="text-xs text-slate-500">
-            Chỉ những dòng hợp lệ mới được chọn để nhập.
+            Chi nhung dong hop le moi duoc chon de nhap.
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -1460,7 +1461,7 @@ function ImportBrandsModal({
               className="rounded-xl border px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
               disabled={submitting}
             >
-              Hủy
+              Huy
             </button>
             <button
               type="button"
@@ -1517,7 +1518,7 @@ function StatusBadge({ status }) {
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${styles}`}
     >
       <Icon size={14} />
-      {isActive ? "Hoạt động" : "Tạm dừng"}
+      {isActive ? "Hoat dong" : "Tam dung"}
     </span>
   );
 }
@@ -1679,24 +1680,24 @@ function BrandFormModal({
       <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-slate-800">
-            {mode === "edit" ? "Chỉnh sửa thương hiệu" : "Thêm thương hiệu"}
+            {mode === "edit" ? "Chinh sua thuong hieu" : "Them thuong hieu"}
           </h3>
           <p className="text-sm text-slate-500">
-            Slug sẽ được sinh tự động dựa trên tên.
+            Slug se duoc sinh tu dong dua tren ten.
           </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Tên thương hiệu
+              Ten thuong hieu
             </label>
             <input
               type="text"
               value={form.name}
               onChange={(e) => onChange("name", e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              placeholder="Nhập tên thương hiệu"
+              placeholder="Nhap ten thuong hieu"
             />
           </div>
 
@@ -1704,26 +1705,24 @@ function BrandFormModal({
             {slugState.loading ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 size={14} className="animate-spin text-indigo-500" />
-                Đang sinh slug...
+                Dang sinh slug...
               </span>
             ) : slugError ? (
               <span className="text-rose-500">{slugError}</span>
             ) : (
               <>
-                <span className="font-medium text-slate-700">
-                  Slug dự kiến:
-                </span>{" "}
+                <span className="font-medium text-slate-700">Slug du kien:</span>{" "}
                 <code className="rounded bg-slate-200 px-1.5 py-0.5 text-[11px] break-all">
-                  {slugState.slug || "(Chưa xác định)"}
+                  {slugState.slug || "(Chua xac dinh)"}
                 </code>
                 {slugState.modified && (
                   <p className="mt-1 text-amber-600">
-                    Đã điều chỉnh slug để tránh trùng lặp.
+                    Da dieu chinh slug de tranh trung lap.
                   </p>
                 )}
                 {!slugState.available && !slugState.modified && (
                   <p className="mt-1 text-rose-500">
-                    Slug đã tồn tại. Vui lòng đổi tên thương hiệu.
+                    Slug da ton tai. Vui long doi ten thuong hieu.
                   </p>
                 )}
               </>
@@ -1732,28 +1731,37 @@ function BrandFormModal({
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Mô tả (không bắt buộc)
+              Mo ta (khong bat buoc)
             </label>
             <textarea
               value={form.description}
-              onChange={(e) => onChange("description", e.target.value)}
+              onChange={(e) =>
+                onChange(
+                  "description",
+                  e.target.value.slice(0, DESCRIPTION_MAX_LENGTH)
+                )
+              }
+              maxLength={DESCRIPTION_MAX_LENGTH}
               rows={4}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
-              placeholder="Mô tả ngắn gọn về thương hiệu"
+              placeholder="Mo ta ngan gon ve thuong hieu"
             />
+            <div className="mt-1 text-right text-xs text-slate-500">
+              {(form.description?.length || 0)}/{DESCRIPTION_MAX_LENGTH} ky tu
+            </div>
           </div>
 
           <div>
             <label className="mb-1 block text-sm font-medium text-slate-700">
-              Trạng thái
+              Trang thai
             </label>
             <select
               value={form.status || "active"}
               onChange={(e) => onChange("status", e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             >
-              <option value="active">Hoạt động</option>
-              <option value="inactive">Tạm dừng</option>
+              <option value="active">Hoat dong</option>
+              <option value="inactive">Tam dung</option>
             </select>
           </div>
 
@@ -1769,7 +1777,7 @@ function BrandFormModal({
               onClick={onClose}
               className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 hover:bg-slate-50"
             >
-              Hủy
+              Huy
             </button>
             <button
               type="submit"
@@ -1777,7 +1785,7 @@ function BrandFormModal({
               className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
             >
               {loading && <Loader2 size={16} className="animate-spin" />}
-              {mode === "edit" ? "Lưu thay đổi" : "Thêm thương hiệu"}
+              {mode === "edit" ? "Luu thay doi" : "Them thuong hieu"}
             </button>
           </div>
         </form>
@@ -1785,3 +1793,11 @@ function BrandFormModal({
     </div>
   );
 }
+
+
+
+
+
+
+
+

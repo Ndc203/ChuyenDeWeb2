@@ -36,11 +36,11 @@ const ALL_PARENT_FILTER = "Tat ca danh muc cha";
 const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
 const NAME_MAX_LENGTH = 100;
 const SLUG_MAX_LENGTH = 30;
-const DESCRIPTION_MAX_LENGTH = 10000;
+const DESCRIPTION_MAX_LENGTH = 1000;
 const NAME_REQUIRED_ERROR = "Ten khong duoc de trong.";
 const INVALID_VALUE_ERROR = "Vui long nhap gia tri hop le.";
 const INVALID_NUMBER_ERROR = "Vui long nhap so hop le.";
-const LENGTH_ERROR = "Gia tri qua dai.";
+const lengthError = (max) => `Gia tri qua dai. Toi da ${max} ky tu.`;
 const INVALID_PARAM_MESSAGE = "Tham so khong hop le.";
 const MAX_PAGE_PARAM = 1000;
 const STALE_DATA_MESSAGE =
@@ -52,6 +52,7 @@ const truncateText = (value, max = 15) => {
   const str = String(value);
   return str.length > max ? `${str.slice(0, max)}...` : str;
 };
+const TABLE_TEXT_MAX = 10;
 const PAGE_SIZE = 10;
 const pageSummary = (page, pageSize, total) => {
   if (total === 0) return "Khong co muc nao";
@@ -260,20 +261,22 @@ export default function AdminCategoriesPage() {
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      setFormError(LENGTH_ERROR);
+      const msg = lengthError(NAME_MAX_LENGTH);
+      setFormError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
     if (description.length > DESCRIPTION_MAX_LENGTH) {
-      setFormError(LENGTH_ERROR);
+      const msg = lengthError(DESCRIPTION_MAX_LENGTH);
+      setFormError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
@@ -399,20 +402,22 @@ export default function AdminCategoriesPage() {
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      setEditError(LENGTH_ERROR);
+      const msg = lengthError(NAME_MAX_LENGTH);
+      setEditError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
     if (description.length > DESCRIPTION_MAX_LENGTH) {
-      setEditError(LENGTH_ERROR);
+      const msg = lengthError(DESCRIPTION_MAX_LENGTH);
+      setEditError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
@@ -1274,14 +1279,19 @@ export default function AdminCategoriesPage() {
                         className={i % 2 ? "bg-white" : "bg-slate-50/50"}
                       >
                         <td className="px-4 py-3 font-medium" title={r.name}>
-                          {truncateText(r.name)}
+                          {truncateText(r.name, TABLE_TEXT_MAX)}
                         </td>
                         <td className="px-4 py-3 text-slate-500">
-                          <span title={r.slug}>{truncateText(r.slug)}</span>
+                          <span title={r.slug}>
+                            {truncateText(r.slug, TABLE_TEXT_MAX)}
+                          </span>
                         </td>
                         <td className="px-4 py-3">
                           <span title={r.parent || ROOT_PARENT_LABEL}>
-                            {truncateText(r.parent || ROOT_PARENT_LABEL)}
+                            {truncateText(
+                              r.parent || ROOT_PARENT_LABEL,
+                              TABLE_TEXT_MAX
+                            )}
                           </span>
                         </td>
 
@@ -1598,9 +1608,18 @@ function CategoryFormModal({
             </label>
             <textarea
               value={form.description}
-              onChange={(e) => onChange("description", e.target.value)}
+              onChange={(e) =>
+                onChange(
+                  "description",
+                  e.target.value.slice(0, DESCRIPTION_MAX_LENGTH)
+                )
+              }
+              maxLength={DESCRIPTION_MAX_LENGTH}
               className="w-full min-h-[80px] rounded-xl border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-indigo-200"
             />
+            <div className="mt-1 text-right text-xs text-slate-500">
+              {(form.description?.length || 0)}/{DESCRIPTION_MAX_LENGTH} ky tu
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -2128,7 +2147,7 @@ function ViewCategoryModal({ category, onClose }) {
             <p className="text-xs uppercase tracking-wide text-slate-400">
               Mo ta
             </p>
-            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words">
+            <p className="rounded-xl border bg-slate-50 px-3 py-2 text-slate-600 whitespace-pre-wrap break-words" max-h-48 overflow-y-auto>
               {description ? description : "Khong co mo ta"}
             </p>
           </div>
@@ -2618,6 +2637,9 @@ function updateRowsForMove(rows, id, parentId) {
       : r
   );
 }
+
+
+
 
 
 
