@@ -36,11 +36,11 @@ const ALL_PARENT_FILTER = "Tat ca danh muc cha";
 const NAME_PATTERN = /^[\p{L}\d\s'-]+$/u;
 const NAME_MAX_LENGTH = 100;
 const SLUG_MAX_LENGTH = 30;
-const DESCRIPTION_MAX_LENGTH = 255;
+const DESCRIPTION_MAX_LENGTH = 1000;
 const NAME_REQUIRED_ERROR = "Ten khong duoc de trong.";
 const INVALID_VALUE_ERROR = "Vui long nhap gia tri hop le.";
 const INVALID_NUMBER_ERROR = "Vui long nhap so hop le.";
-const LENGTH_ERROR = "Gia tri qua dai.";
+const lengthError = (max) => `Gia tri qua dai. Toi da ${max} ky tu.`;
 const INVALID_PARAM_MESSAGE = "Tham so khong hop le.";
 const MAX_PAGE_PARAM = 1000;
 const STALE_DATA_MESSAGE =
@@ -261,20 +261,22 @@ export default function AdminCategoriesPage() {
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      setFormError(LENGTH_ERROR);
+      const msg = lengthError(NAME_MAX_LENGTH);
+      setFormError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
     if (description.length > DESCRIPTION_MAX_LENGTH) {
-      setFormError(LENGTH_ERROR);
+      const msg = lengthError(DESCRIPTION_MAX_LENGTH);
+      setFormError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
@@ -400,20 +402,22 @@ export default function AdminCategoriesPage() {
       return;
     }
     if (name.length > NAME_MAX_LENGTH) {
-      setEditError(LENGTH_ERROR);
+      const msg = lengthError(NAME_MAX_LENGTH);
+      setEditError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
     if (description.length > DESCRIPTION_MAX_LENGTH) {
-      setEditError(LENGTH_ERROR);
+      const msg = lengthError(DESCRIPTION_MAX_LENGTH);
+      setEditError(msg);
       Swal.fire({
         icon: "error",
         title: "Khong hop le",
-        text: LENGTH_ERROR,
+        text: msg,
       });
       return;
     }
@@ -2633,6 +2637,8 @@ function updateRowsForMove(rows, id, parentId) {
       : r
   );
 }
+
+
 
 
 
