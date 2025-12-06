@@ -26,7 +26,7 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
   const [endDate, setEndDate] = useState('');
 
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState(null);
+  const [errors, setErrors] = useState({});
 
   // === 1. Đổ dữ liệu vào form khi mở modal ===
   useEffect(() => {
@@ -53,7 +53,7 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    setErrors(null);
+    setErrors({});
 
     const couponData = {
       code: code.toUpperCase(),
@@ -65,7 +65,8 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
       max_usage: Number(maxUsage),
       start_date: startDate,
       end_date: endDate,
-      // is_active: true, // Thường edit sẽ không tự kích hoạt lại nếu đang tắt, tùy logic bạn
+      // is_active: true, // Thường edit sẽ không tự kích hoạt lại nếu đang stắt, tùy logic bạn
+      last_updated_at: coupon.updated_at
     };
 
     try {
@@ -79,6 +80,16 @@ export default function EditCouponModal({ isOpen, onClose, onSuccess, coupon }) 
 
     } catch (error) {
       console.error("Lỗi cập nhật:", error);
+
+      // === BẮT LỖI XUNG ĐỘT DỮ LIỆU (409) ===
+      if (error.response && error.response.status === 409) {
+        alert("⚠️ CẢNH BÁO: " + error.response.data.message);
+        
+        // Tùy chọn: Tự động đóng modal và tải lại dữ liệu mới
+        handleClose();
+        onSuccess(); // Gọi hàm này để trang cha load lại dữ liệu mới nhất
+        return;
+      }
        // Xử lý lỗi validation từ Laravel (422)
        if (error.response && error.response.data && error.response.data.errors) {
         setErrors(error.response.data.errors);
