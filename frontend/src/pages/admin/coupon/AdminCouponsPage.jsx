@@ -158,12 +158,13 @@ export default function AdminCouponsPage() {
   };
 
   // 3. DELETE - SỬA LẠI DÙNG AXIOS
-  const handleDelete = async (id) => {
-    if (!confirm("Bạn có chắc muốn xoá mã giảm giá này? Thao tác này không thể hoàn tác.")) return;
+  const handleDelete = async (coupon) => {
+    if (!confirm("Bạn có chắc muốn xoá mã giảm giá này?")) return;
 
     try {
-      // Dùng axiosClient.delete thay vì fetch
-      await axiosClient.delete(`/coupons/${id}`);
+      await axiosClient.delete(`/coupons/${coupon.coupon_id}`, {
+        data: { last_updated_at: coupon.updated_at }
+      });
 
       alert('Đã xoá mã giảm giá thành công!');
       setCurrentPage(1);
@@ -171,7 +172,18 @@ export default function AdminCouponsPage() {
 
     } catch (error) {
       console.error("Lỗi khi xoá:", error);
-      alert('Đã xảy ra lỗi khi xoá mã giảm giá.');
+
+      // Bắt cả lỗi 409 (Xung đột) và 404 (Không tìm thấy - Đã bị xóa)
+      if (error.response && (error.response.status === 409 || error.response.status === 404)) {
+        // Hiển thị thông báo bạn mong muốn từ Backend trả về
+        alert("⚠️ " + error.response.data.message);
+        
+        // Tải lại trang
+        setRefreshTrigger(prev => prev + 1); 
+        return;
+      }
+      
+      alert('Đã xảy ra lỗi khi xoá.');
     }
   };
 
@@ -302,7 +314,7 @@ export default function AdminCouponsPage() {
                                 <Power size={16} />
                               </button>
                               <button onClick={() => handleOpenEditModal(coupon)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-indigo-600 rounded-md"><Edit size={16} /></button>
-                              <button onClick={() => handleDelete(coupon.coupon_id)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md"><Trash2 size={16} /></button>
+                              <button onClick={() => handleDelete(coupon)} className="p-2 text-slate-500 hover:bg-slate-100 hover:text-red-600 rounded-md"><Trash2 size={16} /></button>
                             </div>
                           </td>
                         </tr>

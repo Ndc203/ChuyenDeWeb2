@@ -16,7 +16,7 @@ export default function AddCouponModal({ isOpen, onClose, onSuccess }) {
   const [endDate, setEndDate] = useState('');
   
   const [isLoading, setIsLoading] = useState(false);
-  const [errors, setErrors] = useState(null);
+  const [errors, setErrors] = useState({});
 
   // Nếu không 'isOpen', không render gì cả
   if (!isOpen) return null;
@@ -24,7 +24,7 @@ export default function AddCouponModal({ isOpen, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault(); // Ngăn form reload
     setIsLoading(true);
-    setErrors(null);
+    setErrors({}); // Reset lỗi
 
     // Chuẩn bị dữ liệu gửi đi
     const couponData = {

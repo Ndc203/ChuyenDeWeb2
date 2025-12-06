@@ -71,6 +71,29 @@ class CouponController extends Controller
 
     public function update(Request $request, Coupon $coupon)
     {
+        // ---------------------------------------------------------
+        // 1. KIỂM TRA XUNG ĐỘT DỮ LIỆU (Optimistic Locking)
+        // ---------------------------------------------------------
+        if ($request->has('last_updated_at') && $coupon->updated_at) {
+            
+            // Lấy timestamp của DB (Số giây chính xác tuyệt đối)
+            $dbTimestamp = $coupon->updated_at->timestamp;
+            
+            // Lấy timestamp từ Frontend gửi lên
+            // Carbon thông minh sẽ tự parse chuỗi ISO/Date string thành timestamp chuẩn
+            $clientTimestamp = \Carbon\Carbon::parse($request->last_updated_at)->timestamp;
+
+            // So sánh số nguyên (Integer Comparison)
+            // Nếu lệch nhau (nghĩa là DB đã bị thay đổi sau khi client lấy dữ liệu)
+            if ($dbTimestamp !== $clientTimestamp) {
+                return response()->json([
+                    'message' => 'Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại trang!',
+                    // Debug: Trả về để bạn kiểm tra nếu cần
+                    // 'debug_db' => $dbTimestamp,
+                    // 'debug_client' => $clientTimestamp
+                ], 409); 
+            }
+        }
         $validated = $request->validate([
             'code' => ['required', 'string', 'max:100', Rule::unique('coupons')->ignore($coupon->coupon_id, 'coupon_id')],
             'description' => 'nullable|string',
@@ -90,9 +113,33 @@ class CouponController extends Controller
         return response()->json($coupon);
     }
 
-    public function destroy(Coupon $coupon)
+    public function destroy(Request $request, $id)
     {
+        // 1. Tự tìm thủ công
+        $coupon = Coupon::find($id);
+
+        // 2. Nếu không tìm thấy (nghĩa là đã bị người khác xóa trước đó)
+        if (!$coupon) {
+            return response()->json([
+                'message' => 'Dữ liệu đã bị thay đổi bởi người khác (đã bị xóa). Vui lòng tải lại trang!',
+            ], 404); // Trả về 404 Not Found
+        }
+
+        // 3. KIỂM TRA TIMESTAMP (Logic cũ - đề phòng trường hợp chưa xóa nhưng đã bị sửa đổi)
+        if ($request->has('last_updated_at') && $coupon->updated_at) {
+            $dbTimestamp = $coupon->updated_at->timestamp;
+            $clientTimestamp = \Carbon\Carbon::parse($request->last_updated_at)->timestamp;
+
+            if ($dbTimestamp !== $clientTimestamp) {
+                return response()->json([
+                    'message' => 'Dữ liệu đã bị thay đổi bởi người khác. Vui lòng tải lại trang!',
+                ], 409); // Trả về 409 Conflict
+            }
+        }
+
+        // 4. XÓA
         $coupon->delete();
+
         return response()->json(['message' => 'Xoá mã giảm giá thành công!']);
     }
 
